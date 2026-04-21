@@ -18,6 +18,7 @@ import StopsView from './components/productivity/StopsView';
 import ProductionView from './components/productivity/ProductionView';
 import AdminView from './components/admin/AdminView';
 import PlaceholderView from './components/PlaceholderView';
+import WelcomeScreen from './components/auth/WelcomeScreen';
 
 // Lib & Types
 import { cn } from './lib/utils';
@@ -44,6 +45,7 @@ export default function App() {
   const [activeSection, setActiveSection] = useState<AppSection>('PRODUCTIVITY');
   const [prodTab, setProdTab] = useState<ProductivityTab>('DASHBOARD');
   const [adminTab, setAdminTab] = useState('SHIFTS');
+  const [hasEnteredApp, setHasEnteredApp] = useState(false);
   const subNavRef = useRef<HTMLDivElement>(null);
 
   const [isDark, setIsDark] = useState(true);
@@ -158,125 +160,144 @@ export default function App() {
   }, [selectedPalletizer, selectedShift, stops, productionReports, masters.causes]);
 
   return (
-    <div className="min-h-screen relative pb-32 bg-bg text-text-main transition-colors duration-300">
-      <div className="industrial-grid-layer" />
-      <Header 
-        palletizers={masters.palletizers}
-        selectedId={userContext.selectedPalletizerId}
-        onSelect={id => setUserContext({...userContext, selectedPalletizerId: id})}
-        shifts={masters.shifts}
-        selectedShiftId={userContext.selectedShiftId}
-        onShiftSelect={id => setUserContext({...userContext, selectedShiftId: id})}
-        selectedDate={userContext.selectedDate}
-        onDateChange={date => setUserContext({...userContext, selectedDate: date})}
-        isDark={isDark}
-        toggleTheme={() => setIsDark(!isDark)}
-      />
+    <AnimatePresence mode="wait">
+      {!hasEnteredApp ? (
+        <motion.div
+          key="welcome"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.5 }}
+        >
+          <WelcomeScreen onEnter={() => setHasEnteredApp(true)} />
+        </motion.div>
+      ) : (
+        <motion.div 
+          key="app-main"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="min-h-screen relative pb-32 bg-bg text-text-main transition-colors duration-300"
+        >
+          <div className="industrial-grid-layer" />
+          <Header 
+            palletizers={masters.palletizers}
+            selectedId={userContext.selectedPalletizerId}
+            onSelect={id => setUserContext({...userContext, selectedPalletizerId: id})}
+            shifts={masters.shifts}
+            selectedShiftId={userContext.selectedShiftId}
+            onShiftSelect={id => setUserContext({...userContext, selectedShiftId: id})}
+            selectedDate={userContext.selectedDate}
+            onDateChange={date => setUserContext({...userContext, selectedDate: date})}
+            isDark={isDark}
+            toggleTheme={() => setIsDark(!isDark)}
+          />
 
-      <main className="p-4 md:p-8 max-w-7xl mx-auto pt-4 md:pt-8">
-        <AnimatePresence mode="wait">
-          {activeSection === 'PRODUCTIVITY' && (
-            <motion.div 
-               key="productivity" 
-               initial={{ opacity: 0, x: -20 }} 
-               animate={{ opacity: 1, x: 0 }} 
-               exit={{ opacity: 0, x: 20 }}
-               className="space-y-4 md:space-y-6"
-            >
-               {/* Sub-nav Productivity - Encapsulated Pill Container */}
-               <div className="sticky top-16 z-30 bg-bg/80 backdrop-blur-md pt-4 pb-1 mb-8">
-                  <div className="layout-container">
-                    <div className="bg-surface p-1.5 rounded-2xl border border-border shadow-lg relative overflow-hidden">
-                      {/* Carousel edge masks */}
-                      <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-surface to-transparent z-10 pointer-events-none" />
-                      <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-surface to-transparent z-10 pointer-events-none" />
-                      
-                      <div 
-                        ref={subNavRef}
-                        className="flex items-center gap-2 no-scrollbar py-1 scroll-smooth px-4 touch-horizontal touch-pan-x overscroll-x-contain"
-                      >
-                         <ProductivitySubTab active={prodTab === 'DASHBOARD'} onClick={() => setProdTab('DASHBOARD')} icon={<Activity size={14} />} label="Dashboard" />
-                         <ProductivitySubTab active={prodTab === 'PAROS'} onClick={() => setProdTab('PAROS')} icon={<AlertTriangle size={14} />} label="Paros" />
-                         <ProductivitySubTab active={prodTab === 'PRODUCCION'} onClick={() => setProdTab('PRODUCCION')} icon={<Package size={14} />} label="Producción" />
-                         <ProductivitySubTab active={prodTab === 'STOCK'} onClick={() => setProdTab('STOCK')} icon={<PlusCircle size={14} />} label="Insumos" />
-                         <ProductivitySubTab active={prodTab === 'GASOIL'} onClick={() => setProdTab('GASOIL')} icon={<ShieldCheck size={14} />} label="Combustible" />
-                         <ProductivitySubTab active={prodTab === 'MANTENIMIENTO'} onClick={() => setProdTab('MANTENIMIENTO')} icon={<Settings size={14} />} label="Mantenimiento" />
+          <main className="p-4 md:p-8 max-w-7xl mx-auto pt-4 md:pt-8">
+            <AnimatePresence mode="wait">
+              {activeSection === 'PRODUCTIVITY' && (
+                <motion.div 
+                  key="productivity" 
+                  initial={{ opacity: 0, x: -20 }} 
+                  animate={{ opacity: 1, x: 0 }} 
+                  exit={{ opacity: 0, x: 20 }}
+                  className="space-y-4 md:space-y-6"
+                >
+                  {/* Sub-nav Productivity - Encapsulated Pill Container */}
+                  <div className="sticky top-16 z-30 bg-bg/80 backdrop-blur-md pt-4 pb-1 mb-8">
+                      <div className="layout-container">
+                        <div className="bg-surface p-1.5 rounded-2xl border border-border shadow-lg relative overflow-hidden">
+                          {/* Carousel edge masks */}
+                          <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-surface to-transparent z-10 pointer-events-none" />
+                          <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-surface to-transparent z-10 pointer-events-none" />
+                          
+                          <div 
+                            ref={subNavRef}
+                            className="flex items-center gap-2 no-scrollbar py-1 scroll-smooth px-4 touch-horizontal touch-pan-x overscroll-x-contain"
+                          >
+                            <ProductivitySubTab active={prodTab === 'DASHBOARD'} onClick={() => setProdTab('DASHBOARD')} icon={<Activity size={14} />} label="Dashboard" />
+                            <ProductivitySubTab active={prodTab === 'PAROS'} onClick={() => setProdTab('PAROS')} icon={<AlertTriangle size={14} />} label="Paros" />
+                            <ProductivitySubTab active={prodTab === 'PRODUCCION'} onClick={() => setProdTab('PRODUCCION')} icon={<Package size={14} />} label="Producción" />
+                            <ProductivitySubTab active={prodTab === 'STOCK'} onClick={() => setProdTab('STOCK')} icon={<PlusCircle size={14} />} label="Insumos" />
+                            <ProductivitySubTab active={prodTab === 'GASOIL'} onClick={() => setProdTab('GASOIL')} icon={<ShieldCheck size={14} />} label="Combustible" />
+                            <ProductivitySubTab active={prodTab === 'MANTENIMIENTO'} onClick={() => setProdTab('MANTENIMIENTO')} icon={<Settings size={14} />} label="Mantenimiento" />
+                          </div>
+                        </div>
                       </div>
-                    </div>
                   </div>
-               </div>
 
-               {prodTab === 'DASHBOARD' && (
-                 <DashboardView 
-                    kpis={kpis} 
-                    masters={masters}
-                    selectedPalletizer={selectedPalletizer} 
-                    selectedShift={selectedShift}
-                    onTabChange={tab => setProdTab(tab)} 
-                    stops={stops.filter(s => s.machineId === userContext.selectedPalletizerId && s.shiftId === userContext.selectedShiftId && s.date === userContext.selectedDate)}
-                    productionReports={productionReports.filter(r => r.palletizerId === userContext.selectedPalletizerId && r.shiftId === userContext.selectedShiftId && r.date === userContext.selectedDate)}
-                 />
-               )}
-               {prodTab === 'PAROS' && (
-                 <StopsView 
+                  {prodTab === 'DASHBOARD' && (
+                    <DashboardView 
+                        kpis={kpis} 
+                        masters={masters}
+                        selectedPalletizer={selectedPalletizer} 
+                        selectedShift={selectedShift}
+                        onTabChange={tab => setProdTab(tab)} 
+                        stops={stops.filter(s => s.machineId === userContext.selectedPalletizerId && s.shiftId === userContext.selectedShiftId && s.date === userContext.selectedDate)}
+                        productionReports={productionReports.filter(r => r.palletizerId === userContext.selectedPalletizerId && r.shiftId === userContext.selectedShiftId && r.date === userContext.selectedDate)}
+                    />
+                  )}
+                  {prodTab === 'PAROS' && (
+                    <StopsView 
+                        masters={masters} 
+                        onSave={s => setStops(prev => {
+                          const exists = prev.find(x => x.id === s.id);
+                          if (exists) return prev.map(x => x.id === s.id ? s : x);
+                          return [s, ...prev];
+                        })}
+                        onDelete={id => setStops(prev => prev.filter(s => s.id !== id))}
+                        palletizerId={userContext.selectedPalletizerId} 
+                        shiftId={userContext.selectedShiftId} 
+                        selectedDate={userContext.selectedDate}
+                        history={stops.filter(s => s.machineId === userContext.selectedPalletizerId && s.shiftId === userContext.selectedShiftId && s.date === userContext.selectedDate)}
+                    />
+                  )}
+                  {prodTab === 'PRODUCCION' && (
+                    <ProductionView 
+                        masters={masters} 
+                        onSave={r => setProductionReports(prev => {
+                          const exists = prev.find(x => x.id === r.id);
+                          if (exists) return prev.map(x => x.id === r.id ? r : x);
+                          return [r, ...prev];
+                        })}
+                        onDelete={id => setProductionReports(prev => prev.filter(r => r.id !== id))}
+                        palletizerId={userContext.selectedPalletizerId} 
+                        shiftId={userContext.selectedShiftId} 
+                        selectedDate={userContext.selectedDate}
+                        history={productionReports.filter(r => r.palletizerId === userContext.selectedPalletizerId && r.shiftId === userContext.selectedShiftId && r.date === userContext.selectedDate)}
+                      />
+                  )}
+                  {['STOCK', 'GASOIL', 'MANTENIMIENTO'].includes(prodTab) && (
+                    <PlaceholderView title={`Módulo: ${prodTab}`} type="PRODUCTIVITY" />
+                  )}
+                </motion.div>
+              )}
+
+              {activeSection === 'SAFETY' && <PlaceholderView title="H&S" type="SAFETY" />}
+              {activeSection === 'ENVIRONMENT' && <PlaceholderView title="Medio Ambiente" type="ENVIRONMENT" />}
+              {activeSection === 'HR' && <PlaceholderView title="Capital Humano" type="HR" />}
+              
+              {activeSection === 'ADMIN' && (
+                <AdminView 
                     masters={masters} 
-                    onSave={s => setStops(prev => {
-                      const exists = prev.find(x => x.id === s.id);
-                      if (exists) return prev.map(x => x.id === s.id ? s : x);
-                      return [s, ...prev];
-                    })}
-                    onDelete={id => setStops(prev => prev.filter(s => s.id !== id))}
-                    palletizerId={userContext.selectedPalletizerId} 
-                    shiftId={userContext.selectedShiftId} 
-                    selectedDate={userContext.selectedDate}
-                    history={stops.filter(s => s.machineId === userContext.selectedPalletizerId && s.shiftId === userContext.selectedShiftId && s.date === userContext.selectedDate)}
-                 />
-               )}
-               {prodTab === 'PRODUCCION' && (
-                 <ProductionView 
-                    masters={masters} 
-                     onSave={r => setProductionReports(prev => {
-                       const exists = prev.find(x => x.id === r.id);
-                       if (exists) return prev.map(x => x.id === r.id ? r : x);
-                       return [r, ...prev];
-                     })}
-                    onDelete={id => setProductionReports(prev => prev.filter(r => r.id !== id))}
-                    palletizerId={userContext.selectedPalletizerId} 
-                    shiftId={userContext.selectedShiftId} 
-                    selectedDate={userContext.selectedDate}
-                    history={productionReports.filter(r => r.palletizerId === userContext.selectedPalletizerId && r.shiftId === userContext.selectedShiftId && r.date === userContext.selectedDate)}
-                  />
-               )}
-               {['STOCK', 'GASOIL', 'MANTENIMIENTO'].includes(prodTab) && (
-                 <PlaceholderView title={`Módulo: ${prodTab}`} type="PRODUCTIVITY" />
-               )}
-            </motion.div>
-          )}
+                    activeTab={adminTab} 
+                    onTabChange={setAdminTab} 
+                    onUpdateMasters={(type, data) => {
+                      if (type === 'SHIFTS') setShifts(data as Shift[]);
+                      if (type === 'MACHINES') setPalletizers(data);
+                      if (type === 'BAGGERS') setBaggers(data);
+                      if (type === 'HACS') setHacs(data);
+                      if (type === 'CAUSES') setCauses(data);
+                      if (type === 'CAPACITIES') setCapacities(data);
+                    }}
+                />
+              )}
+            </AnimatePresence>
+          </main>
 
-          {activeSection === 'SAFETY' && <PlaceholderView title="H&S" type="SAFETY" />}
-          {activeSection === 'ENVIRONMENT' && <PlaceholderView title="Medio Ambiente" type="ENVIRONMENT" />}
-          {activeSection === 'HR' && <PlaceholderView title="Capital Humano" type="HR" />}
-          
-          {activeSection === 'ADMIN' && (
-             <AdminView 
-                masters={masters} 
-                activeTab={adminTab} 
-                onTabChange={setAdminTab} 
-                onUpdateMasters={(type, data) => {
-                  if (type === 'SHIFTS') setShifts(data as Shift[]);
-                  if (type === 'MACHINES') setPalletizers(data);
-                  if (type === 'BAGGERS') setBaggers(data);
-                  if (type === 'HACS') setHacs(data);
-                  if (type === 'CAUSES') setCauses(data);
-                  if (type === 'CAPACITIES') setCapacities(data);
-                }}
-             />
-          )}
-        </AnimatePresence>
-      </main>
-
-      <BottomNav activeSection={activeSection} onSectionChange={setActiveSection} />
-    </div>
+          <BottomNav activeSection={activeSection} onSectionChange={setActiveSection} />
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 

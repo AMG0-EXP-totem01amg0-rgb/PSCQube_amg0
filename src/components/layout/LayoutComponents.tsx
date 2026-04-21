@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Factory, ChevronDown, Bot, AlertTriangle, Package, Settings, ShieldCheck, Leaf, Users, Sun, Moon, Home, X, Filter, ChevronUp, Calendar } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -31,8 +31,27 @@ export function Header({
 }: HeaderProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const dateInputRef = useRef<HTMLInputElement>(null);
   const selected = palletizers.find(p => p.id === selectedId);
   const selectedShift = shifts.find(s => s.id === selectedShiftId);
+
+  const handleDateClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const input = dateInputRef.current;
+    if (!input) return;
+
+    try {
+      if (typeof input.showPicker === 'function') {
+        input.showPicker();
+      } else {
+        input.focus();
+        input.click();
+      }
+    } catch {
+      input.focus();
+      input.click();
+    }
+  };
 
   // Parse date for display
   const displayDate = React.useMemo(() => {
@@ -72,18 +91,26 @@ export function Header({
               )}>
                 PSCQube
               </h1>
-              {!isCollapsed && (
-                <div className="mt-0.5 relative">
-                  <label className="flex items-center gap-1.5 cursor-pointer hover:bg-primary/5 px-1.5 py-0.5 rounded transition-all group">
+               {!isCollapsed && (
+                <div className="mt-0.5 relative group">
+                  <button 
+                    type="button"
+                    onClick={handleDateClick}
+                    className="flex items-center gap-1.5 px-1.5 py-0.5 rounded transition-all hover:bg-primary/5 active:bg-primary/10 border-none outline-none group"
+                  >
                     <Calendar size={10} className="text-primary group-hover:scale-110 transition-transform" />
-                    <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider group-hover:text-primary">{displayDate}</span>
-                    <input 
-                      type="date" 
-                      className="absolute inset-x-0 bottom-0 opacity-0 cursor-pointer pointer-events-auto h-0"
-                      value={selectedDate}
-                      onChange={(e) => onDateChange(e.target.value)}
-                    />
-                  </label>
+                    <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider group-hover:text-primary whitespace-nowrap">{displayDate}</span>
+                  </button>
+                  {/* Hidden Input for Calendar Triggering */}
+                  <input 
+                    ref={dateInputRef}
+                    type="date" 
+                    value={selectedDate}
+                    onChange={(e) => onDateChange(e.target.value)}
+                    className="absolute opacity-0 pointer-events-none -z-10"
+                    aria-hidden="true"
+                    tabIndex={-1}
+                  />
                 </div>
               )}
             </div>
