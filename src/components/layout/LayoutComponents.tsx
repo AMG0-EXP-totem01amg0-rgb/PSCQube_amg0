@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Factory, ChevronDown, Bot, AlertTriangle, Package, Settings, ShieldCheck, Leaf, Users, Sun, Moon, Home, X, Filter, ChevronUp, Calendar } from 'lucide-react';
+import { 
+  Factory, ChevronDown, Bot, AlertTriangle, Package, Settings, 
+  ShieldCheck, Leaf, Users, Sun, Moon, Home, X, Filter, 
+  ChevronUp, Calendar, LogOut, User as UserIcon
+} from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Machine } from '../../types';
 
@@ -239,6 +243,7 @@ export function Header({
 
 export function BottomNav({ activeSection, onSectionChange }: { activeSection: string; onSectionChange: (s: any) => void }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const allSections = [
     { id: 'PRODUCTIVITY', label: 'PRODUCTIVIDAD', icon: <Bot size={22} /> },
@@ -253,6 +258,12 @@ export function BottomNav({ activeSection, onSectionChange }: { activeSection: s
     setIsOpen(false);
   };
 
+  const handleLogout = () => {
+    // Future structure for Clerk signOut()
+    console.log('Cerrando sesión...');
+    window.location.reload(); // Temporary simulated logout
+  };
+
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] flex items-center justify-center pointer-events-none w-full px-6">
       {/* Click Outside Backdrop */}
@@ -263,7 +274,10 @@ export function BottomNav({ activeSection, onSectionChange }: { activeSection: s
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/60 backdrop-blur-[3px] pointer-events-auto"
-            onClick={() => setIsOpen(false)}
+            onClick={() => {
+              setIsOpen(false);
+              setIsUserMenuOpen(false);
+            }}
           />
         )}
       </AnimatePresence>
@@ -278,12 +292,12 @@ export function BottomNav({ activeSection, onSectionChange }: { activeSection: s
               className={cn(
                 "absolute bottom-full mb-6 left-1/2 -translate-x-1/2",
                 "bg-surface/95 backdrop-blur-xl border border-border shadow-[0_20px_50px_rgba(0,0,0,0.3)]",
-                "rounded-[2.5rem] p-6 w-[320px] sm:w-[450px] z-50 overflow-hidden"
+                "rounded-[2.5rem] p-6 w-[320px] sm:w-[450px] z-50 overflow-hidden flex flex-col"
               )}
             >
               <h4 className="text-[10px] font-black text-text-muted uppercase tracking-[0.3em] mb-6 text-center opacity-50">Menú Principal</h4>
               
-              <div className="grid grid-cols-3 gap-y-8 gap-x-4">
+              <div className="grid grid-cols-3 gap-y-8 gap-x-4 mb-8">
                 {allSections.map((section, idx) => (
                   <motion.button
                     key={section.id}
@@ -309,6 +323,56 @@ export function BottomNav({ activeSection, onSectionChange }: { activeSection: s
                     </span>
                   </motion.button>
                 ))}
+              </div>
+
+              {/* User Section - Footer of the Menu */}
+              <div className="mt-auto border-t border-border pt-6 -mx-2">
+                <div className="px-4">
+                  <AnimatePresence mode="wait">
+                    {!isUserMenuOpen ? (
+                      <motion.button
+                        key="user-info"
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        onClick={() => setIsUserMenuOpen(true)}
+                        className="w-full flex items-center gap-4 p-3 rounded-2xl bg-bg/50 hover:bg-bg transition-colors group border border-border/50"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-sm overflow-hidden shrink-0">
+                          <UserIcon size={20} />
+                        </div>
+                        <div className="flex flex-col items-start min-w-0 flex-1">
+                          <span className="text-[11px] font-bold text-text-main truncate w-full text-left uppercase tracking-tight">Operador Holcim</span>
+                          <span className="text-[9px] font-medium text-text-muted truncate w-full text-left opacity-70">joni0627@gmail.com</span>
+                        </div>
+                        <ChevronDown size={14} className="text-text-muted group-hover:text-primary transition-colors shrink-0" />
+                      </motion.button>
+                    ) : (
+                      <motion.div
+                        key="user-actions"
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        className="space-y-2"
+                      >
+                         <button 
+                          onClick={() => setIsUserMenuOpen(false)}
+                          className="w-full h-11 px-4 flex items-center gap-3 text-text-muted hover:text-text-main transition-colors text-[10px] font-bold uppercase tracking-widest"
+                        >
+                          <ChevronUp size={14} />
+                          Volver al Menú
+                        </button>
+                        <button 
+                          onClick={handleLogout}
+                          className="w-full h-11 px-4 flex items-center gap-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-all text-[10px] font-black uppercase tracking-[0.2em] group"
+                        >
+                          <LogOut size={16} className="group-hover:translate-x-1 transition-transform" />
+                          Cerrar Sesión
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
             </motion.div>
           )}
