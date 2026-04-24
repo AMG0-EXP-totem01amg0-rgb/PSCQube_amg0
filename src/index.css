@@ -19,6 +19,10 @@
   --color-success: var(--success);
   --color-danger: var(--danger);
   --color-neutral: var(--neutral);
+  --color-chart-axis: var(--chart-axis);
+  --color-chart-grid: var(--chart-grid);
+  --color-chart-primary: var(--chart-primary);
+  --color-chart-target: var(--chart-target);
 }
 
 :root {
@@ -40,6 +44,11 @@
   --danger: #ef4444;
   --neutral: #6B7280;
   
+  --chart-axis: #6B7280;
+  --chart-grid: rgba(0, 0, 0, 0.08);
+  --chart-primary: #1D4ED8;
+  --chart-target: #94A3B8;
+  
   --btn-active-bg: rgba(59, 130, 246, 0.1);
   --btn-active-text: var(--primary);
 }
@@ -57,6 +66,11 @@
   --text-secondary: #9CA3AF;   /* Readable body text */
   --border-soft: rgba(255, 255, 255, 0.08);
   --neutral: #8fa1b3;
+
+  --chart-axis: #9CA3AF;
+  --chart-grid: rgba(255, 255, 255, 0.08);
+  --chart-primary: #3B82F6;
+  --chart-target: #64748B;
 
   --btn-active-bg: rgba(59, 130, 246, 0.2);
   --btn-active-text: #60A5FA;

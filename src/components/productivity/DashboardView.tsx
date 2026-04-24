@@ -210,17 +210,17 @@ export default function DashboardView({ kpis, masters, selectedPalletizer, selec
             <div className="flex items-center gap-4">
                <div className="hidden sm:flex items-center gap-4">
                   <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-1 bg-primary rounded-full" />
-                    <span className="text-[9px] font-bold text-text-muted uppercase">Real</span>
+                    <div className="w-2.5 h-1 bg-chart-primary rounded-full shadow-[0_0_8px_rgba(59,130,246,0.2)]" />
+                    <span className="text-[9px] font-bold text-text-main uppercase">Real</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-1 border-t-2 border-dashed border-border rounded-full" />
+                    <div className="w-2.5 h-1 border-t-2 border-dashed border-chart-target rounded-full" />
                     <span className="text-[9px] font-bold text-text-muted uppercase">Target</span>
                   </div>
                </div>
                <div className="flex items-center gap-2 px-2 py-1 bg-surface-elevated border border-border rounded-md">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-sm" />
-                  <span className="text-[9px] font-bold text-text-muted uppercase tracking-widest leading-none">Live</span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)] animate-pulse" />
+                  <span className="text-[9px] font-bold text-text-main uppercase tracking-widest leading-none">Live</span>
                </div>
             </div>
           </div>
@@ -228,17 +228,17 @@ export default function DashboardView({ kpis, masters, selectedPalletizer, selec
           <div className="min-h-[400px] w-full" style={{ position: 'relative' }}>
             <ResponsiveContainer width="100%" height={400}>
               <LineChart data={dummyLineData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--chart-grid)" />
                 <XAxis 
                   dataKey="h" 
-                  stroke="var(--text-main)" 
+                  stroke="var(--chart-axis)" 
                   fontSize={10} 
                   tickFormatter={(val) => `${val}h`} 
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis 
-                  stroke="var(--text-main)" 
+                  stroke="var(--chart-axis)" 
                   fontSize={10} 
                   domain={[0, 100]} 
                   axisLine={false}
@@ -249,16 +249,16 @@ export default function DashboardView({ kpis, masters, selectedPalletizer, selec
                   type="monotone" 
                   dataKey="v" 
                   name="Real"
-                  stroke="var(--primary)" 
+                  stroke="var(--chart-primary)" 
                   strokeWidth={3} 
-                  dot={{ r: 4, fill: 'var(--primary)', strokeWidth: 2, stroke: 'var(--bg)' }} 
+                  dot={{ r: 4, fill: 'var(--chart-primary)', strokeWidth: 2, stroke: 'var(--bg)' }} 
                   activeDot={{ r: 6, strokeWidth: 0 }}
                 />
                 <Line 
                   type="monotone" 
                   dataKey="target" 
                   name="Target"
-                  stroke="var(--border)" 
+                  stroke="var(--chart-target)" 
                   strokeWidth={2} 
                   strokeDasharray="5 5"
                   dot={false}

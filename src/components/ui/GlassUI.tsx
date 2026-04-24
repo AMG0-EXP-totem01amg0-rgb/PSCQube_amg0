@@ -119,7 +119,7 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               className={cn(
-                "w-full max-w-lg bg-surface border border-border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] overflow-hidden pointer-events-auto",
+                "w-full max-w-lg bg-surface-elevated border border-border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] overflow-hidden pointer-events-auto",
                 className
               )}
             >
@@ -165,7 +165,7 @@ export function ConfirmModal({
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="w-full max-w-md bg-surface border border-border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] overflow-hidden pointer-events-auto"
+              className="w-full max-w-md bg-surface-elevated border border-border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] overflow-hidden pointer-events-auto"
             >
               <div className="p-6">
                 <div className="flex items-start justify-between mb-4">

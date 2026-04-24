@@ -90,7 +90,7 @@ export function Header({
           <div className="flex items-center gap-3">
             <div className="flex flex-col">
               <h1 className={cn(
-                "font-black bg-gradient-to-r from-primary to-primary-hover bg-clip-text text-transparent uppercase tracking-tighter leading-none transition-all logo-glow",
+                "font-black uppercase tracking-tighter leading-none transition-all logo-glow text-text-main",
                 isCollapsed ? "text-base" : "text-lg md:text-xl"
               )}>
                 PSCQube
@@ -102,7 +102,7 @@ export function Header({
                     onClick={handleDateClick}
                     className="flex items-center gap-1.5 px-1.5 py-0.5 rounded transition-all hover:bg-primary/5 active:bg-primary/10 border-none outline-none group"
                   >
-                    <Calendar size={10} className="text-primary group-hover:scale-110 transition-transform" />
+                    <Calendar size={10} className="text-text-main group-hover:text-primary transition-colors" />
                     <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider group-hover:text-primary whitespace-nowrap">{displayDate}</span>
                   </button>
                   {/* Hidden Input for Calendar Triggering */}
@@ -187,7 +187,7 @@ export function Header({
                   )}
                 >
                   <div className="flex items-center gap-2.5 truncate">
-                    <Factory size={14} className="text-primary shrink-0" />
+                    <Factory size={14} className="text-text-main shrink-0" />
                     <span className="text-[10px] font-bold uppercase tracking-wider text-text-main truncate">
                       {selected?.name || 'Máquina'}
                     </span>
