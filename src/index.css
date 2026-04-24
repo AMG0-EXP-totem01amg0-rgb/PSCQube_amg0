@@ -56,7 +56,7 @@
 [data-theme="dark"] {
   color-scheme: dark;
   /* DARK MODE - Tiered Surface Hierarchy */
-  --bg-main: #0A0D12;          /* Base background */
+  --bg-main: #0F172A;          /* Base background */
   --bg-surface: #141B26;       /* Header and secondary surfaces */
   --bg-elevated: #1D2635;      /* Primary cards and forms */
   --bg-header: linear-gradient(180deg, #182333 0%, #121821 100%);
@@ -149,19 +149,6 @@
 /* Custom Checkpoint for Active Tabs - Minimalist Linear style */
 .tab-active-indicator {
   @apply absolute bottom-0 left-0 w-full h-0.5 bg-primary;
-}
-
-/* Industrial Grid overlay - Fixed to not affect content opacity */
-.industrial-grid-layer {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background-image: 
-    linear-gradient(currentColor 1px, transparent 1px),
-    linear-gradient(90deg, currentColor 1px, transparent 1px);
-  background-size: 32px 32px;
-  opacity: 0.015;
 }
 
 /* Specific SaaS Spacing Utility */

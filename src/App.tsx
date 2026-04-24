@@ -173,7 +173,6 @@ export default function App() {
           animate={{ opacity: 1 }}
           className="min-h-screen relative pb-32 bg-bg text-text-main transition-colors duration-300"
         >
-          <div className="industrial-grid-layer" />
           <Header 
             palletizers={masters.palletizers}
             selectedId={userContext.selectedPalletizerId}

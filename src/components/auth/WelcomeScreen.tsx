@@ -16,7 +16,6 @@ export default function WelcomeScreen({ onEnter }: WelcomeScreenProps) {
       }}
     >
       {/* Background Industrial Textures */}
-      <div className="industrial-grid-layer opacity-10 dark:opacity-30" />
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
 
