@@ -184,7 +184,7 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
             
             <div 
               ref={scrollRef}
-              className="flex bg-surface p-1.5 rounded-2xl border border-border overflow-x-auto gap-1 no-scrollbar select-none min-w-0 shadow-sm scroll-smooth px-6"
+              className="flex bg-bg-input/50 p-1.5 rounded-2xl border border-border overflow-x-auto gap-1 no-scrollbar select-none min-w-0 shadow-sm scroll-smooth px-6"
             >
                <AdminSubTab active={activeTab === 'SHIFTS'} onClick={() => onTabChange('SHIFTS')} label="Turnos" />
                <AdminSubTab active={activeTab === 'MACHINES'} onClick={() => onTabChange('MACHINES')} label="Maquinas" />
@@ -205,7 +205,7 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Buscar en maestros..." 
-                  className="w-full h-10 bg-bg border border-border rounded-lg pl-10 pr-4 text-sm text-text-main focus:border-primary/50 outline-none transition-all"
+                  className="w-full h-10 bg-bg-input border border-border rounded-lg pl-10 pr-4 text-sm text-text-main focus:border-primary/50 outline-none transition-all"
                 />
              </div>
              <button 
@@ -265,7 +265,7 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-lg bg-surface border border-border rounded-2xl shadow-2xl overflow-hidden"
+        className="w-full max-w-lg bg-surface-elevated border border-border rounded-2xl shadow-2xl overflow-hidden"
       >
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
@@ -370,7 +370,7 @@ function AdminSubTab({ active, label, onClick }: any) {
       className={cn(
         "px-4 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-widest transition-all shrink-0",
         active 
-          ? "bg-primary/10 text-primary shadow-sm" 
+          ? "btn-active-highlight" 
           : "text-text-muted hover:text-text-main hover:bg-bg"
       )}
     >

@@ -150,11 +150,11 @@ export default function StopsView({ masters, onSave, onDelete, palletizerId, shi
             </div>
             <div className="flex gap-4">
                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-red-500/40" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-danger/40" />
                   <span className="text-[8px] font-black text-text-muted uppercase">Interno</span>
                </div>
                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-text-muted/40" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-neutral/40" />
                   <span className="text-[8px] font-black text-text-muted uppercase">Externo</span>
                </div>
             </div>

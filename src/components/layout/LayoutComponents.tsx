@@ -80,7 +80,7 @@ export function Header({
 
   return (
     <header className={cn(
-      "sticky top-0 left-0 right-0 z-[100] bg-surface border-b border-border shadow-sm transition-[height] duration-300 ease-out will-change-[height] transform-gpu",
+      "sticky top-0 left-0 right-0 z-[100] bg-surface header-gradient border-b border-border shadow-sm transition-[height] duration-300 ease-out will-change-[height] transform-gpu",
       isCollapsed ? "h-14 sm:h-16" : "h-auto sm:h-16"
     )}>
       <div className="flex flex-col sm:flex-row sm:h-16 h-full px-4 md:px-8 py-2 sm:py-0">
@@ -90,7 +90,7 @@ export function Header({
           <div className="flex items-center gap-3">
             <div className="flex flex-col">
               <h1 className={cn(
-                "font-black bg-gradient-to-r from-primary to-primary-hover bg-clip-text text-transparent uppercase tracking-tighter leading-none transition-all",
+                "font-black bg-gradient-to-r from-primary to-primary-hover bg-clip-text text-transparent uppercase tracking-tighter leading-none transition-all logo-glow",
                 isCollapsed ? "text-base" : "text-lg md:text-xl"
               )}>
                 PSCQube
@@ -131,9 +131,9 @@ export function Header({
              {/* Simple Theme Toggle Always Row 1 */}
             <button 
               onClick={toggleTheme}
-              className="sm:hidden p-1.5 rounded-full hover:bg-bg transition-colors text-text-muted"
+              className="sm:hidden p-1.5 rounded-full hover:bg-bg transition-colors text-text-main"
             >
-              {isDark ? <Sun size={14} /> : <Moon size={14} />}
+              {isDark ? <Sun size={14} className="text-yellow-400" /> : <Moon size={14} className="text-primary" />}
             </button>
 
             {/* EXPAND/COLLAPSE TOGGLE (Mobile only) - Strictly Manual */}
@@ -167,7 +167,7 @@ export function Header({
                       className={cn(
                         "flex-1 sm:flex-none px-4 sm:px-3 h-full rounded-full text-[10px] font-black uppercase tracking-widest transition-all",
                         isActive 
-                          ? "bg-primary text-white shadow-md scale-[1.02]" 
+                          ? "btn-active-highlight" 
                           : "text-text-muted hover:text-text-main"
                       )}
                     >
@@ -204,7 +204,7 @@ export function Header({
                         initial={{ opacity: 0, y: 8, scale: 0.98 }} 
                         animate={{ opacity: 1, y: 0, scale: 1 }} 
                         exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                        className="absolute top-full left-0 right-0 mt-2 z-[70] bg-surface rounded-2xl p-2 shadow-2xl border border-border sm:w-64 max-h-[280px] overflow-y-auto"
+                        className="absolute top-full left-0 right-0 mt-2 z-[70] bg-surface-elevated rounded-2xl p-2 shadow-2xl border border-border sm:w-64 max-h-[280px] overflow-y-auto"
                       >
                         {palletizers.map(p => (
                           <button 
@@ -229,9 +229,9 @@ export function Header({
               {/* Theme Toggle - Desktop */}
               <button 
                 onClick={toggleTheme}
-                className="hidden sm:flex p-2 rounded-full hover:bg-bg transition-colors text-text-muted hover:text-primary shrink-0 ml-2"
+                className="hidden sm:flex p-2 rounded-full hover:bg-bg transition-colors text-text-main hover:text-primary shrink-0 ml-2"
               >
-                {isDark ? <Sun size={18} /> : <Moon size={18} />}
+                {isDark ? <Sun size={18} className="text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]" /> : <Moon size={18} className="text-primary drop-shadow-[0_0_8px_rgba(59,130,246,0.3)]" />}
               </button>
             </motion.div>
           )}
@@ -291,7 +291,7 @@ export function BottomNav({ activeSection, onSectionChange }: { activeSection: s
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               className={cn(
                 "absolute bottom-full mb-6 left-1/2 -translate-x-1/2",
-                "bg-surface/95 backdrop-blur-xl border border-border shadow-[0_20px_50px_rgba(0,0,0,0.3)]",
+                "bg-surface-elevated/95 backdrop-blur-xl border border-border shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]",
                 "rounded-[2.5rem] p-6 w-[320px] sm:w-[450px] z-50 overflow-hidden flex flex-col"
               )}
             >
@@ -310,8 +310,8 @@ export function BottomNav({ activeSection, onSectionChange }: { activeSection: s
                     <div className={cn(
                       "w-14 h-14 rounded-3xl flex items-center justify-center transition-all duration-300 ring-2 ring-transparent",
                       activeSection === section.id 
-                        ? "bg-primary text-white shadow-lg ring-primary/20 scale-110" 
-                        : "bg-bg text-text-muted group-hover:bg-surface-hover group-hover:text-primary group-hover:scale-105"
+                        ? "bg-primary text-white shadow-[0_5px_15px_rgba(0,85,150,0.4)] ring-primary/20 scale-110" 
+                        : "bg-surface text-text-muted group-hover:bg-surface-elevated group-hover:text-primary group-hover:scale-105 active:scale-95"
                     )}>
                       {section.icon}
                     </div>

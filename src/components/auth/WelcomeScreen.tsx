@@ -9,9 +9,14 @@ interface WelcomeScreenProps {
 
 export default function WelcomeScreen({ onEnter }: WelcomeScreenProps) {
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-bg text-text-main p-4">
+    <div 
+      className="min-h-screen flex items-center justify-center relative overflow-hidden bg-bg text-text-main p-4 transition-all duration-500"
+      style={{ 
+        background: 'radial-gradient(circle at top, var(--bg-header), var(--bg-main))' 
+      }}
+    >
       {/* Background Industrial Textures */}
-      <div className="industrial-grid-layer opacity-40" />
+      <div className="industrial-grid-layer opacity-10 dark:opacity-30" />
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
 
@@ -29,7 +34,7 @@ export default function WelcomeScreen({ onEnter }: WelcomeScreenProps) {
               <h1 className="text-5xl md:text-6xl font-black tracking-tighter uppercase leading-none bg-gradient-to-r from-text-main to-text-main/60 bg-clip-text text-transparent">
                 PSCQUBE
               </h1>
-              <p className="text-sm font-bold text-primary uppercase tracking-[0.2em]">
+              <p className="text-sm font-bold text-primary uppercase tracking-[0.2em] opacity-90">
                 Operaciones Digitales
               </p>
             </div>
@@ -45,7 +50,12 @@ export default function WelcomeScreen({ onEnter }: WelcomeScreenProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
           >
-            <GlassCard className="p-8 md:p-10 border-primary/10 shadow-2xl relative overflow-hidden">
+            <GlassCard 
+              className="p-8 md:p-10 relative overflow-hidden shadow-2xl border-border bg-surface/90 dark:bg-surface-elevated/95"
+              style={{ 
+                backdropFilter: 'blur(10px)',
+              }}
+            >
               <div className="relative z-10 space-y-8">
                 <div>
                   <h2 className="text-xl font-bold text-text-main mb-1">Bienvenido al Sistema</h2>
@@ -55,22 +65,22 @@ export default function WelcomeScreen({ onEnter }: WelcomeScreenProps) {
                 <div className="space-y-4" id="access-actions">
                   <GlassButton 
                     onClick={onEnter} 
-                    className="w-full h-14 text-base group bg-primary hover:bg-primary-hover border-none"
+                    className="w-full h-14 text-base font-bold group bg-primary hover:bg-primary-hover border-none text-white shadow-lg hover:shadow-primary/20 transition-all active:scale-[0.98]"
                   >
-                    Ingresar al Panel
+                    Ingresar
                     <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
                   </GlassButton>
 
                   {/* Future Placeholder for Clerk Auth */}
                   <div className="relative py-4 flex items-center gap-4">
                     <div className="h-[1px] flex-1 bg-border" />
-                    <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">o bien</span>
+                    <span className="text-[10px] font-black text-text-muted uppercase tracking-widest opacity-60">o bien</span>
                     <div className="h-[1px] flex-1 bg-border" />
                   </div>
 
                   <GlassButton 
                     variant="secondary"
-                    className="w-full h-14 text-base opacity-40 cursor-not-allowed group"
+                    className="w-full h-14 text-base opacity-30 cursor-not-allowed group border-border"
                     disabled
                   >
                     <svg className="w-5 h-5 mr-1" viewBox="0 0 24 24">
@@ -81,7 +91,7 @@ export default function WelcomeScreen({ onEnter }: WelcomeScreenProps) {
                     </svg>
                     Continuar con Google
                   </GlassButton>
-                  <p className="text-[10px] text-center text-text-muted font-bold uppercase tracking-wider opacity-30">
+                  <p className="text-[10px] text-center text-text-muted font-bold uppercase tracking-wider opacity-20">
                     Soporte para Google Auth próximamente
                   </p>
                 </div>
@@ -91,7 +101,7 @@ export default function WelcomeScreen({ onEnter }: WelcomeScreenProps) {
         </div>
       </main>
 
-      <footer className="absolute bottom-6 left-0 right-0 text-center opacity-20 pointer-events-none">
+      <footer className="absolute bottom-6 left-0 right-0 text-center opacity-10 pointer-events-none">
         <p className="text-[9px] font-black uppercase tracking-[0.4em] text-text-muted">
           PSCQUBE &copy; 2026
         </p>

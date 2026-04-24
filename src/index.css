@@ -9,39 +9,61 @@
   
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
-  --color-bg: var(--bg);
-  --color-surface: var(--surface);
-  --color-border: var(--border);
-  --color-text-main: var(--text-main);
-  --color-text-muted: var(--text-muted);
+  --color-bg: var(--bg-main);
+  --color-surface: var(--bg-surface);
+  --color-surface-elevated: var(--bg-elevated);
+  --color-border: var(--border-soft);
+  --color-bg-input: var(--bg-input);
+  --color-text-main: var(--text-primary);
+  --color-text-muted: var(--text-secondary);
   --color-success: var(--success);
   --color-danger: var(--danger);
   --color-neutral: var(--neutral);
 }
 
 :root {
-  color-scheme: dark light;
+  color-scheme: light dark;
   --primary: #005596;
   --primary-hover: #00447a;
-  --bg: #0f0f0f;
-  --surface: #161616;
-  --border: #262626;
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
+  
+  /* LIGHT MODE (Default) */
+  --bg-main: #F4F6F8;
+  --bg-surface: #FFFFFF;
+  --bg-elevated: #FFFFFF;
+  --bg-header: #EAF0F6;
+  --bg-input: #F9FAFB;
+  --text-primary: #1F2A37;
+  --text-secondary: #6B7280;
+  --border-soft: rgba(0, 0, 0, 0.08);
+  
   --success: #10b981;
   --danger: #ef4444;
-  --neutral: #94a3b8;
+  --neutral: #6B7280;
+  
+  --btn-active-bg: rgba(59, 130, 246, 0.1);
+  --btn-active-text: var(--primary);
 }
 
-html.light, 
-body.light {
-  color-scheme: light;
-  --bg: #ffffff;
-  --surface: #f8f9fa;
-  --border: #e5e7eb;
-  --text-main: #111827;
-  --text-muted: #4b5563;
+[data-theme="dark"] {
+  color-scheme: dark;
+  /* DARK MODE - Tiered Surface Hierarchy */
+  --bg-main: #0A0D12;          /* Base background */
+  --bg-surface: #141B26;       /* Header and secondary surfaces */
+  --bg-elevated: #1D2635;      /* Primary cards and forms */
+  --bg-header: linear-gradient(180deg, #182333 0%, #121821 100%);
+  --bg-input: #0F1621;         /* Inputs (sunken effect) */
+  
+  --text-primary: #F9FAFB;     /* High contrast titles */
+  --text-secondary: #9CA3AF;   /* Readable body text */
+  --border-soft: rgba(255, 255, 255, 0.08);
+  --neutral: #8fa1b3;
+
+  --btn-active-bg: rgba(59, 130, 246, 0.2);
+  --btn-active-text: #60A5FA;
 }
+
+/* Explicitly removed body.light/html.light selectors in favor of :root + [data-theme="dark"] 
+   to ensure CSS variables are the only source of truth */
 
 @layer base {
   * {
@@ -59,12 +81,12 @@ body.light {
 
 /* SaaS Professional UI Components - Solid & Aligned */
 .ui-card {
-  @apply bg-surface border border-border shadow-sm;
+  @apply bg-surface-elevated border border-border shadow-[0_10px_30px_rgba(0,0,0,0.4)];
   border-radius: 0.75rem;
 }
 
 .ui-card-hover:hover {
-  opacity: 0.8;
+  @apply scale-[1.01] shadow-[0_15px_40px_rgba(0,0,0,0.5)];
 }
 
 /* Reusing legacy class names for compatibility but with SaaS stylings */
@@ -73,8 +95,41 @@ body.light {
 }
 
 .glass-card {
-  @apply bg-surface border border-border shadow-sm p-6 md:p-8;
+  @apply bg-surface-elevated border border-border shadow-[0_10px_30px_rgba(0,0,0,0.4)] p-6 md:p-8;
   border-radius: 0.75rem;
+}
+
+/* Refined Logo & Header Visibility in Dark Mode */
+.logo-glow {
+  @apply drop-shadow-[0_0_8px_rgba(59,130,246,0.3)] transition-all;
+}
+
+[data-theme="dark"] .logo-glow {
+  @apply drop-shadow-[0_0_12px_rgba(96,165,250,0.4)];
+}
+
+.header-gradient {
+  background: var(--bg-header);
+}
+
+[data-theme="dark"] .header-gradient {
+  background: linear-gradient(180deg, #182333 0%, #0E131A 100%);
+  @apply border-b border-white/5;
+}
+
+.kpi-card-gradient {
+  @apply bg-surface-elevated border border-border transition-all duration-300;
+}
+
+[data-theme="dark"] .kpi-card-gradient {
+  background: linear-gradient(145deg, #121821, #0F141A);
+  @apply shadow-[0_10px_30px_rgba(0,0,0,0.4)];
+}
+
+.btn-active-highlight {
+  background: var(--btn-active-bg);
+  color: var(--btn-active-text);
+  @apply shadow-sm scale-[1.02];
 }
 
 /* Custom Checkpoint for Active Tabs - Minimalist Linear style */

@@ -73,7 +73,7 @@ export default function DashboardView({ kpis, masters, selectedPalletizer, selec
       {selectedShift && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Performance Summary Quadrant */}
-          <div className="lg:col-span-5 bg-surface rounded-2xl border border-border p-5 shadow-sm">
+          <div className="lg:col-span-5 bg-surface-elevated rounded-2xl border border-border p-5 shadow-lg">
             <div className="grid grid-cols-2 gap-4 h-full">
               <div className="flex flex-col justify-center border-r border-border/50 pr-4">
                 <h4 className="text-[10px] font-bold text-text-muted uppercase tracking-[0.2em] mb-2">HS MARCHA</h4>
@@ -116,11 +116,11 @@ export default function DashboardView({ kpis, masters, selectedPalletizer, selec
               </div>
               <div className="flex gap-4">
                 <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-danger" />
                   <span className="text-[8px] font-black text-text-muted uppercase tracking-tighter">Paro Interno</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-text-muted/40" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-neutral/40" />
                   <span className="text-[8px] font-black text-text-muted uppercase tracking-tighter">Paro Externo</span>
                 </div>
               </div>
@@ -218,7 +218,7 @@ export default function DashboardView({ kpis, masters, selectedPalletizer, selec
                     <span className="text-[9px] font-bold text-text-muted uppercase">Target</span>
                   </div>
                </div>
-               <div className="flex items-center gap-2 px-2 py-1 bg-surface border border-border rounded-md">
+               <div className="flex items-center gap-2 px-2 py-1 bg-surface-elevated border border-border rounded-md">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-sm" />
                   <span className="text-[9px] font-bold text-text-muted uppercase tracking-widest leading-none">Live</span>
                </div>
@@ -231,14 +231,14 @@ export default function DashboardView({ kpis, masters, selectedPalletizer, selec
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                 <XAxis 
                   dataKey="h" 
-                  stroke="var(--text-muted)" 
+                  stroke="var(--text-main)" 
                   fontSize={10} 
                   tickFormatter={(val) => `${val}h`} 
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis 
-                  stroke="var(--text-muted)" 
+                  stroke="var(--text-main)" 
                   fontSize={10} 
                   domain={[0, 100]} 
                   axisLine={false}
@@ -249,9 +249,9 @@ export default function DashboardView({ kpis, masters, selectedPalletizer, selec
                   type="monotone" 
                   dataKey="v" 
                   name="Real"
-                  stroke="#005596" 
+                  stroke="var(--primary)" 
                   strokeWidth={3} 
-                  dot={{ r: 4, fill: '#005596', strokeWidth: 2, stroke: 'var(--bg)' }} 
+                  dot={{ r: 4, fill: 'var(--primary)', strokeWidth: 2, stroke: 'var(--bg)' }} 
                   activeDot={{ r: 6, strokeWidth: 0 }}
                 />
                 <Line 

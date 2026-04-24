@@ -15,7 +15,7 @@ export function GlassInput({ label, className, ...props }: any) {
       <label className="text-xs font-semibold text-text-muted ml-0.5">{label}</label>
       <input 
         className={cn(
-          "h-11 bg-surface text-sm border-border text-text-main placeholder:text-text-muted/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/5 transition-all rounded-lg px-3.5 border outline-none",
+          "h-11 bg-bg-input text-sm border-border text-text-main placeholder:text-text-muted/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/5 transition-all rounded-lg px-3.5 border outline-none",
           className
         )} 
         {...props} 
@@ -30,13 +30,13 @@ export function GlassSelect({ label, options, className, ...props }: any) {
       <label className="text-xs font-semibold text-text-muted ml-0.5">{label}</label>
       <select 
         className={cn(
-          "h-11 bg-surface text-sm border-border text-text-main focus:border-primary/50 focus:ring-2 focus:ring-primary/5 transition-all rounded-lg px-3.5 border appearance-none outline-none disabled:opacity-50 disabled:cursor-not-allowed",
+          "h-11 bg-bg-input text-sm border-border text-text-main focus:border-primary/50 focus:ring-2 focus:ring-primary/5 transition-all rounded-lg px-3.5 border appearance-none outline-none disabled:opacity-50 disabled:cursor-not-allowed",
           className
         )} 
         {...props}
       >
-        <option value="" className="bg-surface">Seleccionar...</option>
-        {options.map((o: any) => <option key={o.value} value={o.value} className="bg-surface">{o.label}</option>)}
+        <option value="" className="bg-bg-input">Seleccionar...</option>
+        {options.map((o: any) => <option key={o.value} value={o.value} className="bg-bg-input">{o.label}</option>)}
       </select>
     </div>
   );
@@ -65,17 +65,17 @@ export function GlassButton({ children, className, variant = 'primary', ...props
 
 export function KPICircle({ label, value, color }: { label: string; value: number; color: string }) {
   const colors: Record<string, string> = {
-    emerald: 'text-emerald-500 bg-emerald-500/5 border-emerald-500/10',
-    indigo: 'text-primary bg-primary/5 border-primary/10',
-    orange: 'text-orange-500 bg-orange-500/5 border-orange-500/10'
+    emerald: 'text-emerald-500',
+    indigo: 'text-primary',
+    orange: 'text-orange-500'
   };
 
   return (
-    <div className={cn("p-4 rounded-xl border flex flex-col items-center justify-center text-center min-w-[124px] shadow-sm bg-surface", colors[color] || 'text-text-main bg-surface border-border')}>
-       <div className="text-2xl font-bold tracking-tight">
+    <div className={cn("kpi-card-gradient p-5 rounded-2xl flex flex-col items-center justify-center text-center min-w-[124px]", colors[color] || 'text-text-main')}>
+       <div className="text-3xl font-black tracking-tighter tabular-nums">
          {value.toFixed(1)}%
        </div>
-       <div className="text-[10px] font-bold uppercase tracking-wider mt-1 opacity-60 text-text-muted">{label}</div>
+       <div className="text-[10px] font-bold uppercase tracking-widest mt-1 opacity-60 text-text-muted">{label}</div>
     </div>
   );
 }

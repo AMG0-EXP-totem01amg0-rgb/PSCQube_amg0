@@ -51,13 +51,8 @@ export default function App() {
   const [isDark, setIsDark] = useState(true);
 
   useEffect(() => {
-    if (!isDark) {
-      document.documentElement.classList.add('light');
-      document.body.classList.add('light');
-    } else {
-      document.documentElement.classList.remove('light');
-      document.body.classList.remove('light');
-    }
+    const theme = isDark ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
   }, [isDark]);
   
   // Auto-scroll to center active sub-tab
@@ -309,7 +304,7 @@ function ProductivitySubTab({ active, icon, label, onClick }: any) {
       className={cn(
         "px-4 py-1.5 rounded-md flex items-center gap-2 transition-all flex-none text-[10px] font-bold uppercase tracking-widest whitespace-nowrap min-w-fit",
         active 
-          ? "bg-primary/10 text-primary shadow-sm" 
+          ? "btn-active-highlight" 
           : "text-text-muted hover:text-text-main hover:bg-bg"
       )}
     >

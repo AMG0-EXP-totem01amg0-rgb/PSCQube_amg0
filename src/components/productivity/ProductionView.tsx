@@ -262,7 +262,7 @@ export default function ProductionView({ masters, onSave, onDelete, palletizerId
     >
       {/* Automate Summary Header */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <GlassCard className="p-6 border-l-4 border-l-primary flex items-center justify-between">
+        <GlassCard className="bg-surface-elevated p-6 border-l-4 border-l-primary flex items-center justify-between">
           <div>
             <h4 className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-1">TN TOTALES</h4>
             <div className="flex items-baseline gap-2">
@@ -275,7 +275,7 @@ export default function ProductionView({ masters, onSave, onDelete, palletizerId
           </div>
         </GlassCard>
 
-        <GlassCard className="p-6 border-l-4 border-l-emerald-500 flex items-center justify-between">
+        <GlassCard className="bg-surface-elevated p-6 border-l-4 border-l-emerald-500 flex items-center justify-between">
           <div>
             <h4 className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-1">REGISTROS</h4>
             <div className="flex items-baseline gap-2">
@@ -338,7 +338,7 @@ export default function ProductionView({ masters, onSave, onDelete, palletizerId
               <TrendingUp size={16} />
               <h4 className="text-xs font-black uppercase tracking-widest">Información de Carga</h4>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-bg/30 p-4 rounded-xl border border-border/50">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-bg-input/60 p-4 rounded-xl border border-border/50">
               <GlassSelect 
                 label="Ensacadora" 
                 options={masters.baggers.map((e:any) => ({label: e.name, value: e.id}))} 
@@ -392,7 +392,7 @@ export default function ProductionView({ masters, onSave, onDelete, palletizerId
               <AlertCircle size={16} />
               <h4 className="text-xs font-black uppercase tracking-widest">Descarte de Bolsas</h4>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-bg/30 p-4 rounded-xl border border-border/50">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-bg-input/60 p-4 rounded-xl border border-border/50">
               <GlassInput 
                 label="Ensacadora" 
                 type="number" 
@@ -427,7 +427,7 @@ export default function ProductionView({ masters, onSave, onDelete, palletizerId
               <h4 className="text-xs font-black uppercase tracking-widest">Novedades de Boquillas</h4>
             </div>
             
-            <div className="bg-bg/30 p-4 rounded-xl border border-border/50 space-y-4">
+            <div className="bg-bg-input/60 p-4 rounded-xl border border-border/50 space-y-4">
                {/* Quick Add Nozzle News */}
                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
                   <GlassSelect 
