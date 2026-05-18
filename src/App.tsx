@@ -16,13 +16,15 @@ import { Header, BottomNav } from './components/layout/LayoutComponents';
 import DashboardView from './components/productivity/DashboardView';
 import StopsView from './components/productivity/StopsView';
 import ProductionView from './components/productivity/ProductionView';
+import DaterControlView from './components/productivity/DaterControlView';
+import ScaleControlView from './components/productivity/ScaleControlView';
 import AdminView from './components/admin/AdminView';
 import PlaceholderView from './components/PlaceholderView';
 import WelcomeScreen from './components/auth/WelcomeScreen';
 
 // Lib & Types
 import { cn } from './lib/utils';
-import { Shift, MachineStop, ProductionReport, UserContext, MasterData } from './types';
+import { Shift, MachineStop, ProductionReport, DaterControl, ScaleControl, UserContext, MasterData } from './types';
 import { SHIFTS, PALLETIZERS, BAGGERS, MATERIALS, HACS, CAUSES, CAPACITIES } from './lib/mockData';
 
 // --- Utilities ---
@@ -39,7 +41,7 @@ const getCurrentShift = (shifts: Shift[]): Shift | null => {
 };
 
 type AppSection = 'PRODUCTIVITY' | 'SAFETY' | 'ENVIRONMENT' | 'HR' | 'ADMIN';
-type ProductivityTab = 'DASHBOARD' | 'PAROS' | 'PRODUCCION' | 'STOCK' | 'GASOIL' | 'MANTENIMIENTO';
+type ProductivityTab = 'DASHBOARD' | 'PAROS' | 'PRODUCCION' | 'FECHADORES' | 'BALANZAS' | 'STOCK' | 'GASOIL' | 'MANTENIMIENTO';
 
 export default function App() {
   const [activeSection, setActiveSection] = useState<AppSection>('PRODUCTIVITY');
@@ -78,6 +80,8 @@ export default function App() {
 
   const [stops, setStops] = useState<MachineStop[]>([]);
   const [productionReports, setProductionReports] = useState<ProductionReport[]>([]);
+  const [daterControls, setDaterControls] = useState<DaterControl[]>([]);
+  const [scaleControls, setScaleControls] = useState<ScaleControl[]>([]);
   
   // Master States for CRUD
   const [shifts, setShifts] = useState<Shift[]>(SHIFTS);
@@ -211,6 +215,8 @@ export default function App() {
                             <ProductivitySubTab active={prodTab === 'DASHBOARD'} onClick={() => setProdTab('DASHBOARD')} icon={<Activity size={14} />} label="Dashboard" />
                             <ProductivitySubTab active={prodTab === 'PAROS'} onClick={() => setProdTab('PAROS')} icon={<AlertTriangle size={14} />} label="Paros" />
                             <ProductivitySubTab active={prodTab === 'PRODUCCION'} onClick={() => setProdTab('PRODUCCION')} icon={<Package size={14} />} label="Producción" />
+                            <ProductivitySubTab active={prodTab === 'FECHADORES'} onClick={() => setProdTab('FECHADORES')} icon={<ClipboardList size={14} />} label="Control Fechadores" />
+                            <ProductivitySubTab active={prodTab === 'BALANZAS'} onClick={() => setProdTab('BALANZAS')} icon={<Activity size={14} />} label="Control Balanzas" />
                             <ProductivitySubTab active={prodTab === 'STOCK'} onClick={() => setProdTab('STOCK')} icon={<PlusCircle size={14} />} label="Insumos" />
                             <ProductivitySubTab active={prodTab === 'GASOIL'} onClick={() => setProdTab('GASOIL')} icon={<ShieldCheck size={14} />} label="Combustible" />
                             <ProductivitySubTab active={prodTab === 'MANTENIMIENTO'} onClick={() => setProdTab('MANTENIMIENTO')} icon={<Settings size={14} />} label="Mantenimiento" />
@@ -260,6 +266,34 @@ export default function App() {
                         history={productionReports.filter(r => r.palletizerId === userContext.selectedPalletizerId && r.shiftId === userContext.selectedShiftId && r.date === userContext.selectedDate)}
                       />
                   )}
+                  {prodTab === 'FECHADORES' && (
+                    <DaterControlView 
+                        masters={masters}
+                        onSave={c => setDaterControls(prev => {
+                          const exists = prev.find(x => x.id === c.id);
+                          if (exists) return prev.map(x => x.id === c.id ? c : x);
+                          return [c, ...prev];
+                        })}
+                        onDelete={id => setDaterControls(prev => prev.filter(c => c.id !== id))}
+                        history={daterControls.filter(c => c.shiftId === userContext.selectedShiftId && c.date === userContext.selectedDate)}
+                        selectedShiftId={userContext.selectedShiftId}
+                        selectedDate={userContext.selectedDate}
+                    />
+                  )}
+                  {prodTab === 'BALANZAS' && (
+                    <ScaleControlView 
+                        masters={masters}
+                        onSave={c => setScaleControls(prev => {
+                          const exists = prev.find(x => x.id === c.id);
+                          if (exists) return prev.map(x => x.id === c.id ? c : x);
+                          return [c, ...prev];
+                        })}
+                        onDelete={id => setScaleControls(prev => prev.filter(c => c.id !== id))}
+                        history={scaleControls.filter(c => c.shiftId === userContext.selectedShiftId && c.date === userContext.selectedDate)}
+                        selectedShiftId={userContext.selectedShiftId}
+                        selectedDate={userContext.selectedDate}
+                    />
+                  )}
                   {['STOCK', 'GASOIL', 'MANTENIMIENTO'].includes(prodTab) && (
                     <PlaceholderView title={`Módulo: ${prodTab}`} type="PRODUCTIVITY" />
                   )}
@@ -281,6 +315,7 @@ export default function App() {
                       if (type === 'BAGGERS') setBaggers(data);
                       if (type === 'HACS') setHacs(data);
                       if (type === 'CAUSES') setCauses(data);
+                      if (type === 'MATERIALS') setMaterials(data);
                       if (type === 'CAPACITIES') setCapacities(data);
                     }}
                 />

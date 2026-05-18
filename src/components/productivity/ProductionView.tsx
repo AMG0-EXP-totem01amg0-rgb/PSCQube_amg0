@@ -26,6 +26,7 @@ export default function ProductionView({ masters, onSave, onDelete, palletizerId
   const [formData, setFormData] = useState({ 
     baggerId: '', 
     materialId: '', 
+    bags: '',
     tons: '',
     availableNozzlesShift: '',
     bagProvider: '',
@@ -55,11 +56,29 @@ export default function ProductionView({ masters, onSave, onDelete, palletizerId
     [masters.baggers, formData.baggerId]
   );
 
+  const selectedMaterialObj = useMemo(() => 
+    masters.materials.find(m => m.id === formData.materialId),
+    [masters.materials, formData.materialId]
+  );
+
+  // Auto-calculate TN based on Bags and Material weight
+  React.useEffect(() => {
+    if (selectedMaterialObj && formData.bags) {
+      const bags = parseFloat(formData.bags) || 0;
+      const weightPerBagKg = selectedMaterialObj.bagWeight || 0;
+      const calculatedTons = (bags * weightPerBagKg) / 1000;
+      setFormData(prev => ({ ...prev, tons: calculatedTons.toString() }));
+    } else {
+      setFormData(prev => ({ ...prev, tons: '' }));
+    }
+  }, [formData.bags, formData.materialId, selectedMaterialObj]);
+
   // Calculate Global Summary (Automated)
   const totals = useMemo(() => {
     const totalTons = history.reduce((sum, r) => sum + r.tonsProduced, 0);
+    const totalBags = history.reduce((sum, r) => sum + (r.bagsProduced || 0), 0);
     const count = history.length;
-    return { totalTons, count };
+    return { totalTons, totalBags, count };
   }, [history]);
 
   const handleOpenAdd = () => {
@@ -67,6 +86,7 @@ export default function ProductionView({ masters, onSave, onDelete, palletizerId
     setFormData({ 
       baggerId: '', 
       materialId: '', 
+      bags: '',
       tons: '',
       availableNozzlesShift: '',
       bagProvider: '',
@@ -85,6 +105,7 @@ export default function ProductionView({ masters, onSave, onDelete, palletizerId
     setFormData({ 
       baggerId: item.baggerId, 
       materialId: item.materialId, 
+      bags: item.bagsProduced?.toString() || '',
       tons: item.tonsProduced.toString(),
       availableNozzlesShift: item.availableNozzlesShift?.toString() || '',
       bagProvider: item.bagProvider || '',
@@ -142,6 +163,7 @@ export default function ProductionView({ masters, onSave, onDelete, palletizerId
       palletizerId,
       baggerId: formData.baggerId,
       materialId: formData.materialId,
+      bagsProduced: parseInt(formData.bags) || 0,
       tonsProduced: parseFloat(formData.tons) || 0,
       bdp,
       availableNozzlesShift: parseInt(formData.availableNozzlesShift) || 0,
@@ -177,10 +199,10 @@ export default function ProductionView({ masters, onSave, onDelete, palletizerId
       accessor: (row) => (
         <div className="text-right">
           <div className="text-[11px] font-black text-text-main tabular-nums">
-            {row.tonsProduced.toFixed(1)} TN
+            {row.bagsProduced} BOLSAS
           </div>
-          <div className="text-[9px] text-text-muted font-bold uppercase tracking-tighter">
-            BDP: {row.bdp}
+          <div className="text-[9px] text-primary font-bold tabular-nums">
+            {row.tonsProduced.toFixed(2)} TN
           </div>
         </div>
       )
@@ -264,10 +286,16 @@ export default function ProductionView({ masters, onSave, onDelete, palletizerId
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <GlassCard className="bg-surface-elevated p-6 border-l-4 border-l-primary flex items-center justify-between">
           <div>
-            <h4 className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-1">TN TOTALES</h4>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-text-main tracking-tighter tabular-nums">{totals.totalTons.toFixed(1)}</span>
-              <span className="text-xs font-bold text-primary uppercase">tn</span>
+            <h4 className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-1">PRODUCCIÓN TOTAL</h4>
+            <div className="flex flex-col">
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-text-main tracking-tighter tabular-nums">{totals.totalTons.toFixed(1)}</span>
+                <span className="text-xs font-bold text-primary uppercase">tn</span>
+              </div>
+              <div className="flex items-baseline gap-1 mt-1">
+                <span className="text-sm font-bold text-text-muted tabular-nums">{totals.totalBags}</span>
+                <span className="text-[10px] font-bold text-text-muted uppercase">bolsas</span>
+              </div>
             </div>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-primary/5 flex items-center justify-center text-primary">
@@ -352,22 +380,32 @@ export default function ProductionView({ masters, onSave, onDelete, palletizerId
                 onChange={e => setFormData({...formData, materialId: (e.target as HTMLSelectElement).value})} 
               />
               <GlassInput 
-                label="TN Producidas" 
+                label="Bolsas Producidas" 
                 type="number" 
-                value={formData.tons} 
-                onChange={e => setFormData({...formData, tons: (e.target as HTMLInputElement).value})} 
-                placeholder="0.00"
+                value={formData.bags} 
+                onChange={e => setFormData({...formData, bags: (e.target as HTMLInputElement).value})} 
+                placeholder="0"
               />
               <div className="md:col-span-3">
-                 {selectedBaggerObj && (
-                   <div className="flex items-center gap-2 mb-2 px-3 py-1.5 bg-primary/5 border border-primary/10 rounded-lg">
-                      <ShieldCheck size={12} className="text-primary" />
-                      <span className="text-[10px] font-black text-primary uppercase tracking-widest">
-                        EQUIPO (HAC): {selectedBaggerObj.hacId || 'N/A'} — CAP. TEÓRICA: {selectedBaggerObj.nozzles} BOQUILLAS
-                      </span>
-                   </div>
-                 )}
-                 <div className="flex gap-4">
+                 <div className="flex flex-wrap gap-4 mb-4">
+                    {formData.tons && (
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                        <TrendingUp size={12} className="text-emerald-500" />
+                        <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">
+                          Calculado: {parseFloat(formData.tons).toFixed(2)} TN
+                        </span>
+                      </div>
+                    )}
+                    {selectedBaggerObj && (
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/5 border border-primary/10 rounded-lg">
+                        <ShieldCheck size={12} className="text-primary" />
+                        <span className="text-[10px] font-black text-primary uppercase tracking-widest">
+                          EQUIPO (HAC): {selectedBaggerObj.hacId || 'N/A'} — CAP. TEÓRICA: {selectedBaggerObj.nozzles} BOQUILLAS
+                        </span>
+                      </div>
+                    )}
+                 </div>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                    <GlassInput 
                     label="Boquillas Disponibles" 
                     type="number" 

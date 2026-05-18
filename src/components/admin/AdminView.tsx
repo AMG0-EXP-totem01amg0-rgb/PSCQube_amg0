@@ -1,7 +1,8 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { motion } from 'motion/react';
-import { Settings, Search, Plus, Pencil, Trash2, X, Save } from 'lucide-react';
-import { MasterData, Shift } from '../../types';
+import { Settings, Search, Plus, Pencil, Trash2, X, Save, FileUp } from 'lucide-react';
+import { MasterData, Shift, HAC, Cause } from '../../types';
+import * as XLSX from 'xlsx';
 import { cn } from '../../lib/utils';
 import { DataTable, Column } from '../ui/DataTable';
 import { ConfirmModal, GlassButton, GlassInput, GlassSelect } from '../ui/GlassUI';
@@ -15,6 +16,7 @@ interface Props {
 
 export default function AdminView({ masters, activeTab, onTabChange, onUpdateMasters }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -37,6 +39,7 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
     if (activeTab === 'BAGGERS') return masters.baggers;
     if (activeTab === 'HACS') return masters.hacs;
     if (activeTab === 'CAUSES') return masters.causes;
+    if (activeTab === 'MATERIALS') return masters.materials;
     if (activeTab === 'CAPACITIES') return masters.capacities;
     return [];
   };
@@ -111,7 +114,6 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
   });
 
   const shiftColumns: Column<any>[] = [
-    { header: 'ID', accessor: (row) => <span className="font-mono text-text-muted">{row.id}</span> },
     { header: 'Nombre', accessor: (row) => <span className="font-bold text-text-main">{row.name}</span> },
     { header: 'Inicio', accessor: 'startTime' },
     { header: 'Fin', accessor: 'endTime' },
@@ -120,7 +122,6 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
   ];
 
   const machineColumns: Column<any>[] = [
-    { header: 'ID', accessor: (row) => <span className="font-mono text-text-muted">{row.id}</span> },
     { header: 'Descripción', accessor: (row) => <span className="font-bold text-text-main">{row.name}</span> },
     { header: 'HAC ID', accessor: 'hacId' },
     actionsColumn(null)
@@ -134,15 +135,16 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
   ];
 
   const hacColumns: Column<any>[] = [
-    { header: 'ID', accessor: (row) => <span className="font-mono text-text-muted">{row.id}</span> },
+    { header: 'HAC', accessor: (row) => <span className="font-bold text-primary">{row.hac}</span> },
     { header: 'Detalle', accessor: (row) => <span className="font-bold text-text-main uppercase">{row.detail}</span> },
-    { header: 'GPO', accessor: 'gpoCodObjeto' },
+    { header: 'GPO Cód. Objeto', accessor: 'gpoCodObjeto' },
+    { header: 'Equipo', accessor: 'equipment' },
     actionsColumn(null)
   ];
 
   const causeColumns: Column<any>[] = [
-    { header: 'ID', accessor: (row) => <span className="font-mono text-text-muted">{row.id}</span> },
-    { header: 'Causa', accessor: (row) => <span className="font-bold text-text-main uppercase leading-none">{row.text}</span> },
+    { header: 'HAC', accessor: (row) => <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold">{row.hac}</span> },
+    { header: 'Texto de Causa', accessor: (row) => <span className="font-bold text-text-main uppercase leading-tight block max-w-[200px] truncate">{row.text}</span> },
     { header: 'Tipo', accessor: (row) => (
       <span className={cn(
         "px-2 py-0.5 rounded text-[9px] font-bold border uppercase",
@@ -151,15 +153,91 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
         {row.stopType}
       </span>
     )},
+    { header: 'PARTE/CAUSA SAP', accessor: (row) => <span className="text-[9px] font-mono opacity-70">P: {row.partObject} / C: {row.causeCode}</span> },
+    actionsColumn(null)
+  ];
+
+  const materialColumns: Column<any>[] = [
+    { header: 'Descripción', accessor: (row) => <span className="font-bold text-text-main">{row.name}</span> },
+    { header: 'Código SAP', accessor: 'code' },
+    { header: 'P. Embalaje', accessor: (row) => <span className="font-mono text-[10px]">{row.packingWeight}kg</span> },
+    { header: 'P. Bolsa', accessor: (row) => <span className="font-mono text-[10px]">{row.bagWeight}kg</span> },
+    { header: 'Atributos', accessor: (row) => (
+      <div className="flex flex-wrap gap-1">
+        {row.isPallet && <span className="bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-1 py-0.5 rounded text-[8px] font-bold">PALLET</span>}
+        {row.isProductive && <span className="bg-blue-500/10 text-blue-500 border border-blue-500/20 px-1 py-0.5 rounded text-[8px] font-bold">PROD</span>}
+        {row.isSupply && <span className="bg-purple-500/10 text-purple-500 border border-purple-500/20 px-1 py-0.5 rounded text-[8px] font-bold">INSUMO</span>}
+        {row.isBigBag && <span className="bg-orange-500/10 text-orange-500 border border-orange-500/20 px-1 py-0.5 rounded text-[8px] font-bold">BIGBAG</span>}
+      </div>
+    )},
     actionsColumn(null)
   ];
 
   const capacityColumns: Column<any>[] = [
-    { header: 'Ensacadora', accessor: 'baggerId' },
-    { header: 'Material', accessor: 'materialId' },
-    { header: 'BDP', accessor: (row) => <span className="font-black text-text-main">{row.bdp}</span> },
+    { header: 'Paletizadora', accessor: (row) => masters.palletizers.find(p => p.id === row.palletizerId)?.name || 'N/A' },
+    { header: 'Ensacadora', accessor: (row) => masters.baggers.find(b => b.id === row.baggerId)?.name || 'N/A' },
+    { header: 'Material', accessor: (row) => masters.materials.find(m => m.id === row.materialId)?.name || 'N/A' },
+    { header: 'BDP', accessor: (row) => <span className="font-black text-text-main">{row.bdp} TN/H</span> },
     actionsColumn(null)
   ];
+
+  const handleExcelImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const bstr = evt.target?.result;
+      const wb = XLSX.read(bstr, { type: 'binary' });
+      const wsname = wb.SheetNames[0];
+      const ws = wb.Sheets[wsname];
+      const data = XLSX.utils.sheet_to_json(ws);
+      
+      processImportedData(data);
+    };
+    reader.readAsBinaryString(file);
+    e.target.value = ''; // Reset input
+  };
+
+  const processImportedData = (data: any[]) => {
+    const list = getCurrentList() as any[];
+    const newList = [...list];
+
+    data.forEach(row => {
+      let item: any = {};
+      
+      if (activeTab === 'HACS') {
+        item = {
+          id: `HAC-${Math.random().toString(36).substr(2, 4).toUpperCase()}`,
+          hac: String(row.HAC || row.hac || ''),
+          detail: String(row['Detalle HAC'] || row.detail || ''),
+          gpoCodObjeto: String(row['GPO.CÓD. OBJETO'] || row.gpoCodObjeto || ''),
+          equipment: String(row.EQUIPO || row.equipment || '')
+        };
+      } else if (activeTab === 'CAUSES') {
+        item = {
+          id: `PARO-${Math.random().toString(36).substr(2, 4).toUpperCase()}`,
+          hac: String(row.HAC || row.hac || ''),
+          text: String(row['TEXTO DE CAUSA'] || row.text || ''),
+          partObject: String(row['PARTE OBJETO'] || row.partObject || ''),
+          symptomGroup: String(row['GPO.CÓD. SINTOMA'] || row.symptomGroup || ''),
+          symptomCode: String(row['CÓD. SINTOMA'] || row.symptomCode || ''),
+          sapCause: String(row['CAUSA SAP'] || row.sapCause || ''),
+          causeGroup: String(row['GPO.COD. CAUSA'] || row.causeGroup || ''),
+          causeCode: String(row['CÓDIGO CAUSA'] || row.causeCode || ''),
+          stopType: (String(row['TIPO PARO'] || row.stopType || '').toUpperCase() === 'EXTERNO' ? 'EXTERNO' : 'INTERNO')
+        };
+      } else {
+        // Basic generic mapping for other tabs if they want to try
+        item = { ...row };
+        if (!item.id) item.id = Math.random().toString(36).substr(2, 6).toUpperCase();
+      }
+
+      if (item.id) newList.push(item);
+    });
+
+    onUpdateMasters(activeTab, newList);
+  };
 
   return (
     <motion.div 
@@ -191,6 +269,7 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
                <AdminSubTab active={activeTab === 'BAGGERS'} onClick={() => onTabChange('BAGGERS')} label="Ensacadoras" />
                <AdminSubTab active={activeTab === 'HACS'} onClick={() => onTabChange('HACS')} label="Equipos" />
                <AdminSubTab active={activeTab === 'CAUSES'} onClick={() => onTabChange('CAUSES')} label="Causas" />
+               <AdminSubTab active={activeTab === 'MATERIALS'} onClick={() => onTabChange('MATERIALS')} label="Materiales" />
                <AdminSubTab active={activeTab === 'CAPACITIES'} onClick={() => onTabChange('CAPACITIES')} label="Capacidades" />
             </div>
           </div>
@@ -208,12 +287,30 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
                   className="w-full h-10 bg-bg-input border border-border rounded-lg pl-10 pr-4 text-sm text-text-main focus:border-primary/50 outline-none transition-all"
                 />
              </div>
-             <button 
-               onClick={() => { setEditingItem(null); setIsFormOpen(true); }}
-               className="h-10 px-4 bg-primary text-white rounded-lg font-semibold text-xs flex items-center gap-2 hover:bg-primary/90 transition-colors active:scale-95 shadow-sm"
-             >
-                <Plus size={16} /> Nuevo Registro
-             </button>
+             <div className="flex items-center gap-2">
+                <input 
+                   type="file" 
+                   ref={fileInputRef} 
+                   className="hidden" 
+                   accept=".xlsx, .xls" 
+                   onChange={handleExcelImport}
+                />
+                {(activeTab === 'HACS' || activeTab === 'CAUSES') && (
+                  <GlassButton 
+                    variant="secondary" 
+                    className="h-10 px-4" 
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <FileUp size={16} /> Importar Excel
+                  </GlassButton>
+                )}
+                <button 
+                  onClick={() => { setEditingItem(null); setIsFormOpen(true); }}
+                  className="h-10 px-4 bg-primary text-white rounded-lg font-semibold text-xs flex items-center gap-2 hover:bg-primary/90 transition-colors active:scale-95 shadow-sm"
+                >
+                    <Plus size={16} /> Nuevo Registro
+                </button>
+             </div>
           </div>
 
           <div className="max-h-[600px] overflow-auto no-scrollbar">
@@ -222,6 +319,7 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
             {activeTab === 'BAGGERS' && <DataTable title="Listado de Ensacadoras" countLabel="ensacadoras" columns={baggerColumns} data={filteredData} keyExtractor={r => r.id} />}
             {activeTab === 'HACS' && <DataTable title="Listado de Equipos (HAC)" countLabel="items" columns={hacColumns} data={filteredData} keyExtractor={r => r.id} />}
             {activeTab === 'CAUSES' && <DataTable title="Catálogo de Causas" countLabel="registros" columns={causeColumns} data={filteredData} keyExtractor={r => r.id} />}
+            {activeTab === 'MATERIALS' && <DataTable title="Listado de Materiales" countLabel="materiales" columns={materialColumns} data={filteredData} keyExtractor={r => r.id} />}
             {activeTab === 'CAPACITIES' && <DataTable title="Matriz de Capacidades" countLabel="combinaciones" columns={capacityColumns} data={filteredData} keyExtractor={r => `${r.palletizerId}-${r.baggerId}-${r.materialId}`} />}
           </div>
        </div>
@@ -250,26 +348,45 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
 function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
   const [formData, setFormData] = useState<any>(item || {});
 
+  const typeNames: Record<string, { name: string; female?: boolean }> = {
+    'SHIFTS': { name: 'Turno', female: false },
+    'MACHINES': { name: 'Maquina', female: true },
+    'BAGGERS': { name: 'Ensacadora', female: true },
+    'HACS': { name: 'Equipo', female: false },
+    'CAUSES': { name: 'Causa', female: true },
+    'MATERIALS': { name: 'Material', female: false },
+    'CAPACITIES': { name: 'Capacidad', female: true }
+  };
+
+  const config = typeNames[type] || { name: type, female: false };
+  const title = item 
+    ? `Editar ${config.name}` 
+    : `Nuev${config.female ? 'a' : 'o'} ${config.name}`;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     let finalData = { ...formData };
-    if (type === 'BAGGERS' && !finalData.id) {
-       finalData.id = 'PSC-' + Math.random().toString(36).substr(2, 4).toUpperCase();
-       finalData.type = 'ENSACADORA';
+    
+    // Auto-generate ID if missing for all types
+    if (!finalData.id) {
+       const prefix = (type === 'CAPACITIES' ? 'CAP' : type.substring(0, 3).toUpperCase());
+       finalData.id = `${prefix}-` + Math.random().toString(36).substr(2, 4).toUpperCase();
+       if (type === 'BAGGERS') finalData.type = 'ENSACADORA';
     }
+    
     onSave(finalData);
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-lg bg-surface-elevated border border-border rounded-2xl shadow-2xl overflow-hidden"
+        className="w-full max-w-lg bg-surface-elevated border border-border rounded-2xl shadow-2xl overflow-hidden z-[201]"
       >
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-bold text-text-main uppercase tracking-tight">{item ? 'Editar' : 'Nuevo'} {type}</h3>
+            <h3 className="text-xl font-bold text-text-main uppercase tracking-tight">{title}</h3>
             <button onClick={onClose} className="p-2 text-text-muted hover:text-text-main transition-colors">
               <X size={20} />
             </button>
@@ -277,14 +394,6 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <GlassInput 
-                label="ID" 
-                value={formData.id || ''} 
-                onChange={(e:any) => setFormData({...formData, id: e.target.value})} 
-                disabled={!!item}
-                placeholder="ID único"
-              />
-              
               {type === 'SHIFTS' && (
                 <>
                   <GlassInput label="Nombre" value={formData.name || ''} onChange={(e:any) => setFormData({...formData, name: e.target.value})} />
@@ -306,36 +415,91 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                   <GlassInput label="Descripción" value={formData.name || ''} onChange={(e:any) => setFormData({...formData, name: e.target.value})} />
                   <GlassInput label="HAC ID" value={formData.hacId || ''} onChange={(e:any) => setFormData({...formData, hacId: e.target.value})} />
                   <GlassInput label="Boquillas" type="number" value={formData.nozzles || ''} onChange={(e:any) => setFormData({...formData, nozzles: parseInt(e.target.value)})} />
-                  {!item && (
-                    <div className="md:col-span-2 py-2 px-3 bg-primary/5 rounded-lg border border-primary/10">
-                      <p className="text-[10px] text-primary font-bold uppercase tracking-wider">ID Interno se generará automáticamente</p>
-                    </div>
-                  )}
                 </>
               )}
 
               {type === 'HACS' && (
                 <>
-                  <GlassInput label="Detalle" value={formData.detail || ''} onChange={(e:any) => setFormData({...formData, detail: e.target.value})} />
-                  <GlassInput label="GPO" value={formData.gpoCodObjeto || ''} onChange={(e:any) => setFormData({...formData, gpoCodObjeto: e.target.value})} />
+                  <GlassInput label="HAC" value={formData.hac || ''} onChange={(e:any) => setFormData({...formData, hac: e.target.value})} />
+                  <GlassInput label="Detalle HAC" value={formData.detail || ''} onChange={(e:any) => setFormData({...formData, detail: e.target.value})} />
+                  <GlassInput label="GPO.CÓD. OBJETO (SAP)" value={formData.gpoCodObjeto || ''} onChange={(e:any) => setFormData({...formData, gpoCodObjeto: e.target.value})} />
+                  <GlassInput label="EQUIPO (SAP)" value={formData.equipment || ''} onChange={(e:any) => setFormData({...formData, equipment: e.target.value})} />
                 </>
               )}
 
               {type === 'CAUSES' && (
                 <>
-                  <GlassInput label="Causa" value={formData.text || ''} onChange={(e:any) => setFormData({...formData, text: e.target.value})} />
                   <GlassSelect 
-                    label="Tipo" 
+                    label="HAC" 
+                    options={masters.hacs.map((h:any) => ({label: h.hac, value: h.hac}))} 
+                    value={formData.hac || ''} 
+                    onChange={(e:any) => setFormData({...formData, hac: e.target.value})}
+                  />
+                  <GlassInput label="Texto de Causa" value={formData.text || ''} onChange={(e:any) => setFormData({...formData, text: e.target.value})} />
+                  <GlassSelect 
+                    label="Tipo de Paro" 
                     options={[{label: 'INTERNO', value: 'INTERNO'}, {label: 'EXTERNO', value: 'EXTERNO'}]} 
                     value={formData.stopType || ''} 
                     onChange={(e:any) => setFormData({...formData, stopType: e.target.value})}
                   />
-                  <GlassSelect 
-                    label="Equipo (HAC)" 
-                    options={masters.hacs.map((h:any) => ({label: h.detail, value: h.id}))} 
-                    value={formData.hacId || ''} 
-                    onChange={(e:any) => setFormData({...formData, hacId: e.target.value})}
-                  />
+                  <GlassInput label="Parte Objeto (SAP)" value={formData.partObject || ''} onChange={(e:any) => setFormData({...formData, partObject: e.target.value})} />
+                  <GlassInput label="GPO.CÓD. SÍNTOMA (SAP)" value={formData.symptomGroup || ''} onChange={(e:any) => setFormData({...formData, symptomGroup: e.target.value})} />
+                  <GlassInput label="CÓD. SÍNTOMA (SAP)" value={formData.symptomCode || ''} onChange={(e:any) => setFormData({...formData, symptomCode: e.target.value})} />
+                  <GlassInput label="CAUSA SAP (SAP)" value={formData.sapCause || ''} onChange={(e:any) => setFormData({...formData, sapCause: e.target.value})} />
+                  <GlassInput label="GPO.COD. CAUSA (SAP)" value={formData.causeGroup || ''} onChange={(e:any) => setFormData({...formData, causeGroup: e.target.value})} />
+                  <GlassInput label="CÓDIGO CAUSA (SAP)" value={formData.causeCode || ''} onChange={(e:any) => setFormData({...formData, causeCode: e.target.value})} />
+                </>
+              )}
+
+               {type === 'MATERIALS' && (
+                <>
+                  <GlassInput label="Descripción" value={formData.name || ''} onChange={(e:any) => setFormData({...formData, name: e.target.value})} />
+                  <GlassInput label="Código SAP" value={formData.code || ''} onChange={(e:any) => setFormData({...formData, code: e.target.value})} />
+                  <GlassInput label="P. Embalaje (kg)" type="number" value={formData.packingWeight || ''} onChange={(e:any) => setFormData({...formData, packingWeight: parseFloat(e.target.value)})} />
+                  <GlassInput label="P. Bolsa (kg)" type="number" value={formData.bagWeight || ''} onChange={(e:any) => setFormData({...formData, bagWeight: parseFloat(e.target.value)})} />
+                  
+                  <div className="md:col-span-2 grid grid-cols-2 gap-4">
+                    <div className="flex items-center gap-3 bg-bg-input p-3 rounded-lg border border-border">
+                      <input 
+                        type="checkbox" 
+                        id="isPallet"
+                        checked={formData.isPallet || false} 
+                        onChange={(e) => setFormData({...formData, isPallet: e.target.checked})} 
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                      />
+                      <label htmlFor="isPallet" className="text-xs font-bold text-text-main uppercase">Es Tarima</label>
+                    </div>
+                    <div className="flex items-center gap-3 bg-bg-input p-3 rounded-lg border border-border">
+                      <input 
+                        type="checkbox" 
+                        id="isProductive"
+                        checked={formData.isProductive || false} 
+                        onChange={(e) => setFormData({...formData, isProductive: e.target.checked})} 
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                      />
+                      <label htmlFor="isProductive" className="text-xs font-bold text-text-main uppercase">Es Productivo</label>
+                    </div>
+                    <div className="flex items-center gap-3 bg-bg-input p-3 rounded-lg border border-border">
+                      <input 
+                        type="checkbox" 
+                        id="isSupply"
+                        checked={formData.isSupply || false} 
+                        onChange={(e) => setFormData({...formData, isSupply: e.target.checked})} 
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                      />
+                      <label htmlFor="isSupply" className="text-xs font-bold text-text-main uppercase">Es Insumo</label>
+                    </div>
+                    <div className="flex items-center gap-3 bg-bg-input p-3 rounded-lg border border-border">
+                      <input 
+                        type="checkbox" 
+                        id="isBigBag"
+                        checked={formData.isBigBag || false} 
+                        onChange={(e) => setFormData({...formData, isBigBag: e.target.checked})} 
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                      />
+                      <label htmlFor="isBigBag" className="text-xs font-bold text-text-main uppercase">Es BigBag</label>
+                    </div>
+                  </div>
                 </>
               )}
 
@@ -343,8 +507,13 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                 <>
                   <GlassSelect label="Paletizadora" options={masters.palletizers.map((p:any) => ({label: p.name, value: p.id}))} value={formData.palletizerId || ''} onChange={(e:any) => setFormData({...formData, palletizerId: e.target.value})} />
                   <GlassSelect label="Ensacadora" options={masters.baggers.map((b:any) => ({label: b.name, value: b.id}))} value={formData.baggerId || ''} onChange={(e:any) => setFormData({...formData, baggerId: e.target.value})} />
-                  <GlassSelect label="Material" options={masters.materials.map((m:any) => ({label: m.name, value: m.id}))} value={formData.materialId || ''} onChange={(e:any) => setFormData({...formData, materialId: e.target.value})} />
-                  <GlassInput label="BDP" type="number" value={formData.bdp || ''} onChange={(e:any) => setFormData({...formData, bdp: parseFloat(e.target.value)})} />
+                  <GlassSelect 
+                    label="Material (Productivo)" 
+                    options={masters.materials.filter((m:any) => m.isProductive).map((m:any) => ({label: m.name, value: m.id}))} 
+                    value={formData.materialId || ''} 
+                    onChange={(e:any) => setFormData({...formData, materialId: e.target.value})} 
+                  />
+                  <GlassInput label="BDP (TN/H)" type="number" value={formData.bdp || ''} onChange={(e:any) => setFormData({...formData, bdp: parseFloat(e.target.value)})} />
                 </>
               )}
             </div>

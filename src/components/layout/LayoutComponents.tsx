@@ -265,15 +265,15 @@ export function BottomNav({ activeSection, onSectionChange }: { activeSection: s
   };
 
   return (
-    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] flex items-center justify-center pointer-events-none w-full px-6">
-      {/* Click Outside Backdrop */}
+    <>
+      {/* Click Outside Backdrop - Moved outside transform container to fix viewport reference */}
       <AnimatePresence>
         {isOpen && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-[3px] pointer-events-auto"
+            className="fixed inset-0 bg-black/60 backdrop-blur-[3px] z-[150] pointer-events-auto"
             onClick={() => {
               setIsOpen(false);
               setIsUserMenuOpen(false);
@@ -282,22 +282,23 @@ export function BottomNav({ activeSection, onSectionChange }: { activeSection: s
         )}
       </AnimatePresence>
 
-      <div className="relative flex items-center justify-center pointer-events-auto w-full max-w-sm">
-        <AnimatePresence>
-          {isOpen && (
-            <motion.div 
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[160] flex items-center justify-center pointer-events-none w-full px-6">
+        <div className="relative flex items-center justify-center pointer-events-auto w-full max-w-sm">
+          <AnimatePresence>
+            {isOpen && (
+              <motion.div 
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               className={cn(
-                "absolute bottom-full mb-6 left-1/2 -translate-x-1/2",
+                "absolute bottom-full mb-4 left-1/2 -translate-x-1/2",
                 "bg-surface-elevated/95 backdrop-blur-xl border border-border shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]",
-                "rounded-[2.5rem] p-6 w-[320px] sm:w-[450px] z-50 overflow-hidden flex flex-col"
+                "rounded-[2.5rem] p-6 w-[320px] sm:w-[420px] z-[160] overflow-hidden flex flex-col"
               )}
             >
               <h4 className="text-[10px] font-black text-text-muted uppercase tracking-[0.3em] mb-6 text-center opacity-50">Menú Principal</h4>
               
-              <div className="grid grid-cols-3 gap-y-8 gap-x-4 mb-8">
+              <div className="grid grid-cols-3 gap-y-7 gap-x-3 mb-6">
                 {allSections.map((section, idx) => (
                   <motion.button
                     key={section.id}
@@ -305,18 +306,18 @@ export function BottomNav({ activeSection, onSectionChange }: { activeSection: s
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.05 }}
                     onClick={() => handleSelect(section.id)}
-                    className="flex flex-col items-center gap-3 group relative"
+                    className="flex flex-col items-center gap-2.5 group relative"
                   >
                     <div className={cn(
-                      "w-14 h-14 rounded-3xl flex items-center justify-center transition-all duration-300 ring-2 ring-transparent",
+                      "w-12 h-12 rounded-[1.25rem] flex items-center justify-center transition-all duration-300 ring-2 ring-transparent",
                       activeSection === section.id 
                         ? "bg-primary text-white shadow-[0_5px_15px_rgba(0,85,150,0.4)] ring-primary/20 scale-110" 
                         : "bg-surface text-text-muted group-hover:bg-surface-elevated group-hover:text-primary group-hover:scale-105 active:scale-95"
                     )}>
-                      {section.icon}
+                      {React.cloneElement(section.icon as React.ReactElement, { size: 18 })}
                     </div>
                     <span className={cn(
-                      "text-[9px] font-black uppercase tracking-wider text-center transition-colors px-1",
+                      "text-[8px] font-black uppercase tracking-wider text-center transition-colors px-1",
                       activeSection === section.id ? "text-primary" : "text-text-muted group-hover:text-text-main"
                     )}>
                       {section.label}
@@ -326,7 +327,7 @@ export function BottomNav({ activeSection, onSectionChange }: { activeSection: s
               </div>
 
               {/* User Section - Footer of the Menu */}
-              <div className="mt-auto border-t border-border pt-6 -mx-2">
+              <div className="mt-auto border-t border-border pt-5 -mx-2">
                 <div className="px-4">
                   <AnimatePresence mode="wait">
                     {!isUserMenuOpen ? (
@@ -336,16 +337,16 @@ export function BottomNav({ activeSection, onSectionChange }: { activeSection: s
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -5 }}
                         onClick={() => setIsUserMenuOpen(true)}
-                        className="w-full flex items-center gap-4 p-3 rounded-2xl bg-bg/50 hover:bg-bg transition-colors group border border-border/50"
+                        className="w-full flex items-center gap-3 p-2.5 rounded-2xl bg-bg/50 hover:bg-bg transition-colors group border border-border/50"
                       >
-                        <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-sm overflow-hidden shrink-0">
-                          <UserIcon size={20} />
+                        <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-sm overflow-hidden shrink-0">
+                          <UserIcon size={18} />
                         </div>
                         <div className="flex flex-col items-start min-w-0 flex-1">
-                          <span className="text-[11px] font-bold text-text-main truncate w-full text-left uppercase tracking-tight">Operador Holcim</span>
-                          <span className="text-[9px] font-medium text-text-muted truncate w-full text-left opacity-70">joni0627@gmail.com</span>
+                          <span className="text-[10px] font-bold text-text-main truncate w-full text-left uppercase tracking-tight leading-none mb-0.5">Operador Holcim</span>
+                          <span className="text-[8px] font-medium text-text-muted truncate w-full text-left opacity-70">joni0627@gmail.com</span>
                         </div>
-                        <ChevronDown size={14} className="text-text-muted group-hover:text-primary transition-colors shrink-0" />
+                        <ChevronDown size={12} className="text-text-muted group-hover:text-primary transition-colors shrink-0" />
                       </motion.button>
                     ) : (
                       <motion.div
@@ -357,16 +358,16 @@ export function BottomNav({ activeSection, onSectionChange }: { activeSection: s
                       >
                          <button 
                           onClick={() => setIsUserMenuOpen(false)}
-                          className="w-full h-11 px-4 flex items-center gap-3 text-text-muted hover:text-text-main transition-colors text-[10px] font-bold uppercase tracking-widest"
+                          className="w-full h-10 px-4 flex items-center gap-3 text-text-muted hover:text-text-main transition-colors text-[9px] font-bold uppercase tracking-widest"
                         >
-                          <ChevronUp size={14} />
+                          <ChevronUp size={12} />
                           Volver al Menú
                         </button>
                         <button 
                           onClick={handleLogout}
-                          className="w-full h-11 px-4 flex items-center gap-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-all text-[10px] font-black uppercase tracking-[0.2em] group"
+                          className="w-full h-10 px-4 flex items-center gap-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-all text-[9px] font-black uppercase tracking-[0.2em] group"
                         >
-                          <LogOut size={16} className="group-hover:translate-x-1 transition-transform" />
+                          <LogOut size={14} className="group-hover:translate-x-1 transition-transform" />
                           Cerrar Sesión
                         </button>
                       </motion.div>
@@ -383,15 +384,16 @@ export function BottomNav({ activeSection, onSectionChange }: { activeSection: s
           whileTap={{ scale: 0.9 }}
           onClick={() => setIsOpen(!isOpen)}
           className={cn(
-            "w-16 h-16 rounded-full flex items-center justify-center shadow-[0_10px_30px_rgba(0,0,0,0.2)] transition-all duration-300 z-[110]",
+            "w-14 h-14 rounded-full flex items-center justify-center shadow-[0_10px_30px_rgba(0,0,0,0.2)] transition-all duration-300 z-[110]",
             isOpen 
               ? "bg-surface text-primary border border-border rotate-90" 
               : "bg-primary text-white hover:bg-primary-hover hover:scale-105"
           )}
         >
-          {isOpen ? <X size={28} /> : <Home size={28} />}
+          {isOpen ? <X size={24} /> : <Home size={24} />}
         </motion.button>
       </div>
     </div>
-  );
+  </>
+);
 }

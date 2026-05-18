@@ -17,29 +17,36 @@ export interface Machine {
 }
 
 export interface HAC {
-  id: string;
-  detail: string;
-  code: string;
-  objectCode: string;
-  equipment: string;
+  id: string; // idhac automático
+  hac: string; // HAC asignado
+  detail: string; // Detalle HAC (Descripción)
+  gpoCodObjeto: string; // GPO.CÓD. OBJETO (SAP)
+  equipment: string; // EQUIPO (SAP)
 }
 
 export interface Cause {
-  id: string;
-  hacId: string;
-  text: string;
-  partObject: string;
-  symptomGroup: string;
-  symptomCode: string;
-  sapCause: string;
-  causeGroup: string;
-  causeCode: string;
+  id: string; // idparo automático
+  hac: string; // HAC (Consultado de equipos)
+  text: string; // Texto de causa
+  partObject: string; // Parte Objeto (SAP)
+  symptomGroup: string; // GPO.CÓD. SÍNTOMA (SAP)
+  symptomCode: string; // CÓD. SÍNTOMA (SAP)
+  sapCause: string; // CAUSA SAP (SAP)
+  causeGroup: string; // GPO.COD. CAUSA (SAP)
+  causeCode: string; // CÓDIGO CAUSA (SAP)
   stopType: 'INTERNO' | 'EXTERNO';
 }
 
 export interface Material {
   id: string;
-  name: string;
+  name: string;      // Descripción
+  code?: string;      // Código SAP
+  packingWeight: number; // Peso Embalaje (pallet)
+  bagWeight: number;     // Peso bolsa
+  isPallet: boolean;     // Es tarima?
+  isProductive: boolean; // Es productivo?
+  isSupply: boolean;     // Es insumo?
+  isBigBag: boolean;     // Es bigbag?
 }
 
 export interface CapacityBDP {
@@ -83,6 +90,7 @@ export interface ProductionReport {
   palletizerId: string;
   baggerId: string;
   materialId: string;
+  bagsProduced: number;
   tonsProduced: number;
   bdp: number;
   // Nuevos campos operativos
@@ -93,6 +101,39 @@ export interface ProductionReport {
   discardedBagsVentocheck: number;
   discardedBagsTransport: number;
   nozzleNews: NozzleNews[];
+}
+
+export interface DaterControl {
+  id: string; // IDCTRLFECHADOR
+  date: string; // FECHA (ISO)
+  userId: string; // MAQUINISTA (ID)
+  userName: string; // DESCRIPCIÓN MAQUINISTA (Nombre)
+  shiftId: string; // TURNO
+  hac: string; // HAC del fechador
+  purge: 'SI' | 'NO'; // PURGA
+  containerLevel: 'COMPLETO' | 'MEDIO' | 'VACÍO'; // NIVEL RECIPIENTE
+  printQuality: 'BUENO' | 'REGULAR' | 'DEFICIENTE'; // CALIDAD IMPRESION
+  inkStock: number; // STOCK TINTA
+  solventStock: number; // STOCK SOLVENTE
+  headsStock: number; // STOCK CABEZALES
+  observations: string; // OBSERVACIONES
+}
+
+export interface ScaleControl {
+  id: string; // IDCRTLBALANZA
+  date: string; // FECHA
+  userId: string; // MAQUINISTA (ID)
+  userName: string; // DESCRIPCIÓN MAQUINISTA (Nombre)
+  shiftId: string; // TURNO
+  hac: string; // HAC de la balanza
+  weight1: number; // PESO #1
+  weight2: number; // PESO #2
+  weight3: number; // PESO #3
+  patternWeight: number; // PESO PATRÓN
+  average: number; // MEDIA
+  bias: number; // BIAS
+  range: number; // RANGO
+  observations: string;
 }
 
 export interface UserContext {

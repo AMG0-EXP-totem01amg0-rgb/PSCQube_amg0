@@ -230,20 +230,20 @@ export default function StopsView({ masters, onSave, onDelete, palletizerId, shi
           <div className="lg:col-span-4 space-y-6">
             <GlassSelect 
               label="Equipo Afectado (HAC)" 
-              options={masters.hacs.map((h:any) => ({label: h.detail, value: h.id}))} 
+              options={masters.hacs.map((h:any) => ({label: `${h.hac} - ${h.detail}`, value: h.hac}))} 
               value={formData.hacId} 
               onChange={e => setFormData({...formData, hacId: (e.target as HTMLSelectElement).value, causeId: ''})} 
             />
             <GlassSelect 
               label="Causa Específica" 
-              options={masters.causes.filter((c:any) => c.hacId === formData.hacId).map((c:any) => ({label: c.text, value: c.id}))} 
+              options={masters.causes.filter((c:any) => c.hac === formData.hacId).map((c:any) => ({label: c.text, value: c.id}))} 
               value={formData.causeId} 
               onChange={e => setFormData({...formData, causeId: (e.target as HTMLSelectElement).value})} 
               disabled={!formData.hacId} 
             />
           </div>
 
-          <div className="lg:col-span-4 flex flex-col justify-end gap-6 pb-1">
+          <div className="lg:col-span-4 flex flex-col justify-end gap-4 pb-1">
             {error && (
               <motion.div 
                 initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
@@ -253,9 +253,22 @@ export default function StopsView({ masters, onSave, onDelete, palletizerId, shi
                 <p className="text-[10px] font-bold text-red-400 uppercase leading-tight">{error}</p>
               </motion.div>
             )}
-            <GlassButton type="submit" className="w-full h-12 text-sm">
-              {editingId ? 'Actualizar Registro' : 'Agregar Paro a Tabla'}
-            </GlassButton>
+            
+            <div className="flex gap-2">
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={() => setDeletingId(editingId)}
+                  className="w-14 h-12 flex items-center justify-center rounded-xl bg-danger/10 text-danger hover:bg-danger hover:text-white transition-all border border-danger/20"
+                  title="Eliminar registro"
+                >
+                  <Trash2 size={20} />
+                </button>
+              )}
+              <GlassButton type="submit" className="flex-1 h-12 text-sm">
+                {editingId ? 'Actualizar Registro' : 'Agregar Paro a Tabla'}
+              </GlassButton>
+            </div>
           </div>
         </form>
       </GlassCard>
@@ -263,9 +276,18 @@ export default function StopsView({ masters, onSave, onDelete, palletizerId, shi
       <ConfirmModal 
         isOpen={!!deletingId}
         onClose={() => setDeletingId(null)}
-        onConfirm={() => deletingId && onDelete(deletingId)}
+        onConfirm={() => {
+          if (deletingId) {
+            onDelete(deletingId);
+            setDeletingId(null);
+            if (deletingId === editingId) {
+              setEditingId(null);
+              setFormData({ materialId: '', startTime: '', endTime: '', hacId: '', causeId: '', observations: '' });
+            }
+          }
+        }}
         title="Confirmar eliminación"
-        message="¿Querés eliminar este registro? Esta acción no se puede deshacer."
+        message="¿Querés eliminar este registro de paro? Esta acción no se puede deshacer."
       />
     </motion.div>
   );

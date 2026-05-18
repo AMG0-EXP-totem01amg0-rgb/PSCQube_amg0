@@ -110,10 +110,10 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]"
             onClick={onClose}
           />
-          <div className="fixed inset-0 flex items-center justify-center z-[101] p-4 pointer-events-none">
+          <div className="fixed inset-0 flex items-center justify-center z-[201] p-4 pointer-events-none">
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -157,10 +157,10 @@ export function ConfirmModal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]"
             onClick={onClose}
           />
-          <div className="fixed inset-0 flex items-center justify-center z-[101] p-4 pointer-events-none">
+          <div className="fixed inset-0 flex items-center justify-center z-[201] p-4 pointer-events-none">
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}

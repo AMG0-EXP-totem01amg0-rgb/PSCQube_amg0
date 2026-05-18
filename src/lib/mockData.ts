@@ -20,21 +20,55 @@ export const BAGGERS: Machine[] = [
 ];
 
 export const MATERIALS: Material[] = [
-  { id: 'M1', name: 'Material A' },
-  { id: 'M2', name: 'Material B' },
-  { id: 'M3', name: 'Material C' },
+  { 
+    id: 'M1', 
+    name: 'Cemento 50kg', 
+    code: 'SAP-101', 
+    packingWeight: 1500, 
+    bagWeight: 50, 
+    isPallet: false, 
+    isProductive: true, 
+    isSupply: false, 
+    isBigBag: false 
+  },
+  { 
+    id: 'M2', 
+    name: 'Tarima Madera', 
+    code: 'SAP-102', 
+    packingWeight: 25, 
+    bagWeight: 0, 
+    isPallet: true, 
+    isProductive: false, 
+    isSupply: true, 
+    isBigBag: false 
+  },
+  { 
+    id: 'M3', 
+    name: 'Bolson BigBag', 
+    code: 'SAP-103', 
+    packingWeight: 1000, 
+    bagWeight: 1000, 
+    isPallet: false, 
+    isProductive: true, 
+    isSupply: false, 
+    isBigBag: true 
+  },
 ];
 
 export const HACS: HAC[] = [
-  { id: 'H1', detail: 'SISTEMA DE AIRE', code: 'AIR01', objectCode: 'OBJ01', equipment: 'COMPRESOR' },
-  { id: 'H2', detail: 'SISTEMA HIDRAULICO', code: 'HYD01', objectCode: 'OBJ02', equipment: 'BOMBA HP' },
-  { id: 'H3', detail: 'ELECTRICO', code: 'ELE01', objectCode: 'OBJ03', equipment: 'PLC MAIN' },
+  { id: 'H1', hac: 'HAC-001', detail: 'SISTEMA DE AIRE', gpoCodObjeto: 'OBJ01', equipment: 'COMPRESOR' },
+  { id: 'H2', hac: 'HAC-002', detail: 'SISTEMA HIDRAULICO', gpoCodObjeto: 'OBJ02', equipment: 'BOMBA HP' },
+  { id: 'H3', hac: 'HAC-003', detail: 'ELECTRICO', gpoCodObjeto: 'OBJ03', equipment: 'PLC MAIN' },
+  { id: 'H4', hac: 'HAC-004', detail: 'FECHADOR LINX', gpoCodObjeto: 'OBJ04', equipment: 'FECHADOR' },
+  { id: 'H5', hac: 'HAC-005', detail: 'FECHADOR VIDEOJET', gpoCodObjeto: 'OBJ05', equipment: 'FECHADOR' },
+  { id: 'H6', hac: 'HAC-006', detail: 'BALANZA DINAMICA #1', gpoCodObjeto: 'OBJ06', equipment: 'BALANZA' },
+  { id: 'H7', hac: 'HAC-007', detail: 'BALANZA DINAMICA #2', gpoCodObjeto: 'OBJ07', equipment: 'BALANZA' },
 ];
 
 export const CAUSES: Cause[] = [
-  { id: 'C1', hacId: 'H1', text: 'FALTA DE PRESION', partObject: 'VALVULA', symptomGroup: 'G1', symptomCode: 'S1', sapCause: 'C-01', causeGroup: 'G1', causeCode: 'CC01', stopType: 'INTERNO' },
-  { id: 'C2', hacId: 'H1', text: 'FALTA DE ENERGIA (PLANTA)', partObject: 'PLANTA', symptomGroup: 'G2', symptomCode: 'S2', sapCause: 'C-02', causeGroup: 'G2', causeCode: 'CC02', stopType: 'EXTERNO' },
-  { id: 'C3', hacId: 'H2', text: 'FUGA DE ACEITE', partObject: 'MANGUERA', symptomGroup: 'G3', symptomCode: 'S3', sapCause: 'C-03', causeGroup: 'G3', causeCode: 'CC03', stopType: 'INTERNO' },
+  { id: 'C1', hac: 'HAC-001', text: 'FALTA DE PRESION', partObject: 'VALVULA', symptomGroup: 'G1', symptomCode: 'S1', sapCause: 'C-01', causeGroup: 'G1', causeCode: 'CC01', stopType: 'INTERNO' },
+  { id: 'C2', hac: 'HAC-001', text: 'FALTA DE ENERGIA (PLANTA)', partObject: 'PLANTA', symptomGroup: 'G2', symptomCode: 'S2', sapCause: 'C-02', causeGroup: 'G2', causeCode: 'CC02', stopType: 'EXTERNO' },
+  { id: 'C3', hac: 'HAC-002', text: 'FUGA DE ACEITE', partObject: 'MANGUERA', symptomGroup: 'G3', symptomCode: 'S3', sapCause: 'C-03', causeGroup: 'G3', causeCode: 'CC03', stopType: 'INTERNO' },
 ];
 
 export const CAPACITIES: CapacityBDP[] = [
