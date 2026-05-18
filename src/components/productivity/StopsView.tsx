@@ -287,7 +287,7 @@ export default function StopsView({ masters, onSave, onDelete, palletizerId, shi
           }
         }}
         title="Confirmar eliminación"
-        message="¿Querés eliminar este registro de paro? Esta acción no se puede deshacer."
+        message="¿Querés eliminar este registro de paro?"
       />
     </motion.div>
   );
