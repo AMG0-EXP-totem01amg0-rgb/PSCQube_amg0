@@ -22,6 +22,8 @@ export interface HAC {
   detail: string; // Detalle HAC (Descripción)
   gpoCodObjeto: string; // GPO.CÓD. OBJETO (SAP)
   equipment: string; // EQUIPO (SAP)
+  isDater: boolean; // Control Fechador?
+  isScale: boolean; // Control Balanza?
 }
 
 export interface Cause {

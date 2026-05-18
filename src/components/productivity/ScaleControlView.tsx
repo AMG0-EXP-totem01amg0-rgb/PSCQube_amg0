@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { motion } from 'motion/react';
-import { Activity, Plus, Trash2, Save, Scale } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Activity, Plus, Trash2, Save, Scale, Calendar, FilterX } from 'lucide-react';
 import { MasterData, ScaleControl } from '../../types';
-import { DataTable, Column } from '../ui/DataTable';
+import { DataTable, Column, TableActions } from '../ui/DataTable';
 import { GlassCard, GlassButton, GlassInput, GlassSelect, ConfirmModal } from '../ui/GlassUI';
 import { cn } from '../../lib/utils';
+import { format, isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 
 interface Props {
   masters: MasterData;
@@ -18,6 +19,11 @@ interface Props {
 export default function ScaleControlView({ masters, onSave, onDelete, history, selectedShiftId, selectedDate }: Props) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  
+  // Range for audits
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+
   const [formData, setFormData] = useState<Partial<ScaleControl>>({
     hac: '',
     weight1: 0,
@@ -28,12 +34,25 @@ export default function ScaleControlView({ masters, onSave, onDelete, history, s
   });
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Filter HACS to only show Scales
-  const scaleHacs = masters.hacs.filter(h => 
-    h.detail.toUpperCase().includes('BALANZA') || 
-    h.equipment.toUpperCase().includes('BALANZA') ||
-    h.detail.toUpperCase().includes('BASCULA')
-  );
+  // Filter HACS to only show Scales based on the new isScale flag
+  const scaleHacs = masters.hacs.filter(h => h.isScale);
+
+  // Filter history based on range or selectedDate
+  const filteredHistory = useMemo(() => {
+    if (dateFrom && dateTo) {
+      try {
+        const start = startOfDay(parseISO(dateFrom));
+        const end = endOfDay(parseISO(dateTo));
+        return history.filter(item => {
+          const itemDate = parseISO(item.date);
+          return isWithinInterval(itemDate, { start, end });
+        });
+      } catch (e) {
+        return history;
+      }
+    }
+    return history;
+  }, [history, dateFrom, dateTo]);
 
   // Computed fields
   const computed = useMemo(() => {
@@ -78,6 +97,7 @@ export default function ScaleControlView({ masters, onSave, onDelete, history, s
   };
 
   const columns: Column<ScaleControl>[] = [
+    { header: 'Fecha', accessor: (row) => <span className="text-[10px] opacity-70">{format(parseISO(row.date), 'dd/MM/yyyy')}</span> },
     { header: 'HAC', accessor: (row) => <span className="font-bold text-primary">{row.hac}</span> },
     { header: 'P1', accessor: (row) => row.weight1.toFixed(2) },
     { header: 'P2', accessor: (row) => row.weight2.toFixed(2) },
@@ -98,19 +118,16 @@ export default function ScaleControlView({ masters, onSave, onDelete, history, s
     { header: 'Rango', accessor: (row) => row.range.toFixed(2) },
     { 
       header: 'Acciones', 
+      align: 'right',
       accessor: (row) => (
-        <div className="flex gap-2">
-          <button onClick={() => {
+        <TableActions 
+          onEdit={() => {
             setFormData(row);
             setEditingId(row.id);
             setIsFormOpen(true);
-          }} className="p-1.5 text-text-muted hover:text-primary transition-colors">
-            <Activity size={14} />
-          </button>
-          <button onClick={() => setDeletingId(row.id)} className="p-1.5 text-text-muted hover:text-danger transition-colors">
-            <Trash2 size={14} />
-          </button>
-        </div>
+          }}
+          onDelete={() => setDeletingId(row.id)}
+        />
       )
     }
   ];
@@ -118,104 +135,135 @@ export default function ScaleControlView({ masters, onSave, onDelete, history, s
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface/50 p-4 rounded-2xl border border-border">
-        <div>
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Scale size={24} className="text-primary" />
-            Control de Balanzas
-          </h2>
-          <p className="text-xs text-text-muted">Verificación de precisión, media, bias y rango de las balanzas de ensacado</p>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+            <Scale size={24} />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold tracking-tight">Control de Balanzas</h2>
+            <p className="text-xs text-text-muted">Verificación de precisión y exactitud</p>
+          </div>
         </div>
-        {!isFormOpen && (
-          <GlassButton onClick={() => { setEditingId(null); setIsFormOpen(true); }} className="h-11">
-            <Plus size={18} /> Nuevo Control
-          </GlassButton>
-        )}
+        <div className="flex items-center gap-2">
+           <div className="flex items-center gap-2 px-3 py-1.5 bg-bg/50 rounded-xl border border-border">
+            <Calendar size={14} className="text-primary" />
+            <div className="flex items-center gap-2">
+              <input 
+                type="date" 
+                value={dateFrom} 
+                onChange={e => setDateFrom(e.target.value)}
+                className="bg-transparent border-none text-[10px] p-0 focus:ring-0 uppercase font-bold text-text-main"
+              />
+              <span className="text-[10px] text-text-muted">A</span>
+              <input 
+                type="date" 
+                value={dateTo} 
+                onChange={e => setDateTo(e.target.value)}
+                className="bg-transparent border-none text-[10px] p-0 focus:ring-0 uppercase font-bold text-text-main"
+              />
+              {(dateFrom || dateTo) && (
+                <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="p-1 hover:text-danger transition-colors">
+                  <FilterX size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+          {!isFormOpen && (
+            <GlassButton onClick={() => { setEditingId(null); setIsFormOpen(true); }} className="h-10 px-4">
+              <Plus size={18} /> <span className="hidden sm:inline ml-2">Nuevo Control</span>
+            </GlassButton>
+          )}
+        </div>
       </div>
 
-      {isFormOpen && (
-        <GlassCard className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-sm font-bold uppercase tracking-widest">{editingId ? 'Editar' : 'Nuevo'} Control de Balanza</h3>
-            <button onClick={() => setIsFormOpen(false)} className="text-text-muted hover:text-text-main"><Plus className="rotate-45" size={20} /></button>
-          </div>
-          
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <GlassSelect 
-                label="HAC (Balanza)" 
-                options={scaleHacs.map(h => ({ label: `${h.hac} - ${h.detail}`, value: h.hac }))}
-                value={formData.hac}
-                onChange={e => setFormData({...formData, hac: e.target.value})}
-                required
-              />
-              <GlassInput 
-                type="number" 
-                step="0.01"
-                label="Peso #1 (kg)" 
-                value={formData.weight1} 
-                onChange={e => setFormData({...formData, weight1: e.target.value})} 
-              />
-              <GlassInput 
-                type="number" 
-                step="0.01"
-                label="Peso #2 (kg)" 
-                value={formData.weight2} 
-                onChange={e => setFormData({...formData, weight2: e.target.value})} 
-              />
-              <GlassInput 
-                type="number" 
-                step="0.01"
-                label="Peso #3 (kg)" 
-                value={formData.weight3} 
-                onChange={e => setFormData({...formData, weight3: e.target.value})} 
-              />
-              <GlassInput 
-                type="number" 
-                step="0.01"
-                label="Peso Patrón (kg)" 
-                value={formData.patternWeight} 
-                onChange={e => setFormData({...formData, patternWeight: e.target.value})} 
-              />
-              
-              <div className="bg-bg/50 p-4 rounded-xl border border-border flex flex-col justify-center">
-                <span className="text-[10px] uppercase font-bold text-text-muted mb-1">Media (Promedio)</span>
-                <span className="text-xl font-mono font-bold text-primary">{computed.average.toFixed(2)}</span>
+      <AnimatePresence>
+        {isFormOpen && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
+            <GlassCard className="p-6 overflow-hidden">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-sm font-bold uppercase tracking-widest">{editingId ? 'Editar' : 'Nuevo'} Control de Balanza</h3>
+                <button onClick={() => setIsFormOpen(false)} className="text-text-muted hover:text-text-main transition-colors"><Plus className="rotate-45" size={20} /></button>
               </div>
               
-              <div className="bg-bg/50 p-4 rounded-xl border border-border flex flex-col justify-center">
-                <span className="text-[10px] uppercase font-bold text-text-muted mb-1">Bias (Error)</span>
-                <span className={cn("text-xl font-mono font-bold", Math.abs(computed.bias) > 0.5 ? "text-red-400" : "text-green-400")}>
-                  {computed.bias.toFixed(2)}
-                </span>
-              </div>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  <GlassSelect 
+                    label="HAC (Balanza)" 
+                    options={scaleHacs.map(h => ({ label: `${h.hac} - ${h.detail}`, value: h.hac }))}
+                    value={formData.hac}
+                    onChange={e => setFormData({...formData, hac: e.target.value})}
+                    required
+                  />
+                  <GlassInput 
+                    type="number" 
+                    step="0.01"
+                    label="Peso #1 (kg)" 
+                    value={formData.weight1} 
+                    onChange={e => setFormData({...formData, weight1: e.target.value})} 
+                  />
+                  <GlassInput 
+                    type="number" 
+                    step="0.01"
+                    label="Peso #2 (kg)" 
+                    value={formData.weight2} 
+                    onChange={e => setFormData({...formData, weight2: e.target.value})} 
+                  />
+                  <GlassInput 
+                    type="number" 
+                    step="0.01"
+                    label="Peso #3 (kg)" 
+                    value={formData.weight3} 
+                    onChange={e => setFormData({...formData, weight3: e.target.value})} 
+                  />
+                  <GlassInput 
+                    type="number" 
+                    step="0.01"
+                    label="Peso Patrón (kg)" 
+                    value={formData.patternWeight} 
+                    onChange={e => setFormData({...formData, patternWeight: e.target.value})} 
+                  />
+                  
+                  <div className="bg-bg/50 p-4 rounded-xl border border-border flex flex-col justify-center">
+                    <span className="text-[10px] uppercase font-bold text-text-muted mb-1">Media (Promedio)</span>
+                    <span className="text-xl font-mono font-bold text-primary">{computed.average.toFixed(2)}</span>
+                  </div>
+                  
+                  <div className="bg-bg/50 p-4 rounded-xl border border-border flex flex-col justify-center">
+                    <span className="text-[10px] uppercase font-bold text-text-muted mb-1">Bias (Error)</span>
+                    <span className={cn("text-xl font-mono font-bold", Math.abs(computed.bias) > 0.5 ? "text-red-400" : "text-green-400")}>
+                      {computed.bias.toFixed(2)}
+                    </span>
+                  </div>
 
-              <div className="bg-bg/50 p-4 rounded-xl border border-border flex flex-col justify-center">
-                <span className="text-[10px] uppercase font-bold text-text-muted mb-1">Rango (Dispersion)</span>
-                <span className="text-xl font-mono font-bold text-text-main">{computed.range.toFixed(2)}</span>
-              </div>
-            </div>
+                  <div className="bg-bg/50 p-4 rounded-xl border border-border flex flex-col justify-center">
+                    <span className="text-[10px] uppercase font-bold text-text-muted mb-1">Rango (Dispersion)</span>
+                    <span className="text-xl font-mono font-bold text-text-main">{computed.range.toFixed(2)}</span>
+                  </div>
+                </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="md:col-span-2">
-                <GlassInput 
-                  label="Observaciones" 
-                  value={formData.observations} 
-                  onChange={e => setFormData({...formData, observations: e.target.value})} 
-                />
-              </div>
-              <div className="flex items-end gap-3">
-                <GlassButton variant="secondary" onClick={() => setIsFormOpen(false)} className="flex-1 h-10">Cancelar</GlassButton>
-                <GlassButton type="submit" className="flex-1 h-10">
-                  <Save size={16} /> Guardar
-                </GlassButton>
-              </div>
-            </div>
-          </form>
-        </GlassCard>
-      )}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="md:col-span-2">
+                    <GlassInput 
+                      label="Observaciones" 
+                      value={formData.observations} 
+                      onChange={e => setFormData({...formData, observations: e.target.value})} 
+                    />
+                  </div>
+                  <div className="flex items-end gap-3">
+                    <GlassButton variant="secondary" onClick={() => setIsFormOpen(false)} className="flex-1 h-10">Cancelar</GlassButton>
+                    <GlassButton type="submit" className="flex-1 h-10">
+                      <Save size={16} /> Guardar
+                    </GlassButton>
+                  </div>
+                </div>
+              </form>
+            </GlassCard>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      <GlassCard className="overflow-hidden">
-        <DataTable data={history} columns={columns} />
+      <GlassCard className="overflow-hidden border border-white/10 shadow-2xl">
+        <DataTable data={filteredHistory} columns={columns} />
       </GlassCard>
 
       <ConfirmModal 

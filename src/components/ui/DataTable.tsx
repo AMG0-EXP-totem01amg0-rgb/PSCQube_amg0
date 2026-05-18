@@ -1,7 +1,7 @@
 import React from 'react';
 import { cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Pencil, Trash2 } from 'lucide-react';
 
 export interface Column<T> {
   header: string;
@@ -9,6 +9,31 @@ export interface Column<T> {
   className?: string; // Classes for header
   cellClassName?: string; // Classes for cell
   align?: 'left' | 'center' | 'right';
+}
+
+export function TableActions({ onEdit, onDelete }: { onEdit?: () => void; onDelete?: () => void }) {
+  return (
+    <div className="flex items-center justify-end gap-1.5">
+      {onEdit && (
+        <button 
+          onClick={(e) => { e.stopPropagation(); onEdit(); }}
+          className="p-2 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all active:scale-90 border border-primary/20"
+          title="Editar"
+        >
+          <Pencil size={12} />
+        </button>
+      )}
+      {onDelete && (
+        <button 
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          className="p-2 rounded-lg bg-danger/10 text-danger hover:bg-danger hover:text-white transition-all active:scale-90 border border-danger/20"
+          title="Eliminar"
+        >
+          <Trash2 size={12} />
+        </button>
+      )}
+    </div>
+  );
 }
 
 interface DataTableProps<T> {

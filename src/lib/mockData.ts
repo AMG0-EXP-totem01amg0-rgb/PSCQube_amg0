@@ -56,13 +56,13 @@ export const MATERIALS: Material[] = [
 ];
 
 export const HACS: HAC[] = [
-  { id: 'H1', hac: 'HAC-001', detail: 'SISTEMA DE AIRE', gpoCodObjeto: 'OBJ01', equipment: 'COMPRESOR' },
-  { id: 'H2', hac: 'HAC-002', detail: 'SISTEMA HIDRAULICO', gpoCodObjeto: 'OBJ02', equipment: 'BOMBA HP' },
-  { id: 'H3', hac: 'HAC-003', detail: 'ELECTRICO', gpoCodObjeto: 'OBJ03', equipment: 'PLC MAIN' },
-  { id: 'H4', hac: 'HAC-004', detail: 'FECHADOR LINX', gpoCodObjeto: 'OBJ04', equipment: 'FECHADOR' },
-  { id: 'H5', hac: 'HAC-005', detail: 'FECHADOR VIDEOJET', gpoCodObjeto: 'OBJ05', equipment: 'FECHADOR' },
-  { id: 'H6', hac: 'HAC-006', detail: 'BALANZA DINAMICA #1', gpoCodObjeto: 'OBJ06', equipment: 'BALANZA' },
-  { id: 'H7', hac: 'HAC-007', detail: 'BALANZA DINAMICA #2', gpoCodObjeto: 'OBJ07', equipment: 'BALANZA' },
+  { id: 'H1', hac: 'HAC-001', detail: 'SISTEMA DE AIRE', gpoCodObjeto: 'OBJ01', equipment: 'COMPRESOR', isDater: false, isScale: false },
+  { id: 'H2', hac: 'HAC-002', detail: 'SISTEMA HIDRAULICO', gpoCodObjeto: 'OBJ02', equipment: 'BOMBA HP', isDater: false, isScale: false },
+  { id: 'H3', hac: 'HAC-003', detail: 'ELECTRICO', gpoCodObjeto: 'OBJ03', equipment: 'PLC MAIN', isDater: false, isScale: false },
+  { id: 'H4', hac: 'HAC-004', detail: 'FECHADOR LINX', gpoCodObjeto: 'OBJ04', equipment: 'FECHADOR', isDater: true, isScale: false },
+  { id: 'H5', hac: 'HAC-005', detail: 'FECHADOR VIDEOJET', gpoCodObjeto: 'OBJ05', equipment: 'FECHADOR', isDater: true, isScale: false },
+  { id: 'H6', hac: 'HAC-006', detail: 'BALANZA DINAMICA #1', gpoCodObjeto: 'OBJ06', equipment: 'BALANZA', isDater: false, isScale: true },
+  { id: 'H7', hac: 'HAC-007', detail: 'BALANZA DINAMICA #2', gpoCodObjeto: 'OBJ07', equipment: 'BALANZA', isDater: false, isScale: true },
 ];
 
 export const CAUSES: Cause[] = [

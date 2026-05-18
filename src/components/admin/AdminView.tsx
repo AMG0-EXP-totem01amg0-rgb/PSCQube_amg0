@@ -4,7 +4,7 @@ import { Settings, Search, Plus, Pencil, Trash2, X, Save, FileUp } from 'lucide-
 import { MasterData, Shift, HAC, Cause } from '../../types';
 import * as XLSX from 'xlsx';
 import { cn } from '../../lib/utils';
-import { DataTable, Column } from '../ui/DataTable';
+import { DataTable, Column, TableActions } from '../ui/DataTable';
 import { ConfirmModal, GlassButton, GlassInput, GlassSelect } from '../ui/GlassUI';
 
 interface Props {
@@ -89,27 +89,17 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
     setEditingItem(null);
   };
 
-  const actionsColumn = (row: any): Column<any> => ({
+  const actionsColumn = (row?: any): Column<any> => ({
     header: 'Acciones',
     align: 'right',
     accessor: (r) => (
-      <div className="flex items-center justify-end gap-1">
-        <button 
-          onClick={() => { setEditingItem(r); setIsFormOpen(true); }}
-          className="p-2 text-text-muted hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
-        >
-          <Pencil size={14} />
-        </button>
-        <button 
-          onClick={() => {
-            const id = activeTab === 'CAPACITIES' ? `${r.palletizerId}-${r.baggerId}-${r.materialId}` : r.id;
-            setDeletingId(id);
-          }}
-          className="p-2 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-        >
-          <Trash2 size={14} />
-        </button>
-      </div>
+      <TableActions 
+        onEdit={() => { setEditingItem(r); setIsFormOpen(true); }}
+        onDelete={() => {
+          const id = activeTab === 'CAPACITIES' ? `${r.palletizerId}-${r.baggerId}-${r.materialId}` : r.id;
+          setDeletingId(id);
+        }}
+      />
     )
   });
 
@@ -118,20 +108,20 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
     { header: 'Inicio', accessor: 'startTime' },
     { header: 'Fin', accessor: 'endTime' },
     { header: 'Hs', accessor: (row) => <span className="font-bold text-primary">{row.durationHours}H</span> },
-    actionsColumn(null)
+    actionsColumn()
   ];
 
   const machineColumns: Column<any>[] = [
     { header: 'Descripción', accessor: (row) => <span className="font-bold text-text-main">{row.name}</span> },
     { header: 'HAC ID', accessor: 'hacId' },
-    actionsColumn(null)
+    actionsColumn()
   ];
 
   const baggerColumns: Column<any>[] = [
     { header: 'Descripción', accessor: (row) => <span className="font-bold text-text-main">{row.name}</span> },
     { header: 'HAC', accessor: 'hacId' },
     { header: 'Boquillas', accessor: (row) => <span className="font-bold text-primary">{row.nozzles}</span> },
-    actionsColumn(null)
+    actionsColumn()
   ];
 
   const hacColumns: Column<any>[] = [
@@ -139,7 +129,21 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
     { header: 'Detalle', accessor: (row) => <span className="font-bold text-text-main uppercase">{row.detail}</span> },
     { header: 'GPO Cód. Objeto', accessor: 'gpoCodObjeto' },
     { header: 'Equipo', accessor: 'equipment' },
-    actionsColumn(null)
+    { 
+      header: 'Ctrl F/B', 
+      align: 'center',
+      accessor: (row) => (
+        <div className="flex justify-center gap-1.5">
+          {row.isDater && (
+            <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)] animate-pulse" title="Fechador" />
+          )}
+          {row.isScale && (
+            <div className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)] animate-pulse" title="Balanza" />
+          )}
+        </div>
+      )
+    },
+    actionsColumn()
   ];
 
   const causeColumns: Column<any>[] = [
@@ -154,7 +158,7 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
       </span>
     )},
     { header: 'PARTE/CAUSA SAP', accessor: (row) => <span className="text-[9px] font-mono opacity-70">P: {row.partObject} / C: {row.causeCode}</span> },
-    actionsColumn(null)
+    actionsColumn()
   ];
 
   const materialColumns: Column<any>[] = [
@@ -170,7 +174,7 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
         {row.isBigBag && <span className="bg-orange-500/10 text-orange-500 border border-orange-500/20 px-1 py-0.5 rounded text-[8px] font-bold">BIGBAG</span>}
       </div>
     )},
-    actionsColumn(null)
+    actionsColumn()
   ];
 
   const capacityColumns: Column<any>[] = [
@@ -178,7 +182,7 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
     { header: 'Ensacadora', accessor: (row) => masters.baggers.find(b => b.id === row.baggerId)?.name || 'N/A' },
     { header: 'Material', accessor: (row) => masters.materials.find(m => m.id === row.materialId)?.name || 'N/A' },
     { header: 'BDP', accessor: (row) => <span className="font-black text-text-main">{row.bdp} TN/H</span> },
-    actionsColumn(null)
+    actionsColumn()
   ];
 
   const handleExcelImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -212,7 +216,9 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
           hac: String(row.HAC || row.hac || ''),
           detail: String(row['Detalle HAC'] || row.detail || ''),
           gpoCodObjeto: String(row['GPO.CÓD. OBJETO'] || row.gpoCodObjeto || ''),
-          equipment: String(row.EQUIPO || row.equipment || '')
+          equipment: String(row.EQUIPO || row.equipment || ''),
+          isDater: !!(row['Control Fechador?'] || row.isDater),
+          isScale: !!(row['Control Balanza?'] || row.isScale)
         };
       } else if (activeTab === 'CAUSES') {
         item = {
@@ -424,6 +430,26 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                   <GlassInput label="Detalle HAC" value={formData.detail || ''} onChange={(e:any) => setFormData({...formData, detail: e.target.value})} />
                   <GlassInput label="GPO.CÓD. OBJETO (SAP)" value={formData.gpoCodObjeto || ''} onChange={(e:any) => setFormData({...formData, gpoCodObjeto: e.target.value})} />
                   <GlassInput label="EQUIPO (SAP)" value={formData.equipment || ''} onChange={(e:any) => setFormData({...formData, equipment: e.target.value})} />
+                  <div className="flex gap-6 p-4 bg-primary/5 rounded-xl border border-primary/10 mt-2">
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                      <input 
+                        type="checkbox" 
+                        checked={formData.isDater || false} 
+                        onChange={(e) => setFormData({...formData, isDater: e.target.checked})}
+                        className="w-4 h-4 rounded border-border bg-bg text-primary focus:ring-primary/50"
+                      />
+                      <span className="text-[10px] font-bold uppercase tracking-wider group-hover:text-primary transition-colors">Control Fechador?</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                      <input 
+                        type="checkbox" 
+                        checked={formData.isScale || false} 
+                        onChange={(e) => setFormData({...formData, isScale: e.target.checked})}
+                        className="w-4 h-4 rounded border-border bg-bg text-primary focus:ring-primary/50"
+                      />
+                      <span className="text-[10px] font-bold uppercase tracking-wider group-hover:text-primary transition-colors">Control Balanza?</span>
+                    </label>
+                  </div>
                 </>
               )}
 

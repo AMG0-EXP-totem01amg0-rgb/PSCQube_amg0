@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Package, Plus, Trash2, History, Pencil, TrendingUp, Filter, BarChart3, Clock, AlertCircle, ShieldCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { GlassCard, GlassInput, GlassSelect, GlassButton, ConfirmModal, Modal } from '../ui/GlassUI';
-import { DataTable, Column } from '../ui/DataTable';
+import { DataTable, Column, TableActions } from '../ui/DataTable';
 import { MasterData, ProductionReport, NozzleNews } from '../../types';
 import { cn } from '../../lib/utils';
 
@@ -227,20 +227,10 @@ export default function ProductionView({ masters, onSave, onDelete, palletizerId
       header: 'Acciones',
       align: 'right',
       accessor: (row) => (
-        <div className="flex items-center justify-end gap-1">
-          <button 
-            onClick={() => handleOpenEdit(row)}
-            className="p-2 text-text-muted hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
-          >
-            <Pencil size={14} />
-          </button>
-          <button 
-            onClick={() => setDeletingId(row.id)}
-            className="p-2 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-          >
-            <Trash2 size={14} />
-          </button>
-        </div>
+        <TableActions 
+          onEdit={() => handleOpenEdit(row)}
+          onDelete={() => setDeletingId(row.id)}
+        />
       )
     }
   ];
@@ -266,12 +256,9 @@ export default function ProductionView({ masters, onSave, onDelete, palletizerId
       header: '',
       align: 'right',
       accessor: (row) => (
-        <button 
-          onClick={() => removeNozzleNews(row.id)}
-          className="p-1.5 text-text-muted hover:text-red-500 rounded-lg"
-        >
-          <Trash2 size={12} />
-        </button>
+        <TableActions 
+          onDelete={() => removeNozzleNews(row.id)}
+        />
       )
     }
   ];
