@@ -87,20 +87,19 @@ export default function DaterControlView({ masters, onSave, onDelete, history, s
     { header: 'Nivel', accessor: 'containerLevel' },
     { header: 'Calidad', accessor: 'printQuality' },
     { 
-      header: 'Stocks (T/S/C)', 
+      header: 'Stocks (T | S | C)', 
+      align: 'center',
       accessor: (row) => (
-        <div className="flex gap-1.5">
-          <div className="flex flex-col items-center">
-             <span className="text-[7px] font-bold text-blue-400 leading-none">T</span>
-             <span className={cn("text-[10px] font-mono", row.inkStock < 2 ? "text-red-400 font-bold" : "text-text-main")}>{row.inkStock}</span>
+        <div className="inline-flex flex-col items-center min-w-[90px] bg-bg/30 py-1 px-2 rounded-lg border border-white/5">
+          <div className="grid grid-cols-3 w-full text-[8px] font-black text-text-muted border-b border-white/10 pb-1 mb-1">
+             <div className="text-blue-400">T</div>
+             <div className="text-cyan-400 border-x border-white/10">S</div>
+             <div className="text-purple-400">C</div>
           </div>
-          <div className="flex flex-col items-center">
-             <span className="text-[7px] font-bold text-cyan-400 leading-none">S</span>
-             <span className={cn("text-[10px] font-mono", row.solventStock < 2 ? "text-red-400 font-bold" : "text-text-main")}>{row.solventStock}</span>
-          </div>
-          <div className="flex flex-col items-center">
-             <span className="text-[7px] font-bold text-purple-400 leading-none">C</span>
-             <span className={cn("text-[10px] font-mono", row.headsStock < 1 ? "text-red-400 font-bold" : "text-text-main")}>{row.headsStock}</span>
+          <div className="grid grid-cols-3 w-full font-mono text-[11px] leading-none">
+             <div className={cn(row.inkStock < 2 ? "text-red-400 font-bold" : "text-text-main")}>{row.inkStock}</div>
+             <div className={cn("border-x border-white/10 px-1", row.solventStock < 2 ? "text-red-400 font-bold" : "text-text-main")}>{row.solventStock}</div>
+             <div className={cn(row.headsStock < 1 ? "text-red-400 font-bold" : "text-text-main")}>{row.headsStock}</div>
           </div>
         </div>
       )

@@ -18,13 +18,14 @@ import StopsView from './components/productivity/StopsView';
 import ProductionView from './components/productivity/ProductionView';
 import DaterControlView from './components/productivity/DaterControlView';
 import ScaleControlView from './components/productivity/ScaleControlView';
+import InventoryView from './components/productivity/InventoryView';
 import AdminView from './components/admin/AdminView';
 import PlaceholderView from './components/PlaceholderView';
 import WelcomeScreen from './components/auth/WelcomeScreen';
 
 // Lib & Types
 import { cn } from './lib/utils';
-import { Shift, MachineStop, ProductionReport, DaterControl, ScaleControl, UserContext, MasterData } from './types';
+import { Shift, MachineStop, ProductionReport, DaterControl, ScaleControl, InventoryEntry, UserContext, MasterData } from './types';
 import { SHIFTS, PALLETIZERS, BAGGERS, MATERIALS, HACS, CAUSES, CAPACITIES } from './lib/mockData';
 
 // --- Utilities ---
@@ -82,6 +83,7 @@ export default function App() {
   const [productionReports, setProductionReports] = useState<ProductionReport[]>([]);
   const [daterControls, setDaterControls] = useState<DaterControl[]>([]);
   const [scaleControls, setScaleControls] = useState<ScaleControl[]>([]);
+  const [inventoryEntries, setInventoryEntries] = useState<InventoryEntry[]>([]);
   
   // Master States for CRUD
   const [shifts, setShifts] = useState<Shift[]>(SHIFTS);
@@ -234,6 +236,7 @@ export default function App() {
                         onTabChange={tab => setProdTab(tab)} 
                         stops={stops.filter(s => s.machineId === userContext.selectedPalletizerId && s.shiftId === userContext.selectedShiftId && s.date === userContext.selectedDate)}
                         productionReports={productionReports.filter(r => r.palletizerId === userContext.selectedPalletizerId && r.shiftId === userContext.selectedShiftId && r.date === userContext.selectedDate)}
+                        inventoryEntries={inventoryEntries.filter(e => e.shiftId === userContext.selectedShiftId && e.date === userContext.selectedDate)}
                     />
                   )}
                   {prodTab === 'PAROS' && (
@@ -294,7 +297,22 @@ export default function App() {
                         selectedDate={userContext.selectedDate}
                     />
                   )}
-                  {['STOCK', 'GASOIL', 'MANTENIMIENTO'].includes(prodTab) && (
+                  {prodTab === 'STOCK' && (
+                    <InventoryView 
+                        masters={masters}
+                        entries={inventoryEntries.filter(e => e.shiftId === userContext.selectedShiftId && e.date === userContext.selectedDate)}
+                        productionReports={productionReports.filter(r => r.shiftId === userContext.selectedShiftId && r.date === userContext.selectedDate)}
+                        onSave={e => setInventoryEntries(prev => {
+                          const exists = prev.find(x => x.id === e.id);
+                          if (exists) return prev.map(x => x.id === e.id ? e : x);
+                          return [e, ...prev];
+                        })}
+                        onDelete={id => setInventoryEntries(prev => prev.filter(e => e.id !== id))}
+                        selectedShiftId={userContext.selectedShiftId}
+                        selectedDate={userContext.selectedDate}
+                    />
+                  )}
+                  {['GASOIL', 'MANTENIMIENTO'].includes(prodTab) && (
                     <PlaceholderView title={`Módulo: ${prodTab}`} type="PRODUCTIVITY" />
                   )}
                 </motion.div>

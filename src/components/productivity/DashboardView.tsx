@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { Clock, Package, ClipboardList, TrendingUp, ShieldCheck, AlertCircle } from 'lucide-react';
 import { format, parse, differenceInMinutes } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { GlassCard, KPICircle } from '../ui/GlassUI';
+import { GlassCard, KPICircle, GlassButton } from '../ui/GlassUI';
 import { cn } from '../../lib/utils';
 import ShiftTimeline from './ShiftTimeline';
 import { Shift, MachineStop } from '../../types';
@@ -16,10 +16,59 @@ interface Props {
   onTabChange: (tab: any) => void;
   stops: MachineStop[];
   productionReports: any[];
+  inventoryEntries: any[];
 }
 
-export default function DashboardView({ kpis, masters, selectedPalletizer, selectedShift, onTabChange, stops, productionReports }: Props) {
+export default function DashboardView({ kpis, masters, selectedPalletizer, selectedShift, onTabChange, stops, productionReports, inventoryEntries }: Props) {
   const oee = (kpis.availability * kpis.performance) / 100;
+
+  // Inventory Analysis
+  const inventorySummary = React.useMemo(() => {
+    const groups: {
+      productive: any[],
+      tarimas: any[],
+      bigbags: any[],
+      insumos: any[],
+      others: any[]
+    } = { productive: [], tarimas: [], bigbags: [], insumos: [], others: [] };
+
+    masters.materials.forEach((m: any) => {
+      const materialEntries = (inventoryEntries || []).filter(e => e.materialId === m.id);
+      const stockVal = materialEntries.reduce((sum, e) => sum + e.weightTn, 0);
+      
+      const isUnitary = m.isPallet || m.isSupply || m.isBigBag;
+      
+      const productionVal = m.isProductive 
+        ? productionReports.filter(r => r.materialId === m.id)
+            .reduce((sum, r) => sum + (isUnitary ? (r.bagsProduced || 0) : (r.tonsProduced || 0)), 0)
+        : 0;
+
+      if (stockVal > 0 || productionVal > 0) {
+        const item = {
+          id: m.id,
+          name: m.name,
+          stock: stockVal,
+          production: productionVal,
+          total: stockVal + productionVal,
+          isUnitary
+        };
+
+        if (m.isPallet) {
+          groups.tarimas.push(item);
+        } else if (m.isBigBag) {
+          groups.bigbags.push(item);
+        } else if (m.isSupply) {
+          groups.insumos.push(item);
+        } else if (m.isProductive) {
+          groups.productive.push(item);
+        } else {
+          groups.others.push(item);
+        }
+      }
+    });
+
+    return groups;
+  }, [inventoryEntries, productionReports, masters.materials]);
 
   // Operating Hours Calculation
   const timeMetrics = React.useMemo(() => {
@@ -192,6 +241,103 @@ export default function DashboardView({ kpis, masters, selectedPalletizer, selec
              )}
           </div>
         </div>
+      </div>
+
+      {/* Inventory Summary Section - Updated */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-1">
+          <div>
+            <h4 className="text-[10px] font-bold text-text-muted uppercase tracking-[0.2em]">Resumen de Stock e Insumos</h4>
+            <p className="text-[9px] text-text-muted font-bold uppercase tracking-wider">Conteo Físico + Producción Turno</p>
+          </div>
+          <button 
+            onClick={() => onTabChange('STOCK')}
+            className="text-[10px] font-bold text-primary hover:underline uppercase tracking-widest"
+          >
+            Ver Detalle
+          </button>
+        </div>
+
+        {/* Productive Individual Cards */}
+        {inventorySummary.productive.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {inventorySummary.productive.map((item, idx) => (
+              <div key={idx} className="ui-card p-4 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+                  <Package size={40} />
+                </div>
+                <p className="text-[10px] font-bold text-text-muted uppercase tracking-tight truncate line-clamp-1 mb-3">{item.name}</p>
+                
+                <div className="space-y-3">
+                  <div className="flex justify-between items-baseline border-b border-white/5 pb-2">
+                    <span className="text-[9px] text-text-muted font-bold uppercase">Stock Contado</span>
+                    <span className="font-mono text-sm font-bold">{item.stock.toFixed(item.isUnitary ? 0 : 1)} {item.isUnitary ? 'U' : 'TN'}</span>
+                  </div>
+                  <div className="flex justify-between items-baseline border-b border-white/5 pb-2">
+                    <span className="text-[9px] text-emerald-400 font-bold uppercase">Prod. Turno (+)</span>
+                    <span className="font-mono text-sm font-bold text-emerald-400">{item.production.toFixed(item.isUnitary ? 0 : 1)} {item.isUnitary ? 'U' : 'TN'}</span>
+                  </div>
+                  <div className="flex justify-between items-baseline pt-1">
+                    <span className="text-[10px] text-text-main font-black uppercase">Total Disp.</span>
+                    <span className="font-mono text-xl font-black text-primary">{item.total.toFixed(item.isUnitary ? 0 : 1)} {item.isUnitary ? 'U' : 'TN'}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Grouped Tables */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {[
+            { label: 'Tarimas', data: inventorySummary.tarimas },
+            { label: 'Bigbags', data: inventorySummary.bigbags },
+            { label: 'Insumos', data: inventorySummary.insumos },
+            { label: 'No Productivos / Otros', data: inventorySummary.others },
+          ].filter(g => g.data.length > 0).map((group, gIdx) => (
+            <GlassCard key={gIdx} className="p-0 overflow-hidden">
+               <div className="px-4 py-2 bg-bg/20 border-b border-white/5 flex justify-between items-center">
+                  <h5 className="text-[9px] font-bold text-text-muted uppercase tracking-widest">{group.label}</h5>
+                  <span className="text-[8px] font-bold text-text-muted/60">{group.data.length} ítems</span>
+               </div>
+               <table className="w-full text-left">
+                  <thead className="bg-bg/40 text-[9px] uppercase font-bold text-text-muted">
+                     <tr>
+                        <th className="px-4 py-2">Material</th>
+                        <th className="px-4 py-2 text-right">Stock</th>
+                        <th className="px-4 py-2 text-right">Producción</th>
+                        <th className="px-4 py-2 text-right">Total</th>
+                     </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                     {group.data.map((item: any, idx: number) => {
+                        const unit = item.isUnitary ? 'U' : 'TN';
+                        const decimals = item.isUnitary ? 0 : 2;
+                        return (
+                          <tr key={idx} className="hover:bg-white/5 transition-colors">
+                            <td className="px-4 py-2 text-[11px] font-medium text-text-main">{item.name}</td>
+                            <td className="px-4 py-2 text-right font-mono text-[11px]">{item.stock.toFixed(decimals)} {unit}</td>
+                            <td className="px-4 py-2 text-right font-mono text-[11px] text-emerald-400">{item.production > 0 ? `+${item.production.toFixed(decimals)} ${unit}` : '-'}</td>
+                            <td className="px-4 py-2 text-right font-mono text-[11px] font-bold text-primary">{item.total.toFixed(decimals)} {unit}</td>
+                          </tr>
+                        );
+                     })}
+                  </tbody>
+               </table>
+            </GlassCard>
+          ))}
+        </div>
+
+        {inventorySummary.productive.length === 0 && 
+         inventorySummary.tarimas.length === 0 && 
+         inventorySummary.bigbags.length === 0 && 
+         inventorySummary.insumos.length === 0 && 
+         inventorySummary.others.length === 0 && (
+          <div className="py-8 text-center bg-surface/30 rounded-2xl border border-dashed border-border">
+            <p className="text-[10px] text-text-muted font-bold uppercase">No se han registrado conteos de insumos en este turno</p>
+            <GlassButton onClick={() => onTabChange('STOCK')} className="mt-4 h-8 text-[9px]">Registrar Ahora</GlassButton>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-8">

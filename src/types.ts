@@ -138,6 +138,17 @@ export interface ScaleControl {
   observations: string;
 }
 
+export interface InventoryEntry {
+  id: string;
+  date: string; // ISO date
+  shiftId: string;
+  materialId: string;
+  quantity: number; // Cantidad de unidades (Tarimas/Pallets)
+  weightTn: number; // Peso calculado en Toneladas
+  userId: string;
+  userName: string;
+}
+
 export interface UserContext {
   role: 'OPERARIO' | 'ADMIN';
   selectedPalletizerId: string | null;
