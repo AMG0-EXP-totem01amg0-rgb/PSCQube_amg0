@@ -24,7 +24,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const canEdit = useMemo(() => {
-    const perm = currentUser.permissions.find(p => p.viewId === 'PAROS');
+    const perm = currentUser?.permissions?.find(p => p.viewId === 'PAROS');
     return perm ? perm.level === 'EDIT' : false;
   }, [currentUser]);
   const [formData, setFormData] = useState({ 

@@ -101,12 +101,12 @@ export default function App() {
   );
 
   const canView = (viewId: string) => {
-    const perm = currentUser.permissions.find(p => p.viewId === viewId);
+    const perm = currentUser?.permissions?.find(p => p.viewId === viewId);
     return perm ? perm.level !== 'NONE' : false;
   };
 
   const canEdit = (viewId: string) => {
-    const perm = currentUser.permissions.find(p => p.viewId === viewId);
+    const perm = currentUser?.permissions?.find(p => p.viewId === viewId);
     return perm ? perm.level === 'EDIT' : false;
   };
 
@@ -443,7 +443,24 @@ export default function App() {
                       if (type === 'CAUSES') setCauses(data);
                       if (type === 'MATERIALS') setMaterials(data);
                       if (type === 'CAPACITIES') setCapacities(data);
-                      if (type === 'USERS') setUsers(data);
+                      if (type === 'USERS') {
+                        const cleaned = (data as any[]).map(u => {
+                          if (!u.permissions || !Array.isArray(u.permissions)) {
+                            const level = u.profile === 'Administrador' ? 'EDIT' : 'VIEW';
+                            return {
+                              ...u,
+                              permissions: SYSTEM_VIEWS.map(v => ({
+                                viewId: v.id,
+                                label: v.label,
+                                section: v.section,
+                                level: level
+                              }))
+                            };
+                          }
+                          return u;
+                        });
+                        setUsers(cleaned);
+                      }
                       if (type === 'COMPANIES') setCompanies(data as Company[]);
                       if (type === 'PUNTOS_CARGA') setLoadingPoints(data);
                     }}

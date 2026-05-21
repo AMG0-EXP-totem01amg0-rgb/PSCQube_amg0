@@ -22,7 +22,7 @@ export default function DaterControlView({ masters, currentUser, onSave, onDelet
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const canEdit = useMemo(() => {
-    const perm = currentUser.permissions.find(p => p.viewId === 'DATER');
+    const perm = currentUser?.permissions?.find(p => p.viewId === 'DATER');
     return perm ? perm.level === 'EDIT' : false;
   }, [currentUser]);
   

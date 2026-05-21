@@ -22,7 +22,7 @@ export default function ScaleControlView({ masters, currentUser, onSave, onDelet
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const canEdit = useMemo(() => {
-    const perm = currentUser.permissions.find(p => p.viewId === 'SCALE');
+    const perm = currentUser?.permissions?.find(p => p.viewId === 'SCALE');
     return perm ? perm.level === 'EDIT' : false;
   }, [currentUser]);
   

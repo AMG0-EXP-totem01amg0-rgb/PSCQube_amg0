@@ -218,7 +218,15 @@ app.get("/api/sheets", async (req, res) => {
         headers.forEach((header, index) => {
           if (header) {
             const val = row[index] !== undefined ? row[index] : "";
-            rowObj[header] = val;
+            if (typeof val === "string" && (val.trim().startsWith("[") || val.trim().startsWith("{"))) {
+              try {
+                rowObj[header] = JSON.parse(val);
+              } catch (e) {
+                rowObj[header] = val;
+              }
+            } else {
+              rowObj[header] = val;
+            }
             if (val !== "") {
               hasValidValue = true;
             }
@@ -276,7 +284,15 @@ app.post("/api/sheets", async (req, res) => {
           headers.forEach((header, index) => {
             if (header) {
               const val = row[index] !== undefined ? row[index] : "";
-              rowObj[header] = val;
+              if (typeof val === "string" && (val.trim().startsWith("[") || val.trim().startsWith("{"))) {
+                try {
+                  rowObj[header] = JSON.parse(val);
+                } catch (e) {
+                  rowObj[header] = val;
+                }
+              } else {
+                rowObj[header] = val;
+              }
               if (val !== "") {
                 hasValidValue = true;
               }
@@ -312,7 +328,7 @@ app.post("/api/sheets", async (req, res) => {
       const headersSet = new Set<string>();
       data.forEach((item: any) => {
         Object.keys(item).forEach((key) => {
-          if (typeof item[key] !== "object" && item[key] !== undefined && item[key] !== null) {
+          if (item[key] !== undefined && item[key] !== null) {
             headersSet.add(key);
           }
         });
@@ -323,7 +339,15 @@ app.post("/api/sheets", async (req, res) => {
       const rows = data.map((item: any) => {
         return headers.map((header) => {
           const val = item[header];
-          return val === undefined || val === null ? "" : val;
+          if (val === undefined || val === null) return "";
+          if (typeof val === "object") {
+            try {
+              return JSON.stringify(val);
+            } catch (e) {
+              return "";
+            }
+          }
+          return val;
         });
       });
 

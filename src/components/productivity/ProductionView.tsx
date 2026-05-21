@@ -24,7 +24,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const canEdit = useMemo(() => {
-    const perm = currentUser.permissions.find(p => p.viewId === 'PRODUCCION');
+    const perm = currentUser?.permissions?.find(p => p.viewId === 'PRODUCCION');
     return perm ? perm.level === 'EDIT' : false;
   }, [currentUser]);
   

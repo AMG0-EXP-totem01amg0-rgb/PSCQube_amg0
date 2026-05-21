@@ -136,7 +136,7 @@ export default function AdminView({
   }, [activeTab]);
 
   const canView = (viewId: string) => {
-    const perm = currentUser.permissions.find((p) => p.viewId === viewId);
+    const perm = currentUser?.permissions?.find((p) => p.viewId === viewId);
     return perm ? perm.level !== "NONE" : false;
   };
 
@@ -162,7 +162,7 @@ export default function AdminView({
 
   const isEditable = useMemo(() => {
     const sectionId = tabMapping[activeTab] || activeTab;
-    const perm = currentUser.permissions.find((p) => p.viewId === sectionId);
+    const perm = currentUser?.permissions?.find((p) => p.viewId === sectionId);
     return perm ? perm.level === "EDIT" : false;
   }, [currentUser, activeTab]);
 
