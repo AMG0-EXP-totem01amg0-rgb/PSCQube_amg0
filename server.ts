@@ -17,6 +17,18 @@ function cleanPrivateKey(key: string): string {
   if (!key) return "";
   let cleaned = key.trim();
   
+  // Try parsing as JSON first, in case the user pasted the entire Service Account JSON credentials
+  try {
+    const parsed = JSON.parse(cleaned);
+    if (parsed && typeof parsed === "object") {
+      if (parsed.private_key) {
+        cleaned = parsed.private_key.trim();
+      }
+    }
+  } catch (e) {
+    // If it's not a JSON string, continue with raw PEM string processing
+  }
+
   // Strip surrounding quotes and spaces repeatedly if nested
   while (
     (cleaned.startsWith('"') && cleaned.endsWith('"')) ||
@@ -35,14 +47,30 @@ function cleanPrivateKey(key: string): string {
 
 // Helper to initialize Google Sheets Client
 function getSheetsClient() {
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  // Handle escape sequences and quotes in the private key robustly
-  const privateKey = cleanPrivateKey(process.env.GOOGLE_SERVICE_ACCOUNT_KEY || "");
+  let email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  let rawKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY || "";
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+
+  // Try extracting from full JSON credentials if pasted inside GOOGLE_SERVICE_ACCOUNT_KEY
+  try {
+    const parsed = JSON.parse(rawKey.trim());
+    if (parsed && typeof parsed === "object") {
+      if (parsed.private_key) {
+        rawKey = parsed.private_key;
+      }
+      if (parsed.client_email && !email) {
+        email = parsed.client_email;
+      }
+    }
+  } catch (e) {
+    // Treat as raw PEM string or key
+  }
+
+  const privateKey = cleanPrivateKey(rawKey);
 
   if (!email || !privateKey || !spreadsheetId) {
     throw new Error(
-      "Configuración de Google Sheets incompleta. " +
+      "Configuración de Google Sheets incompleta o inválida. " +
       "Por favor defina GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_SERVICE_ACCOUNT_KEY y GOOGLE_SHEET_ID en las variables de entorno de Vercel."
     );
   }
@@ -94,15 +122,37 @@ async function ensureSheetExists(sheets: any, spreadsheetId: string, tableName: 
 // API Routes
 app.get("/api/sheets/status", async (req, res) => {
   try {
-    const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-    const key = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+    let email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+    let rawKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY || "";
     const sheetId = process.env.GOOGLE_SHEET_ID;
+
+    // Support JSON parsing of the service account credential file for full backward compatibility
+    let isJsonConfigured = false;
+    try {
+      if (rawKey.trim().startsWith("{")) {
+        const parsed = JSON.parse(rawKey.trim());
+        if (parsed && typeof parsed === "object") {
+          isJsonConfigured = true;
+          if (parsed.private_key) {
+            rawKey = parsed.private_key;
+          }
+          if (parsed.client_email && !email) {
+            email = parsed.client_email;
+          }
+        }
+      }
+    } catch (e) {
+      // Treat as raw key
+    }
+
+    const key = rawKey;
 
     const diagnostics: any = {
       envVariables: {
         hasEmail: !!email,
         hasKey: !!key,
         hasSheetId: !!sheetId,
+        isJsonConfigured,
       },
       keyDetails: null,
       connectionTest: null,
@@ -183,10 +233,23 @@ app.get("/api/sheets/status", async (req, res) => {
     });
   } catch (error: any) {
     console.error("Global crash in status endpoint:", error);
-    res.status(500).json({
+    // Respond with status 200 but include detailed configuration payload so page loads fine, showing diagnostic details!
+    res.json({
       configured: false,
       error: error.message || error.toString(),
-      stack: error.stack
+      stack: error.stack,
+      diagnostics: {
+        envVariables: {
+          hasEmail: !!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+          hasKey: !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY,
+          hasSheetId: !!process.env.GOOGLE_SHEET_ID,
+        },
+        connectionTest: {
+          success: false,
+          error: error.message || error.toString(),
+          hint: "Falla global en el servidor. Revisa si la clave privada contiene caracteres inválidos que causan errores de sintaxis en el motor de criptografía."
+        }
+      }
     });
   }
 });
