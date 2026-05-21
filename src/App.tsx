@@ -31,7 +31,8 @@ import WelcomeScreen from './components/auth/WelcomeScreen';
 import { cn } from './lib/utils';
 import { Shift, MachineStop, ProductionReport, DaterControl, ScaleControl, InventoryEntry, UserContext, MasterData, AppUser, ProductChange, Company } from './types';
 import { SHIFTS, PALLETIZERS, BAGGERS, MATERIALS, HACS, CAUSES, CAPACITIES, USERS, SYSTEM_VIEWS, COMPANIES, LOADING_POINTS, LANE_STATUSES } from './lib/mockData';
-import { syncTableToSheets } from './lib/sheetsService';
+import { syncTableToSheets, getBackendSheetsStatus, fetchTableFromSheets } from './lib/sheetsService';
+import { ToastContainer, ToastMessage } from './components/ui/Toast';
 
 // --- Utilities ---
 const getCurrentShift = (shifts: Shift[]): Shift | null => {
@@ -129,6 +130,360 @@ export default function App() {
   const [inventoryEntries, setInventoryEntries] = useState<InventoryEntry[]>([]);
   const [productChanges, setProductChanges] = useState<ProductChange[]>([]);
   const [laneStatuses, setLaneStatuses] = useState<any[]>(LANE_STATUSES);
+
+  // Toast notifications State
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const addToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts((prev) => [...prev, { id, message, type }]);
+  };
+
+  // Load initial data from Google Sheets if configured
+  const [isLoadingSheets, setIsLoadingSheets] = useState(false);
+  
+  useEffect(() => {
+    async function loadConfigAndData() {
+      try {
+        const status = await getBackendSheetsStatus();
+        if (status.configured) {
+          setIsLoadingSheets(true);
+          addToast("Sincronizando con Google Sheets v2...", "info");
+          
+          // Parallel fetching of master & transactional data
+          const [
+            resStops,
+            resProduction,
+            resDater,
+            resScale,
+            resStock,
+            resChange,
+            resDespachos,
+            resLoadingLanes,
+            // Masters
+            resShifts,
+            resPalletizers,
+            resBaggers,
+            resHacs,
+            resCauses,
+            resMaterials,
+            resCapacities,
+            resUsers,
+            resCompanies,
+            resLoadingPoints
+          ] = await Promise.all([
+            fetchTableFromSheets("PAROSV2"),
+            fetchTableFromSheets("PRODUCCIONV2"),
+            fetchTableFromSheets("DATERV2"),
+            fetchTableFromSheets("SCALEV2"),
+            fetchTableFromSheets("STOCKV2"),
+            fetchTableFromSheets("CHANGEV2"),
+            fetchTableFromSheets("DESPACHOSV2"),
+            fetchTableFromSheets("LOADING_LANESV2"),
+            // Masters
+            fetchTableFromSheets("TURNOSV2"),
+            fetchTableFromSheets("PALETIZADORAV2"),
+            fetchTableFromSheets("ENSACADORAV2"),
+            fetchTableFromSheets("HACSV2"),
+            fetchTableFromSheets("CAUSASV2"),
+            fetchTableFromSheets("MATERIALESV2"),
+            fetchTableFromSheets("CAPACIDADESV2"),
+            fetchTableFromSheets("USUARIOSV2"),
+            fetchTableFromSheets("EMPRESASV2"),
+            fetchTableFromSheets("PUNTOS_CARGAV2")
+          ]);
+          
+          if (resStops.success && resStops.data) setStops(resStops.data);
+          if (resProduction.success && resProduction.data) setProductionReports(resProduction.data);
+          if (resDater.success && resDater.data) setDaterControls(resDater.data);
+          if (resScale.success && resScale.data) setScaleControls(resScale.data);
+          if (resStock.success && resStock.data) setInventoryEntries(resStock.data);
+          if (resChange.success && resChange.data) setProductChanges(resChange.data);
+          if (resDespachos.success && resDespachos.data) setDispatchEntries(resDespachos.data);
+          if (resLoadingLanes.success && resLoadingLanes.data) setLaneStatuses(resLoadingLanes.data);
+          
+          // Set Masters if present
+          if (resShifts.success && resShifts.data && resShifts.data.length > 0) setShifts(resShifts.data);
+          if (resPalletizers.success && resPalletizers.data && resPalletizers.data.length > 0) setPalletizers(resPalletizers.data);
+          if (resBaggers.success && resBaggers.data && resBaggers.data.length > 0) setBaggers(resBaggers.data);
+          if (resHacs.success && resHacs.data && resHacs.data.length > 0) setHacs(resHacs.data);
+          if (resCauses.success && resCauses.data && resCauses.data.length > 0) setCauses(resCauses.data);
+          if (resMaterials.success && resMaterials.data && resMaterials.data.length > 0) setMaterials(resMaterials.data);
+          if (resCapacities.success && resCapacities.data && resCapacities.data.length > 0) setCapacities(resCapacities.data);
+          if (resUsers.success && resUsers.data && resUsers.data.length > 0) setUsers(resUsers.data);
+          if (resCompanies.success && resCompanies.data && resCompanies.data.length > 0) setCompanies(resCompanies.data);
+          if (resLoadingPoints.success && resLoadingPoints.data && resLoadingPoints.data.length > 0) setLoadingPoints(resLoadingPoints.data);
+          
+          addToast("Base de datos de Google Sheets importada correctamente", "success");
+        } else {
+          console.log("[SheetsConfig] Google Sheets is not configured or offline. Running using local memory.");
+        }
+      } catch (err) {
+        console.error("[SheetsLoad] Error querying service account spreadsheet:", err);
+        addToast("Error al cargar la planilla desde Sheets. Iniciando con base interna.", "warning");
+      } finally {
+        setIsLoadingSheets(false);
+      }
+    }
+    loadConfigAndData();
+  }, []);
+
+  // --- Centralized, Synchronized & Toast-Enabled handlers ---
+  
+  const handleSaveDispatch = (entry: any) => {
+    setDispatchEntries(prev => {
+      const exists = prev.find(x => x.id === entry.id);
+      const updated = exists
+        ? prev.map(x => x.id === entry.id ? entry : x)
+        : [entry, ...prev];
+      
+      syncTableToSheets("DESPACHOSV2", updated).then(res => {
+        if (res.success) {
+          addToast(exists ? "Despacho actualizado con éxito" : "Despacho guardado con éxito", "success");
+        } else {
+          addToast("Guardado localmente. Error al sincronizar con Sheets.", "warning");
+        }
+      });
+      return updated;
+    });
+  };
+
+  const handleDeleteDispatch = (id: string) => {
+    setDispatchEntries(prev => {
+      const updated = prev.filter(e => e.id !== id);
+      syncTableToSheets("DESPACHOSV2", updated).then(res => {
+        if (res.success) {
+          addToast("Despacho eliminado de Google Sheets", "success");
+        } else {
+          addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
+        }
+      });
+      return updated;
+    });
+  };
+
+  const handleSaveStop = (stop: MachineStop) => {
+    setStops(prev => {
+      const exists = prev.find(x => x.id === stop.id);
+      const updated = exists
+        ? prev.map(x => x.id === stop.id ? stop : x)
+        : [stop, ...prev];
+      
+      syncTableToSheets("PAROSV2", updated).then(res => {
+        if (res.success) {
+          addToast(exists ? "Paro actualizado con éxito" : "Paro registrado con éxito", "success");
+        } else {
+          addToast("Registrado localmente. Error al sincronizar con Sheets.", "warning");
+        }
+      });
+      return updated;
+    });
+  };
+
+  const handleDeleteStop = (id: string) => {
+    setStops(prev => {
+      const updated = prev.filter(s => s.id !== id);
+      syncTableToSheets("PAROSV2", updated).then(res => {
+        if (res.success) {
+          addToast("Paro eliminado de Google Sheets", "success");
+        } else {
+          addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
+        }
+      });
+      return updated;
+    });
+  };
+
+  const handleSaveProductionReport = (report: ProductionReport) => {
+    setProductionReports(prev => {
+      const exists = prev.find(x => x.id === report.id);
+      const updated = exists
+        ? prev.map(x => x.id === report.id ? report : x)
+        : [report, ...prev];
+      
+      syncTableToSheets("PRODUCCIONV2", updated).then(res => {
+        if (res.success) {
+          addToast(exists ? "Producción actualizada con éxito" : "Producción guardada con éxito", "success");
+        } else {
+          addToast("Guardada localmente. Error al sincronizar con Sheets.", "warning");
+        }
+      });
+      return updated;
+    });
+  };
+
+  const handleDeleteProductionReport = (id: string) => {
+    setProductionReports(prev => {
+      const updated = prev.filter(r => r.id !== id);
+      syncTableToSheets("PRODUCCIONV2", updated).then(res => {
+        if (res.success) {
+          addToast("Reporte de producción eliminado de Google Sheets", "success");
+        } else {
+          addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
+        }
+      });
+      return updated;
+    });
+  };
+
+  const handleSaveDaterControl = (report: DaterControl) => {
+    setDaterControls(prev => {
+      const exists = prev.find(x => x.id === report.id);
+      const updated = exists
+        ? prev.map(x => x.id === report.id ? report : x)
+        : [report, ...prev];
+      
+      syncTableToSheets("DATERV2", updated).then(res => {
+        if (res.success) {
+          addToast(exists ? "Control fechador actualizado con éxito" : "Control fechador registrado con éxito", "success");
+        } else {
+          addToast("Registrado localmente. Error al sincronizar con Sheets.", "warning");
+        }
+      });
+      return updated;
+    });
+  };
+
+  const handleDeleteDaterControl = (id: string) => {
+    setDaterControls(prev => {
+      const updated = prev.filter(c => c.id !== id);
+      syncTableToSheets("DATERV2", updated).then(res => {
+        if (res.success) {
+          addToast("Control fechador eliminado de Google Sheets", "success");
+        } else {
+          addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
+        }
+      });
+      return updated;
+    });
+  };
+
+  const handleSaveScaleControl = (report: ScaleControl) => {
+    setScaleControls(prev => {
+      const exists = prev.find(x => x.id === report.id);
+      const updated = exists
+        ? prev.map(x => x.id === report.id ? report : x)
+        : [report, ...prev];
+      
+      syncTableToSheets("SCALEV2", updated).then(res => {
+        if (res.success) {
+          addToast(exists ? "Control de balanza actualizado con éxito" : "Control de balanza registrado con éxito", "success");
+        } else {
+          addToast("Registrado localmente. Error al sincronizar con Sheets.", "warning");
+        }
+      });
+      return updated;
+    });
+  };
+
+  const handleDeleteScaleControl = (id: string) => {
+    setScaleControls(prev => {
+      const updated = prev.filter(c => c.id !== id);
+      syncTableToSheets("SCALEV2", updated).then(res => {
+        if (res.success) {
+          addToast("Control de balanza eliminado de Google Sheets", "success");
+        } else {
+          addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
+        }
+      });
+      return updated;
+    });
+  };
+
+  const handleSaveInventory = (entry: InventoryEntry) => {
+    setInventoryEntries(prev => {
+      const exists = prev.find(x => x.id === entry.id);
+      const updated = exists
+        ? prev.map(x => x.id === entry.id ? entry : x)
+        : [entry, ...prev];
+      
+      syncTableToSheets("STOCKV2", updated).then(res => {
+        if (res.success) {
+          addToast(exists ? "Registro de insumo actualizado" : "Registro de insumo guardado", "success");
+        } else {
+          addToast("Guardado localmente. Error al sincronizar con Sheets.", "warning");
+        }
+      });
+      return updated;
+    });
+  };
+
+  const handleDeleteInventory = (id: string) => {
+    setInventoryEntries(prev => {
+      const updated = prev.filter(e => e.id !== id);
+      syncTableToSheets("STOCKV2", updated).then(res => {
+        if (res.success) {
+          addToast("Registro de insumo eliminado de Google Sheets", "success");
+        } else {
+          addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
+        }
+      });
+      return updated;
+    });
+  };
+
+  const handleSaveProductChange = (report: ProductChange) => {
+    setProductChanges(prev => {
+      const exists = prev.find(x => x.id === report.id);
+      const updated = exists
+        ? prev.map(x => x.id === report.id ? report : x)
+        : [report, ...prev];
+      
+      syncTableToSheets("CHANGEV2", updated).then(res => {
+        if (res.success) {
+          addToast(exists ? "Cambio de producto actualizado con éxito" : "Cambio de producto registrado con éxito", "success");
+        } else {
+          addToast("Registrado localmente. Error al sincronizar con Sheets.", "warning");
+        }
+      });
+      return updated;
+    });
+  };
+
+  const handleDeleteProductChange = (id: string) => {
+    setProductChanges(prev => {
+      const updated = prev.filter(c => c.id !== id);
+      syncTableToSheets("CHANGEV2", updated).then(res => {
+        if (res.success) {
+          addToast("Cambio de producto eliminado de Google Sheets", "success");
+        } else {
+          addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
+        }
+      });
+      return updated;
+    });
+  };
+
+  const handleSaveLaneStatus = (laneStatus: any) => {
+    setLaneStatuses(prev => {
+      const exists = prev.find(x => x.id === laneStatus.id);
+      const updated = exists
+        ? prev.map(x => x.id === laneStatus.id ? laneStatus : x)
+        : [laneStatus, ...prev];
+      
+      syncTableToSheets("LOADING_LANESV2", updated).then(res => {
+        if (res.success) {
+          addToast(exists ? "Calle de carga actualizada con éxito" : "Calle de carga registrada con éxito", "success");
+        } else {
+          addToast("Registrada localmente. Error al sincronizar con Sheets.", "warning");
+        }
+      });
+      return updated;
+    });
+  };
+
+  const handleDeleteLaneStatus = (id: string) => {
+    setLaneStatuses(prev => {
+      const updated = prev.filter(l => l.id !== id);
+      syncTableToSheets("LOADING_LANESV2", updated).then(res => {
+        if (res.success) {
+          addToast("Calle de carga eliminada de Google Sheets", "success");
+        } else {
+          addToast("Eliminada localmente. Error al sincronizar con Sheets.", "warning");
+        }
+      });
+      return updated;
+    });
+  };
   
   const selectedShift = useMemo(() => 
     masters.shifts.find(s => s.id === userContext.selectedShiftId) || null,
@@ -301,12 +656,8 @@ export default function App() {
                       masters={masters}
                       currentUser={currentUser}
                       history={dispatchEntries.filter(d => d.shiftId === userContext.selectedShiftId && d.date === userContext.selectedDate)}
-                      onSave={entry => setDispatchEntries(prev => {
-                        const exists = prev.find(x => x.id === entry.id);
-                        if (exists) return prev.map(x => x.id === entry.id ? entry : x);
-                        return [entry, ...prev];
-                      })}
-                      onDelete={id => setDispatchEntries(prev => prev.filter(e => e.id !== id))}
+                      onSave={handleSaveDispatch}
+                      onDelete={handleDeleteDispatch}
                       selectedShiftId={userContext.selectedShiftId}
                       selectedDate={userContext.selectedDate}
                     />
@@ -315,12 +666,8 @@ export default function App() {
                     <StopsView 
                         masters={masters} 
                         currentUser={currentUser}
-                        onSave={s => setStops(prev => {
-                          const exists = prev.find(x => x.id === s.id);
-                          if (exists) return prev.map(x => x.id === s.id ? s : x);
-                          return [s, ...prev];
-                        })}
-                        onDelete={id => setStops(prev => prev.filter(s => s.id !== id))}
+                        onSave={handleSaveStop}
+                        onDelete={handleDeleteStop}
                         palletizerId={userContext.selectedPalletizerId} 
                         shiftId={userContext.selectedShiftId} 
                         selectedDate={userContext.selectedDate}
@@ -331,12 +678,8 @@ export default function App() {
                     <ProductionView 
                         masters={masters} 
                         currentUser={currentUser}
-                        onSave={r => setProductionReports(prev => {
-                          const exists = prev.find(x => x.id === r.id);
-                          if (exists) return prev.map(x => x.id === r.id ? r : x);
-                          return [r, ...prev];
-                        })}
-                        onDelete={id => setProductionReports(prev => prev.filter(r => r.id !== id))}
+                        onSave={handleSaveProductionReport}
+                        onDelete={handleDeleteProductionReport}
                         palletizerId={userContext.selectedPalletizerId} 
                         shiftId={userContext.selectedShiftId} 
                         selectedDate={userContext.selectedDate}
@@ -347,12 +690,8 @@ export default function App() {
                     <DaterControlView 
                         masters={masters} 
                         currentUser={currentUser}
-                        onSave={c => setDaterControls(prev => {
-                          const exists = prev.find(x => x.id === c.id);
-                          if (exists) return prev.map(x => x.id === c.id ? c : x);
-                          return [c, ...prev];
-                        })}
-                        onDelete={id => setDaterControls(prev => prev.filter(c => c.id !== id))}
+                        onSave={handleSaveDaterControl}
+                        onDelete={handleDeleteDaterControl}
                         history={daterControls.filter(c => c.shiftId === userContext.selectedShiftId && c.date === userContext.selectedDate)}
                         selectedShiftId={userContext.selectedShiftId}
                         selectedDate={userContext.selectedDate}
@@ -362,12 +701,8 @@ export default function App() {
                     <ScaleControlView 
                         masters={masters} 
                         currentUser={currentUser}
-                        onSave={c => setScaleControls(prev => {
-                          const exists = prev.find(x => x.id === c.id);
-                          if (exists) return prev.map(x => x.id === c.id ? c : x);
-                          return [c, ...prev];
-                        })}
-                        onDelete={id => setScaleControls(prev => prev.filter(c => c.id !== id))}
+                        onSave={handleSaveScaleControl}
+                        onDelete={handleDeleteScaleControl}
                         history={scaleControls.filter(c => c.shiftId === userContext.selectedShiftId && c.date === userContext.selectedDate)}
                         selectedShiftId={userContext.selectedShiftId}
                         selectedDate={userContext.selectedDate}
@@ -379,12 +714,8 @@ export default function App() {
                         currentUser={currentUser}
                         entries={inventoryEntries.filter(e => e.shiftId === userContext.selectedShiftId && e.date === userContext.selectedDate)}
                         productionReports={productionReports.filter(r => r.shiftId === userContext.selectedShiftId && r.date === userContext.selectedDate)}
-                        onSave={e => setInventoryEntries(prev => {
-                          const exists = prev.find(x => x.id === e.id);
-                          if (exists) return prev.map(x => x.id === e.id ? e : x);
-                          return [e, ...prev];
-                        })}
-                        onDelete={id => setInventoryEntries(prev => prev.filter(e => e.id !== id))}
+                        onSave={handleSaveInventory}
+                        onDelete={handleDeleteInventory}
                         selectedShiftId={userContext.selectedShiftId}
                         selectedDate={userContext.selectedDate}
                     />
@@ -394,12 +725,8 @@ export default function App() {
                         masters={masters} 
                         currentUser={currentUser}
                         history={productChanges.filter(c => c.shiftId === userContext.selectedShiftId && c.date === userContext.selectedDate)}
-                        onSave={c => setProductChanges(prev => {
-                          const exists = prev.find(x => x.id === c.id);
-                          if (exists) return prev.map(x => x.id === c.id ? c : x);
-                          return [c, ...prev];
-                        })}
-                        onDelete={id => setProductChanges(prev => prev.filter(c => c.id !== id))}
+                        onSave={handleSaveProductChange}
+                        onDelete={handleDeleteProductChange}
                         selectedShiftId={userContext.selectedShiftId}
                         selectedDate={userContext.selectedDate}
                     />
@@ -409,12 +736,8 @@ export default function App() {
                         masters={masters} 
                         currentUser={currentUser}
                         history={laneStatuses.filter(l => l.shiftId === userContext.selectedShiftId && l.date === userContext.selectedDate)}
-                        onSave={l => setLaneStatuses(prev => {
-                          const exists = prev.find(x => x.id === l.id);
-                          if (exists) return prev.map(x => x.id === l.id ? l : x);
-                          return [l, ...prev];
-                        })}
-                        onDelete={id => setLaneStatuses(prev => prev.filter(l => l.id !== id))}
+                        onSave={handleSaveLaneStatus}
+                        onDelete={handleDeleteLaneStatus}
                         selectedShiftId={userContext.selectedShiftId}
                         selectedDate={userContext.selectedDate}
                     />
@@ -490,12 +813,15 @@ export default function App() {
                         syncTableToSheets(suffix, targetData)
                           .then(res => {
                             if (res.success) {
+                              addToast(`Maestro ${cleanType} guardado y sincronizado con éxito`, "success");
                               console.log(`[AutoSync] Sincronización automática de ${suffix} exitosa en Google Sheets.`);
                             } else {
+                              addToast(`Maestro guardado localmente (error sync: ${res.error})`, "warning");
                               console.warn(`[AutoSync] Falló la sincronización de ${suffix}:`, res.error);
                             }
                           })
                           .catch(err => {
+                            addToast(`Maestro guardado localmente. Error de conexión.`, "warning");
                             console.error(`[AutoSync] Error crítico de red al sincronizar ${suffix}:`, err);
                           });
                       } else {
@@ -508,6 +834,9 @@ export default function App() {
           </main>
 
           <BottomNav activeSection={activeSection} onSectionChange={setActiveSection} />
+          
+          {/* Toast Notification Container */}
+          <ToastContainer toasts={toasts} onClose={id => setToasts(prev => prev.filter(t => t.id !== id))} />
         </motion.div>
       )}
     </AnimatePresence>
