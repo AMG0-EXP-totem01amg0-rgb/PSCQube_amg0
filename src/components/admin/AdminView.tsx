@@ -155,7 +155,10 @@ export default function AdminView({
     PUNTOS_CARGA: "PUNTOS_CARGA",
   };
 
-  const isVisible = (tab: string) => canView(tabMapping[tab] || tab);
+  const isVisible = (tab: string) => {
+    if (tab === "SHEETS") return true;
+    return canView(tabMapping[tab] || tab);
+  };
 
   const isEditable = useMemo(() => {
     const sectionId = tabMapping[activeTab] || activeTab;
