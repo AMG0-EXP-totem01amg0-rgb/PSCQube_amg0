@@ -31,6 +31,7 @@ import WelcomeScreen from './components/auth/WelcomeScreen';
 import { cn } from './lib/utils';
 import { Shift, MachineStop, ProductionReport, DaterControl, ScaleControl, InventoryEntry, UserContext, MasterData, AppUser, ProductChange, Company } from './types';
 import { SHIFTS, PALLETIZERS, BAGGERS, MATERIALS, HACS, CAUSES, CAPACITIES, USERS, SYSTEM_VIEWS, COMPANIES, LOADING_POINTS, LANE_STATUSES } from './lib/mockData';
+import { syncTableToSheets } from './lib/sheetsService';
 
 // --- Utilities ---
 const getCurrentShift = (shifts: Shift[]): Shift | null => {
@@ -436,6 +437,7 @@ export default function App() {
                     onTabChange={setAdminTab} 
                     onUserSwitch={dni => setUserContext({...userContext, currentUserDni: dni})}
                     onUpdateMasters={(type, data) => {
+                      let targetData = data;
                       if (type === 'SHIFTS') setShifts(data as Shift[]);
                       if (type === 'MACHINES') setPalletizers(data);
                       if (type === 'BAGGERS') setBaggers(data);
@@ -460,9 +462,38 @@ export default function App() {
                           return u;
                         });
                         setUsers(cleaned);
+                        targetData = cleaned;
                       }
                       if (type === 'COMPANIES') setCompanies(data as Company[]);
                       if (type === 'PUNTOS_CARGA') setLoadingPoints(data);
+
+                      // Sincronización automática en tiempo real con Google Sheets
+                      const tabSuffixMapping: Record<string, string> = {
+                        SHIFTS: "TURNOSV2",
+                        MACHINES: "PALETIZADORAV2",
+                        BAGGERS: "ENSACADORAV2",
+                        HACS: "HACSV2",
+                        CAUSES: "CAUSASV2",
+                        MATERIALS: "MATERIALESV2",
+                        CAPACITIES: "CAPACIDADESV2",
+                        USERS: "USUARIOSV2",
+                        COMPANIES: "EMPRESASV2",
+                        PUNTOS_CARGA: "PUNTOS_CARGAV2"
+                      };
+                      const suffix = tabSuffixMapping[type];
+                      if (suffix) {
+                        syncTableToSheets(suffix, targetData)
+                          .then(res => {
+                            if (res.success) {
+                              console.log(`[AutoSync] Sincronización automática de ${suffix} exitosa.`);
+                            } else {
+                              console.warn(`[AutoSync] Error al sincronizar ${suffix}:`, res.error);
+                            }
+                          })
+                          .catch(err => {
+                            console.error(`[AutoSync] Error grave al sincronizar ${suffix}:`, err);
+                          });
+                      }
                     }}
                 />
               )}

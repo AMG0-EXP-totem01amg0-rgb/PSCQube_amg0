@@ -374,6 +374,11 @@ app.post("/api/sheets", async (req, res) => {
 
 // Vite Setup & Routing
 async function startServer() {
+  if (process.env.VERCEL) {
+    console.log("Running in Vercel serverless environment. Dynamic port listening is bypassed.");
+    return;
+  }
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -394,3 +399,5 @@ async function startServer() {
 }
 
 startServer();
+
+export default app;
