@@ -94,93 +94,102 @@ async function ensureSheetExists(sheets: any, spreadsheetId: string, tableName: 
 
 // API Routes
 app.get("/api/sheets/status", async (req, res) => {
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const key = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-  const sheetId = process.env.GOOGLE_SHEET_ID;
+  try {
+    const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+    const key = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+    const sheetId = process.env.GOOGLE_SHEET_ID;
 
-  const diagnostics: any = {
-    envVariables: {
-      hasEmail: !!email,
-      hasKey: !!key,
-      hasSheetId: !!sheetId,
-    },
-    keyDetails: null,
-    connectionTest: null,
-  };
-
-  if (email) {
-    diagnostics.emailPreview = email;
-  }
-  if (sheetId) {
-    diagnostics.sheetIdPreview = sheetId;
-  }
-
-  if (key) {
-    const rawLength = key.length;
-    const cleaned = cleanPrivateKey(key);
-    const cleanedLength = cleaned.length;
-    const hasBegin = cleaned.includes("-----BEGIN PRIVATE KEY-----");
-    const hasEnd = cleaned.includes("-----END PRIVATE KEY-----");
-    const newlineCount = (cleaned.match(/\n/g) || []).length;
-    
-    diagnostics.keyDetails = {
-      rawLength,
-      cleanedLength,
-      hasBeginHeader: hasBegin,
-      hasEndFooter: hasEnd,
-      newlineCountInCleaned: newlineCount,
-      advice: "",
+    const diagnostics: any = {
+      envVariables: {
+        hasEmail: !!email,
+        hasKey: !!key,
+        hasSheetId: !!sheetId,
+      },
+      keyDetails: null,
+      connectionTest: null,
     };
 
-    if (!hasBegin || !hasEnd) {
-      diagnostics.keyDetails.advice = "La clave privada cargada en las variables de entorno de Vercel no tiene las cabeceras PEM estándar de Google. Debe comenzar con '-----BEGIN PRIVATE KEY-----' y terminar con '-----END PRIVATE KEY-----'. Asegúrate de que no haya faltado copiar ninguna sección.";
-    } else if (newlineCount < 5) {
-      diagnostics.keyDetails.advice = "La clave contiene muy pocos saltos de línea (" + newlineCount + ") en total. Generalmente, una clave JWT PEM válida de Google tiene más de 20 líneas con saltos de línea reales o representados por '\\n'. Intenta copiar la clave directa del JSON original descargado de Google";
+    if (email) {
+      diagnostics.emailPreview = email;
     }
-  }
+    if (sheetId) {
+      diagnostics.sheetIdPreview = sheetId;
+    }
 
-  // Live Connection Dry-Run using Sheets SDK
-  if (email && key && sheetId) {
-    try {
-      const { sheets, spreadsheetId } = getSheetsClient();
-      const testRes = await sheets.spreadsheets.get({
-        spreadsheetId,
-        fields: "properties.title,sheets.properties.title",
-      });
-      diagnostics.connectionTest = {
-        success: true,
-        title: testRes.data.properties?.title || "Sin título",
-        sheetsFound: testRes.data.sheets?.map((s: any) => s.properties?.title) || [],
+    if (key) {
+      const rawLength = key.length;
+      const cleaned = cleanPrivateKey(key);
+      const cleanedLength = cleaned.length;
+      const hasBegin = cleaned.includes("-----BEGIN PRIVATE KEY-----");
+      const hasEnd = cleaned.includes("-----END PRIVATE KEY-----");
+      const newlineCount = (cleaned.match(/\n/g) || []).length;
+      
+      diagnostics.keyDetails = {
+        rawLength,
+        cleanedLength,
+        hasBeginHeader: hasBegin,
+        hasEndFooter: hasEnd,
+        newlineCountInCleaned: newlineCount,
+        advice: "",
       };
-    } catch (testErr: any) {
-      const errMsg = testErr.message || testErr.toString();
-      let hint = "Error de conexión o autenticación con Google API.";
 
-      if (errMsg.includes("PEM_read_bio_PrivateKey") || errMsg.includes("private key") || errMsg.includes("FormatError") || errMsg.includes("key is too short")) {
-        hint = "La clave privada tiene un formato criptográfico incorrecto. Verifica que no hayas introducido espacios adicionales y que no estén duplicados los escapes. En Vercel, pega la clave completa con sus '\\n' originales.";
-      } else if (errMsg.includes("invalid_grant") || errMsg.includes("signature") || errMsg.includes("JWT")) {
-        hint = "Error de firma JWT (invalid_grant). El correo del Service Account y la clave privada no coinciden, o estás usando una clave de otro proyecto de Google Cloud.";
-      } else if (errMsg.includes("not found") || errMsg.includes("404") || errMsg.includes("Requested entity was not found")) {
-        hint = "No se encuentra el Documento de Google Sheets. El GOOGLE_SHEET_ID ingresado no existe o es incorrecto. Confírmalo mirando el ID en la URL de tu navegador.";
-      } else if (errMsg.includes("permission") || errMsg.includes("403") || errMsg.includes("caller does not have permission") || errMsg.includes("unauthorized")) {
-        hint = "La cuenta de servicio no tiene permisos en esta planilla. Debes ir a Google Sheets, hacer clic en 'Compartir' (Share) en la esquina superior derecha, agregar el correo '" + email + "' y asignarle el rol de editor.";
+      if (!hasBegin || !hasEnd) {
+        diagnostics.keyDetails.advice = "La clave privada cargada en las variables de entorno de Vercel no tiene las cabeceras PEM estándar de Google. Debe comenzar con '-----BEGIN PRIVATE KEY-----' y terminar con '-----END PRIVATE KEY-----'. Asegúrate de que no haya faltado copiar ninguna sección.";
+      } else if (newlineCount < 5) {
+        diagnostics.keyDetails.advice = "La clave contiene muy pocos saltos de línea (" + newlineCount + ") en total. Generalmente, una clave JWT PEM válida de Google tiene más de 20 líneas con saltos de línea reales o representados por '\\n'. Intenta copiar la clave directa del JSON original descargado de Google";
       }
-
-      diagnostics.connectionTest = {
-        success: false,
-        error: errMsg,
-        hint,
-      };
     }
-  }
 
-  res.json({
-    configured: !!(email && key && sheetId),
-    email: email ? `${email.substring(0, Math.min(email.length, 12))}...` : null,
-    sheetId: sheetId ? `${sheetId.substring(0, Math.min(sheetId.length, 12))}...` : null,
-    hasKey: !!key,
-    diagnostics
-  });
+    // Live Connection Dry-Run using Sheets SDK
+    if (email && key && sheetId) {
+      try {
+        const { sheets, spreadsheetId } = getSheetsClient();
+        const testRes = await sheets.spreadsheets.get({
+          spreadsheetId,
+          fields: "properties.title,sheets.properties.title",
+        });
+        diagnostics.connectionTest = {
+          success: true,
+          title: testRes.data.properties?.title || "Sin título",
+          sheetsFound: testRes.data.sheets?.map((s: any) => s.properties?.title) || [],
+        };
+      } catch (testErr: any) {
+        const errMsg = testErr.message || testErr.toString();
+        let hint = "Error de conexión o autenticación con Google API.";
+
+        if (errMsg.includes("PEM_read_bio_PrivateKey") || errMsg.includes("private key") || errMsg.includes("FormatError") || errMsg.includes("key is too short")) {
+          hint = "La clave privada tiene un formato criptográfico incorrecto. Verifica que no hayas introducido espacios adicionales y que no estén duplicados los escapes. En Vercel, pega la clave completa con sus '\\n' originales.";
+        } else if (errMsg.includes("invalid_grant") || errMsg.includes("signature") || errMsg.includes("JWT")) {
+          hint = "Error de firma JWT (invalid_grant). El correo del Service Account y la clave privada no coinciden, o estás usando una clave de otro proyecto de Google Cloud.";
+        } else if (errMsg.includes("not found") || errMsg.includes("404") || errMsg.includes("Requested entity was not found")) {
+          hint = "No se encuentra el Documento de Google Sheets. El GOOGLE_SHEET_ID ingresado no existe o es incorrecto. Confírmalo mirando el ID en la URL de tu navegador.";
+        } else if (errMsg.includes("permission") || errMsg.includes("403") || errMsg.includes("caller does not have permission") || errMsg.includes("unauthorized")) {
+          hint = "La cuenta de servicio no tiene permisos en esta planilla. Debes ir a Google Sheets, hacer clic en 'Compartir' (Share) en la esquina superior derecha, agregar el correo '" + email + "' y asignarle el rol de editor.";
+        }
+
+        diagnostics.connectionTest = {
+          success: false,
+          error: errMsg,
+          hint,
+        };
+      }
+    }
+
+    res.json({
+      configured: !!(email && key && sheetId),
+      email: email ? `${email.substring(0, Math.min(email.length, 12))}...` : null,
+      sheetId: sheetId ? `${sheetId.substring(0, Math.min(sheetId.length, 12))}...` : null,
+      hasKey: !!key,
+      diagnostics
+    });
+  } catch (error: any) {
+    console.error("Global crash in status endpoint:", error);
+    res.status(500).json({
+      configured: false,
+      error: error.message || error.toString(),
+      stack: error.stack
+    });
+  }
 });
 
 // GET Endpoint to read table

@@ -468,6 +468,7 @@ export default function App() {
                       if (type === 'PUNTOS_CARGA') setLoadingPoints(data);
 
                       // Sincronización automática en tiempo real con Google Sheets
+                      const cleanType = String(type).toUpperCase().trim();
                       const tabSuffixMapping: Record<string, string> = {
                         SHIFTS: "TURNOSV2",
                         MACHINES: "PALETIZADORAV2",
@@ -478,21 +479,27 @@ export default function App() {
                         CAPACITIES: "CAPACIDADESV2",
                         USERS: "USUARIOSV2",
                         COMPANIES: "EMPRESASV2",
-                        PUNTOS_CARGA: "PUNTOS_CARGAV2"
+                        PUNTOS_CARGA: "PUNTOS_CARGAV2",
+                        LOADING_POINTS: "PUNTOS_CARGAV2"
                       };
-                      const suffix = tabSuffixMapping[type];
+                      const suffix = tabSuffixMapping[cleanType];
+                      
+                      console.log(`[AutoSync] onUpdateMasters invocado. Tipo original: "${type}", Tipo limpio: "${cleanType}", Suffix: "${suffix || 'No encontrado'}"`, targetData);
+
                       if (suffix) {
                         syncTableToSheets(suffix, targetData)
                           .then(res => {
                             if (res.success) {
-                              console.log(`[AutoSync] Sincronización automática de ${suffix} exitosa.`);
+                              console.log(`[AutoSync] Sincronización automática de ${suffix} exitosa en Google Sheets.`);
                             } else {
-                              console.warn(`[AutoSync] Error al sincronizar ${suffix}:`, res.error);
+                              console.warn(`[AutoSync] Falló la sincronización de ${suffix}:`, res.error);
                             }
                           })
                           .catch(err => {
-                            console.error(`[AutoSync] Error grave al sincronizar ${suffix}:`, err);
+                            console.error(`[AutoSync] Error crítico de red al sincronizar ${suffix}:`, err);
                           });
+                      } else {
+                        console.warn(`[AutoSync] No se encontró mapeo de sufijo para tabla: "${type}"`);
                       }
                     }}
                 />
