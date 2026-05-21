@@ -13,11 +13,34 @@ const PORT = 3000;
 // Set up JSON body parser with generous limit
 app.use(express.json({ limit: "50mb" }));
 
+// Robust helper to sanitize and parse the service account private key
+function cleanPrivateKey(key: string): string {
+  if (!key) return "";
+  let cleaned = key.trim();
+  
+  // Strip surrounding double quotes if present (e.g. "key")
+  if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
+    cleaned = cleaned.slice(1, -1);
+  }
+  // Strip surrounding single quotes if present (e.g. 'key')
+  if (cleaned.startsWith("'") && cleaned.endsWith("'")) {
+    cleaned = cleaned.slice(1, -1);
+  }
+  
+  // Replace literal string "\n" (backslash + n) with actual newline character
+  cleaned = cleaned.replace(/\\n/g, "\n");
+  
+  // Replace literal string "\r" with actual carriage return character
+  cleaned = cleaned.replace(/\\r/g, "\r");
+  
+  return cleaned;
+}
+
 // Helper to initialize Google Sheets Client
 function getSheetsClient() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  // Handle escape sequences in private key
-  const privateKey = (process.env.GOOGLE_SERVICE_ACCOUNT_KEY || "").replace(/\\n/g, "\n");
+  // Handle escape sequences and quotes in the private key robustly
+  const privateKey = cleanPrivateKey(process.env.GOOGLE_SERVICE_ACCOUNT_KEY || "");
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
   if (!email || !privateKey || !spreadsheetId) {
