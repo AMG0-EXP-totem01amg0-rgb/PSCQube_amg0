@@ -1,26 +1,64 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { motion } from 'motion/react';
-import { Settings, Search, Plus, Pencil, Trash2, X, Save, FileUp } from 'lucide-react';
-import { MasterData, Shift, HAC, Cause } from '../../types';
+import { Settings, Search, Plus, Pencil, Trash2, X, Save, FileUp, ChevronLeft, ChevronRight, User as UserIcon, Shield, LogIn } from 'lucide-react';
+import { MasterData, Shift, HAC, Cause, AppUser, UserPermission } from '../../types';
 import * as XLSX from 'xlsx';
 import { cn } from '../../lib/utils';
 import { DataTable, Column, TableActions } from '../ui/DataTable';
 import { ConfirmModal, GlassButton, GlassInput, GlassSelect } from '../ui/GlassUI';
+import { SYSTEM_VIEWS } from '../../lib/mockData';
 
 interface Props {
   masters: MasterData;
+  currentUser: AppUser;
   activeTab: 'SHIFTS' | 'MACHINES' | 'HACS' | 'CAUSES' | 'CAPACITIES' | any;
   onTabChange: (tab: any) => void;
   onUpdateMasters: (type: string, data: any[]) => void;
+  onUserSwitch?: (dni: string) => void;
 }
 
-export default function AdminView({ masters, activeTab, onTabChange, onUpdateMasters }: Props) {
+export default function AdminView({ masters, currentUser, activeTab, onTabChange, onUpdateMasters, onUserSwitch }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const canView = (viewId: string) => {
+    const perm = currentUser.permissions.find(p => p.viewId === viewId);
+    return perm ? perm.level !== 'NONE' : false;
+  };
+
+  const tabMapping: Record<string, string> = {
+    'SHIFTS': 'TURNOS',
+    'MACHINES': 'PALETIZADORAS',
+    'BAGGERS': 'EMBOLSADORAS',
+    'EQUIPOS': 'EQUIPOS',
+    'HACS': 'EQUIPOS',
+    'CAUSES': 'CAUSAS',
+    'MATERIALS': 'MATERIALES',
+    'CAPACITIES': 'CAPACIDADES',
+    'USERS': 'USUARIOS',
+    'COMPANIES': 'EMPRESAS',
+    'LOADING_POINTS': 'PUNTOS_CARGA',
+    'PUNTOS_CARGA': 'PUNTOS_CARGA'
+  };
+
+  const isVisible = (tab: string) => canView(tabMapping[tab] || tab);
+
+  const isEditable = useMemo(() => {
+    const sectionId = tabMapping[activeTab] || activeTab;
+    const perm = currentUser.permissions.find(p => p.viewId === sectionId);
+    return perm ? perm.level === 'EDIT' : false;
+  }, [currentUser, activeTab]);
+
+  useEffect(() => {
+    if (!isVisible(activeTab)) {
+        const firstVisible = ['SHIFTS', 'MACHINES', 'BAGGERS', 'HACS', 'CAUSES', 'MATERIALS', 'CAPACITIES', 'USERS'].find(t => isVisible(t));
+        if (firstVisible) onTabChange(firstVisible);
+    }
+  }, [currentUser, activeTab]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -41,6 +79,9 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
     if (activeTab === 'CAUSES') return masters.causes;
     if (activeTab === 'MATERIALS') return masters.materials;
     if (activeTab === 'CAPACITIES') return masters.capacities;
+    if (activeTab === 'USERS') return masters.users;
+    if (activeTab === 'COMPANIES') return masters.companies;
+    if (activeTab === 'PUNTOS_CARGA' || activeTab === 'LOADING_POINTS') return masters.loadingPoints;
     return [];
   };
 
@@ -61,6 +102,8 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
     let newList;
     if (activeTab === 'CAPACITIES') {
       newList = list.filter(i => `${i.palletizerId}-${i.baggerId}-${i.materialId}` !== deletingId);
+    } else if (activeTab === 'USERS') {
+      newList = list.filter(i => i.dni !== deletingId);
     } else {
       newList = list.filter(i => i.id !== deletingId);
     }
@@ -73,11 +116,15 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
     let newList;
     const isEdit = activeTab === 'CAPACITIES' 
       ? list.some(i => `${i.palletizerId}-${i.baggerId}-${i.materialId}` === `${item.palletizerId}-${item.baggerId}-${item.materialId}`)
-      : list.some(i => i.id === item.id);
+      : activeTab === 'USERS'
+        ? list.some(i => i.dni === item.dni)
+        : list.some(i => i.id === item.id);
 
     if (isEdit) {
       if (activeTab === 'CAPACITIES') {
         newList = list.map(i => `${i.palletizerId}-${i.baggerId}-${i.materialId}` === `${item.palletizerId}-${item.baggerId}-${item.materialId}` ? item : i);
+      } else if (activeTab === 'USERS') {
+        newList = list.map(i => i.dni === item.dni ? item : i);
       } else {
         newList = list.map(i => i.id === item.id ? item : i);
       }
@@ -92,14 +139,18 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
   const actionsColumn = (row?: any): Column<any> => ({
     header: 'Acciones',
     align: 'right',
-    accessor: (r) => (
+    accessor: (r) => isEditable ? (
       <TableActions 
         onEdit={() => { setEditingItem(r); setIsFormOpen(true); }}
         onDelete={() => {
-          const id = activeTab === 'CAPACITIES' ? `${r.palletizerId}-${r.baggerId}-${r.materialId}` : r.id;
+          let id = r.id;
+          if (activeTab === 'CAPACITIES') id = `${r.palletizerId}-${r.baggerId}-${r.materialId}`;
+          if (activeTab === 'USERS') id = r.dni;
           setDeletingId(id);
         }}
       />
+    ) : (
+      <span className="text-[9px] font-bold text-text-muted/40 uppercase tracking-tighter">Lectura</span>
     )
   });
 
@@ -114,6 +165,13 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
   const machineColumns: Column<any>[] = [
     { header: 'Descripción', accessor: (row) => <span className="font-bold text-text-main">{row.name}</span> },
     { header: 'HAC ID', accessor: 'hacId' },
+    { 
+      header: 'P. MUESTREO', 
+      align: 'center',
+      accessor: (row) => row.isSamplingPoint ? (
+        <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(59,130,246,0.6)] mx-auto" />
+      ) : null
+    },
     actionsColumn()
   ];
 
@@ -183,6 +241,57 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
     { header: 'Material', accessor: (row) => masters.materials.find(m => m.id === row.materialId)?.name || 'N/A' },
     { header: 'BDP', accessor: (row) => <span className="font-black text-text-main">{row.bdp} TN/H</span> },
     actionsColumn()
+  ];
+
+  const companyColumns: Column<any>[] = [
+    { header: 'Empresa', accessor: (row) => <span className="font-bold text-text-main">{row.name}</span> },
+    { header: 'CUIT', accessor: 'taxId' },
+    { header: 'Dirección', accessor: (row) => <span className="text-[10px] opacity-70">{row.address}</span> },
+    actionsColumn()
+  ];
+
+  const loadingPointColumns: Column<any>[] = [
+    { header: 'Punto de Carga', accessor: (row) => <span className="font-bold text-text-main">{row.name}</span> },
+    { header: 'Tipo', accessor: (row) => (
+      <span className={cn(
+        "px-2 py-0.5 rounded text-[10px] font-bold border uppercase",
+        row.type === 'BOLSA' ? "border-blue-500/20 text-blue-500 bg-blue-500/5" : "border-amber-500/20 text-amber-500 bg-amber-500/5"
+      )}>
+        {row.type}
+      </span>
+    )},
+    actionsColumn()
+  ];
+
+  const userColumns: Column<AppUser>[] = [
+    { header: 'DNI / Legajo', accessor: 'dni' },
+    { header: 'Nombre', accessor: (row) => <span className="font-bold text-text-main">{row.name}</span> },
+    { header: 'Usuario RED / SAP', accessor: 'sapUser' },
+    { header: 'Email', accessor: (row) => <span className="text-[10px] opacity-70">{row.email}</span> },
+    {
+      header: 'Acciones',
+      align: 'right',
+      accessor: (row) => (
+        <div className="flex items-center gap-2 justify-end">
+          <button 
+            onClick={() => onUserSwitch?.(row.dni)}
+            title="Simular Login"
+            className={cn(
+              "w-8 h-8 rounded-lg flex items-center justify-center transition-all",
+              currentUser.dni === row.dni 
+                ? "bg-primary text-white" 
+                : "bg-surface text-text-muted hover:text-primary border border-border"
+            )}
+          >
+            <LogIn size={14} />
+          </button>
+          <TableActions 
+            onEdit={() => { setEditingItem(row); setIsFormOpen(true); }}
+            onDelete={() => setDeletingId(row.dni)}
+          />
+        </div>
+      )
+    }
   ];
 
   const handleExcelImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -262,7 +371,35 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
             </div>
           </div>
           
-          <div className="relative overflow-hidden group">
+          <div className="relative group overflow-hidden">
+            {/* Carousel Arrows - Only visible on desktop hover */}
+            <div className="absolute inset-y-0 left-0 items-center pl-1 z-20 hidden md:flex opacity-0 group-hover:opacity-100 transition-opacity">
+              <button 
+                onClick={() => {
+                  if (scrollRef.current) {
+                    scrollRef.current.scrollBy({ left: -150, behavior: 'smooth' });
+                  }
+                }}
+                className="w-6 h-6 rounded-full bg-surface shadow-md border border-border flex items-center justify-center text-text-muted hover:text-primary transition-colors"
+              >
+                <ChevronLeft size={14} />
+              </button>
+            </div>
+            
+            <div className="absolute inset-y-0 right-0 items-center pr-1 z-20 hidden md:flex opacity-0 group-hover:opacity-100 transition-opacity">
+              <button 
+                onClick={() => {
+                  if (scrollRef.current) {
+                    scrollRef.current.scrollBy({ left: 150, behavior: 'smooth' });
+                  }
+                }}
+                className="w-6 h-6 rounded-full bg-surface shadow-md border border-border flex items-center justify-center text-text-muted hover:text-primary transition-colors"
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
+
+            {/* Carousel edge masks */}
             <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-bg to-transparent z-10 pointer-events-none" />
             <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-bg to-transparent z-10 pointer-events-none" />
             
@@ -270,13 +407,16 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
               ref={scrollRef}
               className="flex bg-bg-input/50 p-1.5 rounded-2xl border border-border overflow-x-auto gap-1 no-scrollbar select-none min-w-0 shadow-sm scroll-smooth px-6"
             >
-               <AdminSubTab active={activeTab === 'SHIFTS'} onClick={() => onTabChange('SHIFTS')} label="Turnos" />
-               <AdminSubTab active={activeTab === 'MACHINES'} onClick={() => onTabChange('MACHINES')} label="Maquinas" />
-               <AdminSubTab active={activeTab === 'BAGGERS'} onClick={() => onTabChange('BAGGERS')} label="Ensacadoras" />
-               <AdminSubTab active={activeTab === 'HACS'} onClick={() => onTabChange('HACS')} label="Equipos" />
-               <AdminSubTab active={activeTab === 'CAUSES'} onClick={() => onTabChange('CAUSES')} label="Causas" />
-               <AdminSubTab active={activeTab === 'MATERIALS'} onClick={() => onTabChange('MATERIALS')} label="Materiales" />
-               <AdminSubTab active={activeTab === 'CAPACITIES'} onClick={() => onTabChange('CAPACITIES')} label="Capacidades" />
+               {isVisible('SHIFTS') && <AdminSubTab active={activeTab === 'SHIFTS'} onClick={() => onTabChange('SHIFTS')} label="Turnos" />}
+               {isVisible('MACHINES') && <AdminSubTab active={activeTab === 'MACHINES'} onClick={() => onTabChange('MACHINES')} label="Maquinas" />}
+               {isVisible('BAGGERS') && <AdminSubTab active={activeTab === 'BAGGERS'} onClick={() => onTabChange('BAGGERS')} label="Ensacadoras" />}
+               {isVisible('HACS') && <AdminSubTab active={activeTab === 'HACS'} onClick={() => onTabChange('HACS')} label="Equipos" />}
+               {isVisible('CAUSES') && <AdminSubTab active={activeTab === 'CAUSES'} onClick={() => onTabChange('CAUSES')} label="Causas" />}
+               {isVisible('MATERIALS') && <AdminSubTab active={activeTab === 'MATERIALS'} onClick={() => onTabChange('MATERIALS')} label="Materiales" />}
+               {isVisible('CAPACITIES') && <AdminSubTab active={activeTab === 'CAPACITIES'} onClick={() => onTabChange('CAPACITIES')} label="Capacidades" />}
+               {isVisible('USERS') && <AdminSubTab active={activeTab === 'USERS'} onClick={() => onTabChange('USERS')} label="Usuarios" />}
+               {isVisible('COMPANIES') && <AdminSubTab active={activeTab === 'COMPANIES'} onClick={() => onTabChange('COMPANIES')} label="Empresas" />}
+               {isVisible('PUNTOS_CARGA') && <AdminSubTab active={activeTab === 'PUNTOS_CARGA'} onClick={() => onTabChange('PUNTOS_CARGA')} label="Puntos Carga" />}
             </div>
           </div>
        </div>
@@ -301,21 +441,25 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
                    accept=".xlsx, .xls" 
                    onChange={handleExcelImport}
                 />
-                {(activeTab === 'HACS' || activeTab === 'CAUSES') && (
-                  <GlassButton 
-                    variant="secondary" 
-                    className="h-10 px-4" 
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <FileUp size={16} /> Importar Excel
-                  </GlassButton>
+                {isEditable && (
+                  <>
+                    {(activeTab === 'HACS' || activeTab === 'CAUSES') && (
+                      <GlassButton 
+                        variant="secondary" 
+                        className="h-10 px-4" 
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <FileUp size={16} /> Importar Excel
+                      </GlassButton>
+                    )}
+                    <button 
+                      onClick={() => { setEditingItem(null); setIsFormOpen(true); }}
+                      className="h-10 px-4 bg-primary text-white rounded-lg font-semibold text-xs flex items-center gap-2 hover:bg-primary/90 transition-colors active:scale-95 shadow-sm"
+                    >
+                        <Plus size={16} /> Nuevo Registro
+                    </button>
+                  </>
                 )}
-                <button 
-                  onClick={() => { setEditingItem(null); setIsFormOpen(true); }}
-                  className="h-10 px-4 bg-primary text-white rounded-lg font-semibold text-xs flex items-center gap-2 hover:bg-primary/90 transition-colors active:scale-95 shadow-sm"
-                >
-                    <Plus size={16} /> Nuevo Registro
-                </button>
              </div>
           </div>
 
@@ -327,6 +471,9 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
             {activeTab === 'CAUSES' && <DataTable title="Catálogo de Causas" countLabel="registros" columns={causeColumns} data={filteredData} keyExtractor={r => r.id} />}
             {activeTab === 'MATERIALS' && <DataTable title="Listado de Materiales" countLabel="materiales" columns={materialColumns} data={filteredData} keyExtractor={r => r.id} />}
             {activeTab === 'CAPACITIES' && <DataTable title="Matriz de Capacidades" countLabel="combinaciones" columns={capacityColumns} data={filteredData} keyExtractor={r => `${r.palletizerId}-${r.baggerId}-${r.materialId}`} />}
+            {activeTab === 'USERS' && <DataTable title="Base de Usuarios" countLabel="usuarios" columns={userColumns} data={filteredData} keyExtractor={r => r.dni} />}
+            {activeTab === 'COMPANIES' && <DataTable title="Datos de Empresa" countLabel="sedes" columns={companyColumns} data={filteredData} keyExtractor={r => r.id} />}
+            {(activeTab === 'PUNTOS_CARGA' || activeTab === 'LOADING_POINTS') && <DataTable title="Puntos de Carga" countLabel="puntos" columns={loadingPointColumns} data={filteredData} keyExtractor={r => r.id} />}
           </div>
        </div>
 
@@ -352,7 +499,14 @@ export default function AdminView({ masters, activeTab, onTabChange, onUpdateMas
 }
 
 function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
-  const [formData, setFormData] = useState<any>(item || {});
+  const [formData, setFormData] = useState<any>(item || { 
+    permissions: SYSTEM_VIEWS.map(v => ({
+      viewId: v.id,
+      label: v.label,
+      section: v.section,
+      level: 'NONE'
+    }))
+  });
 
   const typeNames: Record<string, { name: string; female?: boolean }> = {
     'SHIFTS': { name: 'Turno', female: false },
@@ -361,7 +515,11 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
     'HACS': { name: 'Equipo', female: false },
     'CAUSES': { name: 'Causa', female: true },
     'MATERIALS': { name: 'Material', female: false },
-    'CAPACITIES': { name: 'Capacidad', female: true }
+    'CAPACITIES': { name: 'Capacidad', female: true },
+    'USERS': { name: 'Usuario', female: false },
+    'COMPANIES': { name: 'Empresa', female: true },
+    'PUNTOS_CARGA': { name: 'Punto de Carga', female: false },
+    'LOADING_POINTS': { name: 'Punto de Carga', female: false }
   };
 
   const config = typeNames[type] || { name: type, female: false };
@@ -374,11 +532,13 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
     let finalData = { ...formData };
     
     // Auto-generate ID if missing for all types
-    if (!finalData.id) {
+    if (!finalData.id && type !== 'USERS') {
        const prefix = (type === 'CAPACITIES' ? 'CAP' : type.substring(0, 3).toUpperCase());
        finalData.id = `${prefix}-` + Math.random().toString(36).substr(2, 4).toUpperCase();
        if (type === 'BAGGERS') finalData.type = 'ENSACADORA';
     }
+    
+    // For users, we use DNI as ID if needed but essentially DNI is the key
     
     onSave(finalData);
   };
@@ -388,7 +548,10 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-lg bg-surface-elevated border border-border rounded-2xl shadow-2xl overflow-hidden z-[201]"
+        className={cn(
+          "w-full bg-surface-elevated border border-border rounded-2xl shadow-2xl overflow-hidden z-[201]",
+          type === 'USERS' ? "max-w-4xl max-h-[90vh] overflow-y-auto" : "max-w-lg"
+        )}
       >
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
@@ -413,6 +576,16 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                 <>
                   <GlassInput label="Descripción" value={formData.name || ''} onChange={(e:any) => setFormData({...formData, name: e.target.value})} />
                   <GlassInput label="HAC ID" value={formData.hacId || ''} onChange={(e:any) => setFormData({...formData, hacId: e.target.value})} />
+                  <div className="flex items-center gap-2 p-3 bg-primary/5 rounded-lg border border-primary/10">
+                    <input 
+                      type="checkbox" 
+                      id="isSamplingPoint"
+                      checked={formData.isSamplingPoint || false} 
+                      onChange={(e) => setFormData({...formData, isSamplingPoint: e.target.checked})}
+                      className="w-4 h-4 rounded border-border text-primary cursor-pointer"
+                    />
+                    <label htmlFor="isSamplingPoint" className="text-[10px] font-bold uppercase cursor-pointer">Es Punto de Muestreo?</label>
+                  </div>
                 </>
               )}
 
@@ -540,6 +713,141 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                     onChange={(e:any) => setFormData({...formData, materialId: e.target.value})} 
                   />
                   <GlassInput label="BDP (TN/H)" type="number" value={formData.bdp || ''} onChange={(e:any) => setFormData({...formData, bdp: parseFloat(e.target.value)})} />
+                </>
+              )}
+
+              {type === 'USERS' && (
+                <>
+                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <GlassInput label="DNI / LEGAJO" value={formData.dni || ''} onChange={(e:any) => setFormData({...formData, dni: e.target.value})} />
+                    <GlassInput label="NOMBRE / APELLIDO" value={formData.name || ''} onChange={(e:any) => setFormData({...formData, name: e.target.value})} />
+                    <GlassInput label="USUARIO RED / SAP" value={formData.sapUser || ''} onChange={(e:any) => setFormData({...formData, sapUser: e.target.value})} />
+                  </div>
+                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <GlassInput label="EMAIL" value={formData.email || ''} onChange={(e:any) => setFormData({...formData, email: e.target.value})} />
+                    <GlassInput label="EMAIL 2 (Opcional)" value={formData.email2 || ''} onChange={(e:any) => setFormData({...formData, email2: e.target.value})} />
+                  </div>
+                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <GlassSelect 
+                      label="PUESTO" 
+                      options={[
+                        {label: 'Operario Maquinista', value: 'Operario Maquinista'},
+                        {label: 'Operario Técnico', value: 'Operario Técnico'},
+                        {label: 'Operario Autoelevador', value: 'Operario Autoelevador'},
+                        {label: 'Operario Granel', value: 'Operario Granel'},
+                        {label: 'Operario Supervisor', value: 'Operario Supervisor'},
+                        {label: 'Operario Líbero', value: 'Operario Líbero'},
+                        {label: 'Laboratórista', value: 'Laboratórista'},
+                      ]} 
+                      value={formData.position || ''} 
+                      onChange={(e:any) => setFormData({...formData, position: e.target.value})}
+                    />
+                    <GlassSelect 
+                      label="PERFIL" 
+                      options={[
+                        {label: 'Administrador', value: 'Administrador'},
+                        {label: 'Operario', value: 'Operario'},
+                        {label: 'Técnico', value: 'Técnico'},
+                        {label: 'Administrativo', value: 'Administrativo'},
+                        {label: 'Supervisor', value: 'Supervisor'},
+                        {label: 'Laboratorio', value: 'Laboratorio'},
+                      ]} 
+                      value={formData.profile || ''} 
+                      onChange={(e:any) => setFormData({...formData, profile: e.target.value})}
+                    />
+                  </div>
+
+                  <div className="md:col-span-2 mt-4">
+                    <h4 className="text-[10px] font-bold text-text-muted uppercase tracking-[0.2em] mb-4">Visualizaciones Habilitadas</h4>
+                    <div className="border border-border rounded-xl overflow-hidden bg-bg/30">
+                      <table className="w-full text-left text-[10px]">
+                        <thead className="bg-bg/50 border-b border-border">
+                          <tr>
+                            <th className="px-4 py-3 font-bold uppercase tracking-wider">Sección / Vista</th>
+                            <th className="px-4 py-3 font-bold uppercase tracking-wider text-center">Nivel de Acceso</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {SYSTEM_VIEWS.map((view) => {
+                            const p = formData.permissions.find((perm: any) => perm.viewId === view.id) || { level: 'NONE' };
+                            return (
+                              <tr key={view.id} className="hover:bg-white/5 transition-colors">
+                                <td className="px-4 py-3">
+                                  <div className="flex flex-col">
+                                    <span className="text-[9px] font-black text-primary/70">{view.section}</span>
+                                    <span className="text-sm font-bold text-text-main">{view.label}</span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center justify-center gap-1">
+                                    {['NONE', 'VIEW', 'EDIT'].map((lvl) => (
+                                      <button
+                                        key={lvl}
+                                        type="button"
+                                        onClick={() => {
+                                          const newPerms = [...formData.permissions];
+                                          const idx = newPerms.findIndex((perm: any) => perm.viewId === view.id);
+                                          if (idx >= 0) {
+                                            newPerms[idx] = { ...newPerms[idx], level: lvl };
+                                          } else {
+                                            newPerms.push({ viewId: view.id, label: view.label, section: view.section, level: lvl });
+                                          }
+                                          setFormData({ ...formData, permissions: newPerms });
+                                        }}
+                                        className={cn(
+                                          "px-2 py-1 rounded text-[9px] font-bold transition-all border",
+                                          p.level === lvl 
+                                            ? "bg-primary text-white border-primary shadow-[0_0_10px_rgba(59,130,246,0.3)]" 
+                                            : "bg-surface text-text-muted border-border hover:border-text-muted"
+                                        )}
+                                      >
+                                        {lvl === 'NONE' ? 'BLOQUEADO' : lvl === 'VIEW' ? 'SOLO VER' : 'EDITAR'}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {type === 'COMPANIES' && (
+                <>
+                  <div className="md:col-span-2">
+                    <GlassInput label="Nombre / Razón Social" value={formData.name || ''} onChange={(e:any) => setFormData({...formData, name: e.target.value})} />
+                  </div>
+                  <GlassInput label="CUIT" value={formData.taxId || ''} onChange={(e:any) => setFormData({...formData, taxId: e.target.value})} />
+                  <GlassInput label="Teléfono" value={formData.phone || ''} onChange={(e:any) => setFormData({...formData, phone: e.target.value})} />
+                  <div className="md:col-span-2">
+                    <GlassInput label="URL de Logo (PNG/JPG)" value={formData.logo || ''} onChange={(e:any) => setFormData({...formData, logo: e.target.value})} />
+                  </div>
+                  <div className="md:col-span-2">
+                    <GlassInput label="Dirección" value={formData.address || ''} onChange={(e:any) => setFormData({...formData, address: e.target.value})} />
+                  </div>
+                  <div className="md:col-span-2">
+                    <GlassInput label="Email Institucional" value={formData.email || ''} onChange={(e:any) => setFormData({...formData, email: e.target.value})} />
+                  </div>
+                </>
+              )}
+
+              {(type === 'PUNTOS_CARGA' || type === 'LOADING_POINTS') && (
+                <>
+                  <div className="md:col-span-2">
+                    <GlassInput label="Nombre de Calle / Punto" value={formData.name || ''} onChange={(e:any) => setFormData({...formData, name: e.target.value})} />
+                  </div>
+                  <div className="md:col-span-2">
+                    <GlassSelect 
+                      label="Tipo de Carga" 
+                      options={[{label: 'BOLSA', value: 'BOLSA'}, {label: 'GRANEL', value: 'GRANEL'}]} 
+                      value={formData.type || ''} 
+                      onChange={(e:any) => setFormData({...formData, type: e.target.value})}
+                    />
+                  </div>
                 </>
               )}
             </div>

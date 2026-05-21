@@ -1,14 +1,16 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'motion/react';
-import { AlertTriangle, Pencil, Trash2, XCircle, Clock } from 'lucide-react';
+import { AlertTriangle, Pencil, Trash2, XCircle, Clock, ShieldAlert } from 'lucide-react';
 import { format, parse, differenceInMinutes, isBefore, isAfter, isEqual } from 'date-fns';
 import { GlassCard, GlassInput, GlassSelect, GlassButton, ConfirmModal } from '../ui/GlassUI';
 import ShiftTimeline from './ShiftTimeline';
-import { MasterData, MachineStop, Shift } from '../../types';
+import { MasterData, MachineStop, Shift, AppUser } from '../../types';
 import { cn } from '../../lib/utils';
+import { DataTable, Column, TableActions } from '../ui/DataTable';
 
 interface Props {
   masters: MasterData;
+  currentUser: AppUser;
   onSave: (stop: MachineStop) => void;
   onDelete: (id: string) => void;
   palletizerId: string | null;
@@ -17,16 +19,21 @@ interface Props {
   history: MachineStop[];
 }
 
-export default function StopsView({ masters, onSave, onDelete, palletizerId, shiftId, selectedDate, history }: Props) {
+export default function StopsView({ masters, currentUser, onSave, onDelete, palletizerId, shiftId, selectedDate, history }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const canEdit = useMemo(() => {
+    const perm = currentUser.permissions.find(p => p.viewId === 'PAROS');
+    return perm ? perm.level === 'EDIT' : false;
+  }, [currentUser]);
   const [formData, setFormData] = useState({ 
     materialId: '', 
     startTime: '', 
     endTime: '', 
     hacId: '', 
     causeId: '',
-    observations: ''
+    noticeText: ''
   });
   
   const [error, setError] = useState<string | null>(null);
@@ -87,20 +94,51 @@ export default function StopsView({ masters, onSave, onDelete, palletizerId, shi
     let end = parse(formData.endTime, 'HH:mm', new Date());
     const duration = differenceInMinutes(end, start);
 
+    // Lookups for technical fields
+    const hacObj = masters.hacs.find(h => h.hac === formData.hacId);
+    const causeObj = masters.causes.find(c => c.id === formData.causeId);
+
+    if (!hacObj || !causeObj) {
+      setError("Error interno: No se encontró la referencia de HAC o Causa.");
+      return;
+    }
+
     onSave({
-      id: editingId || Math.random().toString(),
+      id: editingId || `STP-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
       date: selectedDate,
+      finishDate: selectedDate, // Igual a fecha de registro
       machineId: palletizerId, 
       shiftId: shiftId,
       materialId: formData.materialId,
       startTime: formData.startTime,
       endTime: formData.endTime,
       durationMinutes: duration,
-      hacId: formData.hacId,
-      causeId: formData.causeId,
-      user: 'Operario', 
-      workCenter: 'WC1', 
-      center: 'C1'
+      
+      // Lookups
+      hacId: hacObj.id,
+      hacName: hacObj.hac,
+      hacDetail: hacObj.detail,
+      equipment: hacObj.equipment,
+      
+      causeId: causeObj.id,
+      causeText: causeObj.text,
+      noticeText: formData.noticeText,
+      symptomText: causeObj.text, // Igual a Texto de Causa por defecto
+      
+      sapCause: causeObj.sapCause,
+      causeGroup: causeObj.causeGroup,
+      causeCode: causeObj.causeCode,
+      stopType: causeObj.stopType,
+      
+      gpoCodObjeto: hacObj.gpoCodObjeto,
+      partObject: causeObj.partObject,
+      symptomGroup: causeObj.symptomGroup,
+      symptomCode: causeObj.symptomCode,
+      
+      user: 'j-0627', // ID de usuario (mock)
+      userName: 'Joni Holcim', // Nombre de usuario (mock)
+      workCenter: 'OPEREXP', 
+      center: 'AMG0'
     });
 
     // Reset Form
@@ -110,20 +148,23 @@ export default function StopsView({ masters, onSave, onDelete, palletizerId, shi
       endTime: '', 
       hacId: '', 
       causeId: '',
-      observations: ''
+      noticeText: ''
     });
     setEditingId(null);
   };
 
   const handleEdit = (stop: MachineStop) => {
     setEditingId(stop.id);
+    // Find back the HAC ID (string name) from the masters using the stop.hacId (UUID)
+    const hacObj = masters.hacs.find(h => h.id === stop.hacId);
+    
     setFormData({
       materialId: stop.materialId,
       startTime: stop.startTime,
       endTime: stop.endTime || '',
-      hacId: stop.hacId,
+      hacId: hacObj?.hac || '',
       causeId: stop.causeId,
-      observations: '' 
+      noticeText: stop.noticeText || '' 
     });
     setError(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -170,7 +211,8 @@ export default function StopsView({ masters, onSave, onDelete, palletizerId, shi
       )}
 
       {/* Form Section */}
-      <GlassCard className="p-8 relative overflow-hidden">
+      {canEdit ? (
+        <GlassCard className="p-8 relative overflow-hidden">
         {editingId && (
           <div className="absolute top-0 left-0 w-full h-1 bg-primary shadow-sm" />
         )}
@@ -194,7 +236,7 @@ export default function StopsView({ masters, onSave, onDelete, palletizerId, shi
             <button 
               onClick={() => {
                 setEditingId(null);
-                setFormData({ materialId: '', startTime: '', endTime: '', hacId: '', causeId: '', observations: '' });
+                setFormData({ materialId: '', startTime: '', endTime: '', hacId: '', causeId: '', noticeText: '' });
               }}
               className="text-[10px] font-bold text-primary uppercase hover:text-text-main transition-colors px-3 py-1 bg-primary/10 rounded-full border border-primary/20"
             >
@@ -203,58 +245,77 @@ export default function StopsView({ masters, onSave, onDelete, palletizerId, shi
           )}
         </div>
 
-        <form onSubmit={submit} className="grid grid-cols-1 lg:grid-cols-12 gap-x-8 gap-y-6">
-          <div className="lg:col-span-4 space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-               <GlassInput 
-                 label="Hora Inicio" 
-                 type="time" 
-                 value={formData.startTime} 
-                 onChange={e => setFormData({...formData, startTime: (e.target as HTMLInputElement).value})} 
-               />
-               <GlassInput 
-                 label="Hora Fin" 
-                 type="time" 
-                 value={formData.endTime} 
-                 onChange={e => setFormData({...formData, endTime: (e.target as HTMLInputElement).value})} 
-               />
+        <form onSubmit={submit} className="space-y-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Tiempos y Material */}
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                 <GlassInput 
+                   label="Hora Inicio" 
+                   type="time" 
+                   value={formData.startTime} 
+                   onChange={e => setFormData({...formData, startTime: (e.target as HTMLInputElement).value})} 
+                 />
+                 <GlassInput 
+                   label="Hora Fin" 
+                   type="time" 
+                   value={formData.endTime} 
+                   onChange={e => setFormData({...formData, endTime: (e.target as HTMLInputElement).value})} 
+                 />
+              </div>
+              <GlassSelect 
+                label="Material en Línea" 
+                options={masters.materials.map(m => ({ label: m.name, value: m.id }))}
+                value={formData.materialId}
+                onChange={e => setFormData({ ...formData, materialId: (e.target as HTMLSelectElement).value })}
+              />
             </div>
-            <GlassSelect 
-              label="Material en Línea" 
-              options={masters.materials.map(m => ({ label: m.name, value: m.id }))}
-              value={formData.materialId}
-              onChange={e => setFormData({ ...formData, materialId: (e.target as HTMLSelectElement).value })}
-            />
+
+            {/* Clasificación (HAC/Causa) */}
+            <div className="space-y-6">
+              <GlassSelect 
+                label="Equipo Afectado (HAC)" 
+                options={masters.hacs.map((h:any) => ({label: `${h.hac} - ${h.detail}`, value: h.hac}))} 
+                value={formData.hacId} 
+                onChange={e => setFormData({...formData, hacId: (e.target as HTMLSelectElement).value, causeId: ''})} 
+              />
+              <GlassSelect 
+                label="Causa Específica" 
+                options={masters.causes.filter((c:any) => c.hac === formData.hacId).map((c:any) => ({label: c.text, value: c.id}))} 
+                value={formData.causeId} 
+                onChange={e => setFormData({...formData, causeId: (e.target as HTMLSelectElement).value})} 
+                disabled={!formData.hacId} 
+              />
+            </div>
+
+            {/* Información Adicional */}
+            <div className="space-y-4">
+              <div className="relative">
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-2 block">Texto Aviso (Opcional)</label>
+                <textarea 
+                  className="w-full bg-bg/50 border border-white/10 rounded-xl p-3 text-sm text-text-main focus:outline-none focus:ring-1 focus:ring-primary/50 min-h-[108px] transition-all"
+                  placeholder="Describe brevemente la anomalía o el motivo del aviso..."
+                  value={formData.noticeText}
+                  onChange={e => setFormData({...formData, noticeText: e.target.value})}
+                ></textarea>
+              </div>
+            </div>
           </div>
 
-          <div className="lg:col-span-4 space-y-6">
-            <GlassSelect 
-              label="Equipo Afectado (HAC)" 
-              options={masters.hacs.map((h:any) => ({label: `${h.hac} - ${h.detail}`, value: h.hac}))} 
-              value={formData.hacId} 
-              onChange={e => setFormData({...formData, hacId: (e.target as HTMLSelectElement).value, causeId: ''})} 
-            />
-            <GlassSelect 
-              label="Causa Específica" 
-              options={masters.causes.filter((c:any) => c.hac === formData.hacId).map((c:any) => ({label: c.text, value: c.id}))} 
-              value={formData.causeId} 
-              onChange={e => setFormData({...formData, causeId: (e.target as HTMLSelectElement).value})} 
-              disabled={!formData.hacId} 
-            />
-          </div>
-
-          <div className="lg:col-span-4 flex flex-col justify-end gap-4 pb-1">
-            {error && (
-              <motion.div 
-                initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-3 shadow-lg"
-              >
-                <XCircle size={16} className="text-red-500 shrink-0" />
-                <p className="text-[10px] font-bold text-red-400 uppercase leading-tight">{error}</p>
-              </motion.div>
-            )}
+          <div className="flex flex-col md:flex-row items-center gap-6 pt-4 border-t border-border/50">
+            <div className="flex-1">
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                  className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-3 shadow-lg"
+                >
+                  <XCircle size={16} className="text-red-500 shrink-0" />
+                  <p className="text-[10px] font-bold text-red-400 uppercase leading-tight">{error}</p>
+                </motion.div>
+              )}
+            </div>
             
-            <div className="flex gap-2">
+            <div className="flex gap-3 w-full md:w-auto">
               {editingId && (
                 <button
                   type="button"
@@ -265,13 +326,24 @@ export default function StopsView({ masters, onSave, onDelete, palletizerId, shi
                   <Trash2 size={20} />
                 </button>
               )}
-              <GlassButton type="submit" className="flex-1 h-12 text-sm">
-                {editingId ? 'Actualizar Registro' : 'Agregar Paro a Tabla'}
+              <GlassButton type="submit" className="flex-1 md:w-64 h-12 text-sm font-bold tracking-wide">
+                {editingId ? 'GUARDAR CAMBIOS' : 'REPORTAR PARO'}
               </GlassButton>
             </div>
           </div>
         </form>
       </GlassCard>
+      ) : (
+        <div className="bg-surface/30 p-8 rounded-3xl border border-border/50 text-center flex flex-col items-center justify-center gap-4">
+           <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-text-muted">
+              <ShieldAlert size={32} className="opacity-20" />
+           </div>
+           <div>
+              <p className="text-sm font-bold text-text-muted uppercase tracking-[0.2em] mb-1">Modo de Consulta</p>
+              <p className="text-xs text-text-muted/60">No tienes permisos para reportar o modificar paros en esta línea.</p>
+           </div>
+        </div>
+      )}
 
       <ConfirmModal 
         isOpen={!!deletingId}
@@ -282,7 +354,7 @@ export default function StopsView({ masters, onSave, onDelete, palletizerId, shi
             setDeletingId(null);
             if (deletingId === editingId) {
               setEditingId(null);
-              setFormData({ materialId: '', startTime: '', endTime: '', hacId: '', causeId: '', observations: '' });
+              setFormData({ materialId: '', startTime: '', endTime: '', hacId: '', causeId: '', noticeText: '' });
             }
           }
         }}

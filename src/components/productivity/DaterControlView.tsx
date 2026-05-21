@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ClipboardList, Plus, Trash2, Save, Printer, Calendar, FilterX } from 'lucide-react';
-import { MasterData, DaterControl } from '../../types';
+import { MasterData, DaterControl, AppUser } from '../../types';
 import { DataTable, Column, TableActions } from '../ui/DataTable';
 import { GlassCard, GlassButton, GlassInput, GlassSelect, ConfirmModal } from '../ui/GlassUI';
 import { cn } from '../../lib/utils';
@@ -9,6 +9,7 @@ import { format, isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-f
 
 interface Props {
   masters: MasterData;
+  currentUser: AppUser;
   onSave: (report: DaterControl) => void;
   onDelete: (id: string) => void;
   history: DaterControl[];
@@ -16,9 +17,14 @@ interface Props {
   selectedDate: string;
 }
 
-export default function DaterControlView({ masters, onSave, onDelete, history, selectedShiftId, selectedDate }: Props) {
+export default function DaterControlView({ masters, currentUser, onSave, onDelete, history, selectedShiftId, selectedDate }: Props) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  const canEdit = useMemo(() => {
+    const perm = currentUser.permissions.find(p => p.viewId === 'DATER');
+    return perm ? perm.level === 'EDIT' : false;
+  }, [currentUser]);
   
   // Date range for audits
   const [dateFrom, setDateFrom] = useState<string>('');
@@ -107,7 +113,7 @@ export default function DaterControlView({ masters, onSave, onDelete, history, s
     { 
       header: 'Acciones', 
       align: 'right',
-      accessor: (row) => (
+      accessor: (row) => canEdit ? (
         <TableActions 
           onEdit={() => {
             setFormData(row);
@@ -116,6 +122,8 @@ export default function DaterControlView({ masters, onSave, onDelete, history, s
           }}
           onDelete={() => setDeletingId(row.id)}
         />
+      ) : (
+        <span className="text-[9px] font-bold text-text-muted/40 uppercase tracking-tighter">Lectura</span>
       )
     }
   ];
@@ -156,7 +164,7 @@ export default function DaterControlView({ masters, onSave, onDelete, history, s
               )}
             </div>
           </div>
-          {!isFormOpen && (
+          {!isFormOpen && canEdit && (
             <GlassButton onClick={() => { setEditingId(null); setIsFormOpen(true); }} className="h-10 px-4">
               <Plus size={18} /> <span className="hidden sm:inline ml-2">Nuevo Control</span>
             </GlassButton>

@@ -4,11 +4,12 @@ import { Package, Plus, Trash2, History, Pencil, TrendingUp, Filter, BarChart3, 
 import { format } from 'date-fns';
 import { GlassCard, GlassInput, GlassSelect, GlassButton, ConfirmModal, Modal } from '../ui/GlassUI';
 import { DataTable, Column, TableActions } from '../ui/DataTable';
-import { MasterData, ProductionReport, NozzleNews } from '../../types';
+import { MasterData, ProductionReport, NozzleNews, AppUser } from '../../types';
 import { cn } from '../../lib/utils';
 
 interface Props {
   masters: MasterData;
+  currentUser: AppUser;
   onSave: (report: any) => void;
   onDelete: (id: string) => void;
   palletizerId: string | null;
@@ -17,10 +18,15 @@ interface Props {
   history: ProductionReport[];
 }
 
-export default function ProductionView({ masters, onSave, onDelete, palletizerId, shiftId, selectedDate, history }: Props) {
+export default function ProductionView({ masters, currentUser, onSave, onDelete, palletizerId, shiftId, selectedDate, history }: Props) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ProductionReport | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const canEdit = useMemo(() => {
+    const perm = currentUser.permissions.find(p => p.viewId === 'PRODUCCION');
+    return perm ? perm.level === 'EDIT' : false;
+  }, [currentUser]);
   
   // Local form state
   const [formData, setFormData] = useState({ 
@@ -226,11 +232,13 @@ export default function ProductionView({ masters, onSave, onDelete, palletizerId
     {
       header: 'Acciones',
       align: 'right',
-      accessor: (row) => (
+      accessor: (row) => canEdit ? (
         <TableActions 
           onEdit={() => handleOpenEdit(row)}
           onDelete={() => setDeletingId(row.id)}
         />
+      ) : (
+        <span className="text-[9px] font-bold text-text-muted/40 uppercase tracking-tighter">Lectura</span>
       )
     }
   ];
@@ -303,15 +311,17 @@ export default function ProductionView({ masters, onSave, onDelete, palletizerId
           </div>
         </GlassCard>
 
-        <div className="flex flex-col justify-center">
-          <GlassButton 
-            onClick={handleOpenAdd}
-            className="h-full py-6 md:py-0 text-base shadow-lg shadow-primary/20"
-          >
-            <Plus size={20} className="mr-2" />
-            Agregar Producción
-          </GlassButton>
-        </div>
+        {canEdit && (
+          <div className="flex flex-col justify-center">
+            <GlassButton 
+              onClick={handleOpenAdd}
+              className="h-full py-6 md:py-0 text-base shadow-lg shadow-primary/20"
+            >
+              <Plus size={20} className="mr-2" />
+              Agregar Producción
+            </GlassButton>
+          </div>
+        )}
       </div>
 
       {/* Registers Table */}

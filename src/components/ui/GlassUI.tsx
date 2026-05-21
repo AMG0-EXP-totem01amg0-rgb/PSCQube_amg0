@@ -123,14 +123,16 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
                 className
               )}
             >
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6 border-b border-border pb-4">
+              <div className="p-6 flex flex-col max-h-[90vh]">
+                <div className="flex items-center justify-between mb-6 border-b border-border pb-4 flex-shrink-0">
                   <h3 className="text-xl font-bold text-text-main">{title}</h3>
                   <button onClick={onClose} className="p-2 text-text-muted hover:text-text-main transition-colors bg-bg/50 rounded-lg">
                     <X size={20} />
                   </button>
                 </div>
-                {children}
+                <div className="overflow-y-auto flex-1 -mr-2 pr-2 custom-scrollbar">
+                  {children}
+                </div>
               </div>
             </motion.div>
           </div>

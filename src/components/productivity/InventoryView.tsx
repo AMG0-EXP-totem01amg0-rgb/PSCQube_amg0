@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PlusCircle, Box, Trash2, Save, ChevronDown, ChevronUp, Package, Calculator, ClipboardList } from 'lucide-react';
-import { MasterData, InventoryEntry, ProductionReport } from '../../types';
+import { MasterData, InventoryEntry, ProductionReport, AppUser } from '../../types';
 import { DataTable, Column, TableActions } from '../ui/DataTable';
 import { GlassCard, GlassButton, GlassInput, GlassSelect, ConfirmModal } from '../ui/GlassUI';
 import { cn } from '../../lib/utils';
@@ -9,6 +9,7 @@ import { format, parseISO } from 'date-fns';
 
 interface Props {
   masters: MasterData;
+  currentUser: AppUser;
   onSave: (entry: InventoryEntry) => void;
   onDelete: (id: string) => void;
   entries: InventoryEntry[];
@@ -17,9 +18,14 @@ interface Props {
   selectedDate: string;
 }
 
-export default function InventoryView({ masters, onSave, onDelete, entries, productionReports, selectedShiftId, selectedDate }: Props) {
+export default function InventoryView({ masters, currentUser, onSave, onDelete, entries, productionReports, selectedShiftId, selectedDate }: Props) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  const canEdit = useMemo(() => {
+    const perm = currentUser.permissions.find(p => p.viewId === 'STOCK');
+    return perm ? perm.level === 'EDIT' : false;
+  }, [currentUser]);
   const [formData, setFormData] = useState<Partial<InventoryEntry>>({
     materialId: '',
     quantity: 0
@@ -93,9 +99,11 @@ export default function InventoryView({ masters, onSave, onDelete, entries, prod
             <p className="text-xs text-text-muted">Registro de inventario físico en playa y galpones</p>
           </div>
         </div>
-        <GlassButton onClick={() => { setEditingId(null); setIsFormOpen(true); }} className="h-10 px-4">
-          <PlusCircle size={18} /> <span className="ml-2">Registrar Conteo</span>
-        </GlassButton>
+        {canEdit && (
+          <GlassButton onClick={() => { setEditingId(null); setIsFormOpen(true); }} className="h-10 px-4">
+            <PlusCircle size={18} /> <span className="ml-2">Registrar Conteo</span>
+          </GlassButton>
+        )}
       </div>
 
       <AnimatePresence>
@@ -197,7 +205,7 @@ export default function InventoryView({ masters, onSave, onDelete, entries, prod
                             { 
                               header: 'Acciones', 
                               align: 'right',
-                              accessor: (r) => (
+                              accessor: (r) => canEdit ? (
                                 <TableActions 
                                   onEdit={() => {
                                     setFormData(r);
@@ -206,6 +214,8 @@ export default function InventoryView({ masters, onSave, onDelete, entries, prod
                                   }}
                                   onDelete={() => setDeletingId(r.id)}
                                 />
+                              ) : (
+                                <span className="text-[9px] font-bold text-text-muted/40 uppercase tracking-tighter">Lectura</span>
                               )
                             }
                           ]}

@@ -14,6 +14,7 @@ export interface Machine {
   name: string;
   hacId?: string;
   nozzles?: number; // solo para ensacadoras
+  isSamplingPoint?: boolean;
 }
 
 export interface HAC {
@@ -60,20 +61,41 @@ export interface CapacityBDP {
 }
 
 export interface MachineStop {
-  id: string;
-  date: string; // ISO date
-  finishDate?: string;
-  machineId: string; // Palletizadora afectada
-  shiftId: string;
-  materialId: string;
-  startTime: string; // HH:mm
-  endTime?: string;   // HH:mm
-  durationMinutes: number;
+  id: string; // IDPARO
+  date: string; // FECHA
+  finishDate: string; // FECHAFIN
+  machineId: string; // MÁQUINA AFECTADA (ID)
+  shiftId: string; // TURNO (ID)
+  materialId: string; // MATERIAL (ID)
+  startTime: string; // INICIO
+  endTime?: string;   // FIN
+  durationMinutes: number; // DURACIÓN
+  
+  // Lookups de Maestros
   hacId: string;
+  hacName: string; // HAC
+  hacDetail: string; // DETALLE HAC
+  equipment: string; // EQUIPO
+  
   causeId: string;
-  user: string;
-  workCenter: string;
-  center: string;
+  causeText: string; // TEXTO DE CAUSA
+  noticeText?: string; // TEXTO AVISO (Libre)
+  symptomText: string; // TEXTO SÍNTOMA
+  
+  sapCause: string; // CAUSA SAP
+  causeGroup: string; // GPO.COD. CAUSA
+  causeCode: string; // CÓDIGO CAUSA
+  stopType: string; // TIPO PARO
+  
+  gpoCodObjeto: string; // GPO.CÓD. OBJETO
+  partObject: string; // PARTE OBJETO
+  symptomGroup: string; // GPO.CÓD. SÍNTOMA
+  symptomCode: string; // CÓD. SÍNTOMA
+  
+  user: string; // USUARIO
+  userName: string; // Nombre del usuario
+  workCenter: string; // PUESTO DE TRABAJO (OPEREXP)
+  center: string; // CENTRO (AMG0)
 }
 
 export interface NozzleNews {
@@ -149,11 +171,105 @@ export interface InventoryEntry {
   userName: string;
 }
 
+export interface Company {
+  id: string;
+  name: string;
+  address: string;
+  taxId: string;
+  logo?: string;
+  phone?: string;
+  email?: string;
+}
+
+export interface ProductChange {
+  id: string;
+  date: string;
+  shiftId: string;
+  
+  // Maquinista/Operator
+  operatorId: string;
+  operatorName: string;
+  machineId: string; // sampling place
+  
+  // Checklist
+  siloValveClosed: boolean;
+  circuitEmptied: boolean;
+  machineCleaned: boolean;
+  hopperEmptied: boolean;
+  siloChanged: boolean;
+  setupChanged: boolean;
+  packagingChanged: boolean;
+  twoBigBagsPalletized: boolean;
+  colorSampling: boolean;
+  sampleSentToLab: boolean;
+  productReleased: boolean;
+  
+  // Materials
+  previousMaterialId: string;
+  newMaterialId: string;
+  changeReason: 'DEMAND' | 'OUT_OF_SPEC' | 'EMPTY_SILO' | string;
+  
+  // Lab Section
+  labOperatorId?: string;
+  labOperatorName?: string;
+  calcinationLoss?: number; // %
+  incorporatedAir?: number; // %
+  ckPercentageByDrx?: number; // %
+  approvalStatus: 'PENDIENTE' | 'APROBADO' | 'RECHAZADO';
+  rejectionObservation?: string;
+}
+
+export interface UserPermission {
+  viewId: string;
+  label: string;
+  section: 'PRODUCTIVITY' | 'ADMIN' | 'OTHER';
+  level: 'NONE' | 'VIEW' | 'EDIT';
+}
+
+export interface AppUser {
+  dni: string; // Key / Legajo
+  name: string;
+  sapUser: string;
+  email: string;
+  email2?: string;
+  position: 'Operario Maquinista' | 'Operario Técnico' | 'Operario Autoelevador' | 'Operario Granel' | 'Operario Supervisor' | 'Operario Líbero' | 'Laboratórista';
+  profile: 'Administrador' | 'Operario' | 'Técnico' | 'Administrativo' | 'Supervisor' | 'Laboratorio';
+  permissions: UserPermission[];
+}
+
 export interface UserContext {
   role: 'OPERARIO' | 'ADMIN';
   selectedPalletizerId: string | null;
   selectedShiftId: string | null;
   selectedDate: string; // ISO date string YYYY-MM-DD
+  currentUserDni: string;
+}
+
+export interface LoadingPoint {
+  id: string;
+  name: string;
+  type: 'BOLSA' | 'GRANEL';
+}
+
+export interface LaneShiftStatus {
+  id: string;
+  date: string;
+  shiftId: string;
+  loadingPointId: string;
+  isEnabled: boolean;
+  materialIds: string[]; // Materiales que se están cargando
+  observation?: string;   // Motivo si no está habilitada
+}
+
+export interface DispatchEntry {
+  id: string;
+  date: string;
+  shiftId: string;
+  materialId: string;
+  tons: number;
+  userId: string;
+  userName: string;
+  timestamp: string;
 }
 
 export interface MasterData {
@@ -164,4 +280,7 @@ export interface MasterData {
   causes: Cause[];
   shifts: Shift[];
   capacities: CapacityBDP[];
+  users: AppUser[];
+  companies: Company[];
+  loadingPoints: LoadingPoint[];
 }
