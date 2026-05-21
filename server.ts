@@ -15,33 +15,34 @@ app.use(express.json({ limit: "50mb" }));
 // Robust helper to sanitize and parse the service account private key
 function cleanPrivateKey(key: string): string {
   if (!key) return "";
+
   let cleaned = key.trim();
-  
-  // Try parsing as JSON first, in case the user pasted the entire Service Account JSON credentials
+
   try {
     const parsed = JSON.parse(cleaned);
-    if (parsed && typeof parsed === "object") {
-      if (parsed.private_key) {
-        cleaned = parsed.private_key.trim();
-      }
+
+    if (parsed?.private_key) {
+      cleaned = parsed.private_key;
     }
-  } catch (e) {
-    // If it's not a JSON string, continue with raw PEM string processing
+  } catch {}
+
+  cleaned = cleaned
+    .replace(/^['"]|['"]$/g, "")
+    .replace(/\\n/g, "\n")
+    .replace(/\\r/g, "")
+    .replace(/\r/g, "")
+    .trim();
+
+  const begin = "-----BEGIN PRIVATE KEY-----";
+  const end = "-----END PRIVATE KEY-----";
+
+  const beginIndex = cleaned.indexOf(begin);
+  const endIndex = cleaned.indexOf(end);
+
+  if (beginIndex !== -1 && endIndex !== -1) {
+    cleaned = cleaned.substring(beginIndex, endIndex + end.length);
   }
 
-  // Strip surrounding quotes and spaces repeatedly if nested
-  while (
-    (cleaned.startsWith('"') && cleaned.endsWith('"')) ||
-    (cleaned.startsWith("'") && cleaned.endsWith("'"))
-  ) {
-    cleaned = cleaned.slice(1, -1).trim();
-  }
-  
-  // Replace literal string "\n" (backslash + n) with actual newline character
-  // and handle double-escaped or other common formatting artifacts
-  cleaned = cleaned.replace(/\\n/g, "\n");
-  cleaned = cleaned.replace(/\\r/g, "\r");
-  
   return cleaned;
 }
 
