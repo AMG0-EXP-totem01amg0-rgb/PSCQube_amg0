@@ -37,12 +37,23 @@ export async function getBackendSheetsStatus(): Promise<{
   return { configured: false, email: null, sheetId: null, hasKey: false };
 }
 
+export interface SyncResult {
+  success: boolean;
+  error?: string;
+}
+
+export interface FetchResult {
+  success: boolean;
+  data?: any[];
+  error?: string;
+}
+
 /**
  * Sync Table Data
  * Sends local data to Google Sheets via secure Express endpoint.
  * The sheets/tables end with V2 as requested (PALETIZADORAV2, ENSACADORAV2, etc.).
  */
-export async function syncTableToSheets(tableName: string, data: any[]): Promise<boolean> {
+export async function syncTableToSheets(tableName: string, data: any[]): Promise<SyncResult> {
   let sheetName = tableName.toUpperCase();
   if (!sheetName.endsWith('V2')) {
     sheetName = `${sheetName}V2`;
@@ -63,21 +74,21 @@ export async function syncTableToSheets(tableName: string, data: any[]): Promise
 
     if (!response.ok) {
       const errorResponse = await response.json().catch(() => ({}));
-      throw new Error(errorResponse.error || `HTTP error! status: ${response.status}`);
+      return { success: false, error: errorResponse.error || `Error HTTP ${response.status}` };
     }
 
     const result = await response.json();
-    return result.success === true;
-  } catch (error) {
+    return { success: result.success === true, error: result.error };
+  } catch (error: any) {
     console.error(`Error syncing table ${sheetName} to Google Sheets:`, error);
-    return false;
+    return { success: false, error: error.message || String(error) };
   }
 }
 
 /**
  * Fetch Table Data from Google Sheets
  */
-export async function fetchTableFromSheets(tableName: string): Promise<any[] | null> {
+export async function fetchTableFromSheets(tableName: string): Promise<FetchResult> {
   let sheetName = tableName.toUpperCase();
   if (!sheetName.endsWith('V2')) {
     sheetName = `${sheetName}V2`;
@@ -89,17 +100,17 @@ export async function fetchTableFromSheets(tableName: string): Promise<any[] | n
 
     if (!response.ok) {
       const errorResponse = await response.json().catch(() => ({}));
-      throw new Error(errorResponse.error || `HTTP error ! status: ${response.status}`);
+      return { success: false, error: errorResponse.error || `Error HTTP ${response.status}` };
     }
 
     const result = await response.json();
     if (result.success && Array.isArray(result.data)) {
-      return result.data;
+      return { success: true, data: result.data };
     }
-    return null;
-  } catch (error) {
+    return { success: false, error: result.error || "Formato de respuesta inválido" };
+  } catch (error: any) {
     console.error(`Error fetching table ${sheetName} from Google Sheets:`, error);
-    return null;
+    return { success: false, error: error.message || String(error) };
   }
 }
 
