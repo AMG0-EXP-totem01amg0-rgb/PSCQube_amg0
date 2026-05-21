@@ -48,14 +48,14 @@ export const SHIFTS: Shift[] = [
 ];
 
 export const PALLETIZERS: Machine[] = [
-  { id: 'P1', type: 'PALLETIZADORA', name: 'Palletizadora 1', isSamplingPoint: true },
-  { id: 'P2', type: 'PALLETIZADORA', name: 'Palletizadora 2', isSamplingPoint: true },
-  { id: 'P3', type: 'PALLETIZADORA', name: 'Palletizadora 3', isSamplingPoint: true },
+  { id: 'P1', type: 'PALLETIZADORA', name: 'Palletizadora 1' },
+  { id: 'P2', type: 'PALLETIZADORA', name: 'Palletizadora 2' },
+  { id: 'P3', type: 'PALLETIZADORA', name: 'Palletizadora 3' },
 ];
 
 export const BAGGERS: Machine[] = [
-  { id: 'E1', type: 'ENSACADORA', name: 'Ensacadora 1', nozzles: 4, hacId: 'H1' },
-  { id: 'E2', type: 'ENSACADORA', name: 'Ensacadora 2', nozzles: 4, hacId: 'H2' },
+  { id: 'E1', type: 'ENSACADORA', name: 'Ensacadora 1', nozzles: 4, hacId: 'H1', isSamplingPoint: true },
+  { id: 'E2', type: 'ENSACADORA', name: 'Ensacadora 2', nozzles: 4, hacId: 'H2', isSamplingPoint: true },
   { id: 'E3', type: 'ENSACADORA', name: 'Ensacadora 3', nozzles: 4, hacId: 'H1' },
   { id: 'E4', type: 'ENSACADORA', name: 'Ensacadora 4', nozzles: 4, hacId: 'H3' },
 ];

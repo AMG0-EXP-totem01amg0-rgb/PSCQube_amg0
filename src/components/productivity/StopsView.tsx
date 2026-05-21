@@ -103,16 +103,19 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
       return;
     }
 
+    const machineObj = masters.palletizers.find(p => p.id === palletizerId) || masters.baggers.find(b => b.id === palletizerId);
+
     onSave({
       id: editingId || `STP-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
       date: selectedDate,
-      finishDate: selectedDate, // Igual a fecha de registro
-      machineId: palletizerId, 
-      shiftId: shiftId,
+      finishDate: selectedDate, // Igual a fecha de registro (FECHAFIN = FECHA)
+      machineId: palletizerId || '', 
+      machineName: machineObj?.name || '', // MÁQUINA AFECTADA es el nombre de la paletizadora creada en MAQUINAS
+      shiftId: shiftId || '',
       materialId: formData.materialId,
       startTime: formData.startTime,
       endTime: formData.endTime,
-      durationMinutes: duration,
+      durationMinutes: duration, // duración es la resta de FIN e INICIO
       
       // Lookups
       hacId: hacObj.id,
@@ -121,9 +124,9 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
       equipment: hacObj.equipment,
       
       causeId: causeObj.id,
-      causeText: causeObj.text,
-      noticeText: formData.noticeText,
-      symptomText: causeObj.text, // Igual a Texto de Causa por defecto
+      causeText: causeObj.text, // TEXTO DE CAUSA es la causa del maestro
+      noticeText: causeObj.text, // TEXTO AVISO es idem a TEXTO DE CAUSA
+      symptomText: formData.noticeText, // TEXTO SÍNTOMA viene del campo TEXTO AVISO del formulario
       
       sapCause: causeObj.sapCause,
       causeGroup: causeObj.causeGroup,
@@ -135,10 +138,10 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
       symptomGroup: causeObj.symptomGroup,
       symptomCode: causeObj.symptomCode,
       
-      user: 'j-0627', // ID de usuario (mock)
-      userName: 'Joni Holcim', // Nombre de usuario (mock)
-      workCenter: 'OPEREXP', 
-      center: 'AMG0'
+      user: currentUser.sapUser, // usuario se toma de sapUser de la tabla USUARIO2
+      userName: currentUser.name, 
+      workCenter: 'OPEREXP', // puesto de trabajo OPEREXP
+      center: 'AMG0' // Centro siempre AMG0
     });
 
     // Reset Form

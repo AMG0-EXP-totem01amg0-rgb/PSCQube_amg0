@@ -1,12 +1,25 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { motion } from 'motion/react';
-import { Settings, Search, Plus, Pencil, Trash2, X, Save, FileUp, ChevronLeft, ChevronRight, User as UserIcon, Shield, LogIn } from 'lucide-react';
+import { 
+  Settings, Search, Plus, Pencil, Trash2, X, Save, FileUp, ChevronLeft, ChevronRight, 
+  User as UserIcon, Shield, LogIn, Database, CheckCircle2, Copy, Check, Cloud, CloudOff, 
+  RefreshCw, ArrowUpCircle, ArrowDownCircle, Info, ExternalLink
+} from 'lucide-react';
 import { MasterData, Shift, HAC, Cause, AppUser, UserPermission } from '../../types';
 import * as XLSX from 'xlsx';
 import { cn } from '../../lib/utils';
 import { DataTable, Column, TableActions } from '../ui/DataTable';
 import { ConfirmModal, GlassButton, GlassInput, GlassSelect } from '../ui/GlassUI';
 import { SYSTEM_VIEWS } from '../../lib/mockData';
+import { 
+  getSheetsApiUrl, 
+  isSheetsConnected, 
+  syncTableToSheets, 
+  fetchTableFromSheets, 
+  VERCEL_SETUP_GUIDE,
+  getBackendSheetsStatus
+} from '../../lib/sheetsService';
+
 
 interface Props {
   masters: MasterData;
@@ -24,6 +37,26 @@ export default function AdminView({ masters, currentUser, activeTab, onTabChange
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // States for Google Sheets V2 Integration
+  const [copiedScript, setCopiedScript] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<Record<string, { status: 'idle' | 'loading' | 'success' | 'error'; message?: string }>>({});
+  const [isSyncingAll, setIsSyncingAll] = useState(false);
+  const [backendStatus, setBackendStatus] = useState<{
+    configured: boolean;
+    email: string | null;
+    sheetId: string | null;
+    hasKey: boolean;
+  }>({ configured: false, email: null, sheetId: null, hasKey: false });
+
+  // Fetch credentials configuration status when rendering SHEETS pane
+  useEffect(() => {
+    if (activeTab === 'SHEETS') {
+      getBackendSheetsStatus().then(status => {
+        setBackendStatus(status);
+      });
+    }
+  }, [activeTab]);
 
   const canView = (viewId: string) => {
     const perm = currentUser.permissions.find(p => p.viewId === viewId);
@@ -165,13 +198,6 @@ export default function AdminView({ masters, currentUser, activeTab, onTabChange
   const machineColumns: Column<any>[] = [
     { header: 'Descripción', accessor: (row) => <span className="font-bold text-text-main">{row.name}</span> },
     { header: 'HAC ID', accessor: 'hacId' },
-    { 
-      header: 'P. MUESTREO', 
-      align: 'center',
-      accessor: (row) => row.isSamplingPoint ? (
-        <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(59,130,246,0.6)] mx-auto" />
-      ) : null
-    },
     actionsColumn()
   ];
 
@@ -179,6 +205,13 @@ export default function AdminView({ masters, currentUser, activeTab, onTabChange
     { header: 'Descripción', accessor: (row) => <span className="font-bold text-text-main">{row.name}</span> },
     { header: 'HAC', accessor: 'hacId' },
     { header: 'Boquillas', accessor: (row) => <span className="font-bold text-primary">{row.nozzles}</span> },
+    { 
+      header: 'P. MUESTREO', 
+      align: 'center',
+      accessor: (row) => row.isSamplingPoint ? (
+        <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(59,130,246,0.6)] mx-auto" />
+      ) : null
+    },
     actionsColumn()
   ];
 
@@ -417,65 +450,388 @@ export default function AdminView({ masters, currentUser, activeTab, onTabChange
                {isVisible('USERS') && <AdminSubTab active={activeTab === 'USERS'} onClick={() => onTabChange('USERS')} label="Usuarios" />}
                {isVisible('COMPANIES') && <AdminSubTab active={activeTab === 'COMPANIES'} onClick={() => onTabChange('COMPANIES')} label="Empresas" />}
                {isVisible('PUNTOS_CARGA') && <AdminSubTab active={activeTab === 'PUNTOS_CARGA'} onClick={() => onTabChange('PUNTOS_CARGA')} label="Puntos Carga" />}
+               <AdminSubTab active={activeTab === 'SHEETS'} onClick={() => onTabChange('SHEETS')} label="Conexión Sheets v2" />
             </div>
           </div>
        </div>
 
-       <div className="space-y-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-             <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" size={16} />
-                <input 
-                  type="text" 
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Buscar en maestros..." 
-                  className="w-full h-10 bg-bg-input border border-border rounded-lg pl-10 pr-4 text-sm text-text-main focus:border-primary/50 outline-none transition-all"
-                />
-             </div>
-             <div className="flex items-center gap-2">
-                <input 
-                   type="file" 
-                   ref={fileInputRef} 
-                   className="hidden" 
-                   accept=".xlsx, .xls" 
-                   onChange={handleExcelImport}
-                />
-                {isEditable && (
-                  <>
-                    {(activeTab === 'HACS' || activeTab === 'CAUSES') && (
-                      <GlassButton 
-                        variant="secondary" 
-                        className="h-10 px-4" 
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <FileUp size={16} /> Importar Excel
-                      </GlassButton>
-                    )}
-                    <button 
-                      onClick={() => { setEditingItem(null); setIsFormOpen(true); }}
-                      className="h-10 px-4 bg-primary text-white rounded-lg font-semibold text-xs flex items-center gap-2 hover:bg-primary/90 transition-colors active:scale-95 shadow-sm"
-                    >
-                        <Plus size={16} /> Nuevo Registro
-                    </button>
-                  </>
-                )}
-             </div>
-          </div>
+       {activeTab === 'SHEETS' ? (
+         <div className="space-y-8 animate-fade-in">
+           {/* Connection Header and Vercel guidance */}
+           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+             <div className="lg:col-span-2 p-6 bg-surface border border-border rounded-xl flex flex-col justify-between shadow-sm relative overflow-hidden">
+               {/* Background Glow */}
+               <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -z-10" />
+               
+               <div>
+                 <div className="flex items-center gap-3">
+                   {backendStatus.configured ? (
+                     <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                       <Cloud size={20} />
+                     </div>
+                   ) : (
+                     <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500">
+                       <CloudOff size={20} />
+                     </div>
+                   )}
+                   <div>
+                     <h4 className="text-sm font-black text-text-main uppercase tracking-wider">Variables de Entorno en Vercel</h4>
+                     <p className="text-xs text-text-muted mt-0.5">
+                       {backendStatus.configured 
+                         ? 'Credenciales de Google Service Account detectadas por el Servidor backend.' 
+                         : 'Falta configurar variables de integración de Google Sheets en tu dashboard de Vercel.'}
+                     </p>
+                   </div>
+                 </div>
 
-          <div className="max-h-[600px] overflow-auto no-scrollbar">
-            {activeTab === 'SHIFTS' && <DataTable title="Listado de Turnos" countLabel="turnos" columns={shiftColumns} data={filteredData} keyExtractor={r => r.id} />}
-            {activeTab === 'MACHINES' && <DataTable title="Listado de Maquinas" countLabel="equipos" columns={machineColumns} data={filteredData} keyExtractor={r => r.id} />}
-            {activeTab === 'BAGGERS' && <DataTable title="Listado de Ensacadoras" countLabel="ensacadoras" columns={baggerColumns} data={filteredData} keyExtractor={r => r.id} />}
-            {activeTab === 'HACS' && <DataTable title="Listado de Equipos (HAC)" countLabel="items" columns={hacColumns} data={filteredData} keyExtractor={r => r.id} />}
-            {activeTab === 'CAUSES' && <DataTable title="Catálogo de Causas" countLabel="registros" columns={causeColumns} data={filteredData} keyExtractor={r => r.id} />}
-            {activeTab === 'MATERIALS' && <DataTable title="Listado de Materiales" countLabel="materiales" columns={materialColumns} data={filteredData} keyExtractor={r => r.id} />}
-            {activeTab === 'CAPACITIES' && <DataTable title="Matriz de Capacidades" countLabel="combinaciones" columns={capacityColumns} data={filteredData} keyExtractor={r => `${r.palletizerId}-${r.baggerId}-${r.materialId}`} />}
-            {activeTab === 'USERS' && <DataTable title="Base de Usuarios" countLabel="usuarios" columns={userColumns} data={filteredData} keyExtractor={r => r.dni} />}
-            {activeTab === 'COMPANIES' && <DataTable title="Datos de Empresa" countLabel="sedes" columns={companyColumns} data={filteredData} keyExtractor={r => r.id} />}
-            {(activeTab === 'PUNTOS_CARGA' || activeTab === 'LOADING_POINTS') && <DataTable title="Puntos de Carga" countLabel="puntos" columns={loadingPointColumns} data={filteredData} keyExtractor={r => r.id} />}
-          </div>
-       </div>
+                 <div className="mt-6 space-y-4">
+                   <div className="p-4 bg-bg rounded-xl border border-border space-y-3">
+                     <div>
+                       <p className="text-[9px] font-black text-text-muted uppercase tracking-widest">Cuenta de Servicio (EMAIL)</p>
+                       <p className="font-mono text-xs text-text-main font-semibold mt-1">
+                         {backendStatus.email || <span className="text-red-500 font-bold">FALTA: GOOGLE_SERVICE_ACCOUNT_EMAIL</span>}
+                       </p>
+                     </div>
+                     <div className="border-t border-border pt-2">
+                       <p className="text-[9px] font-black text-text-muted uppercase tracking-widest">ID del Documento (SHEET ID)</p>
+                       <p className="font-mono text-xs text-text-main font-semibold mt-1">
+                         {backendStatus.sheetId || <span className="text-red-500 font-bold">FALTA: GOOGLE_SHEET_ID</span>}
+                       </p>
+                     </div>
+                     <div className="border-t border-border pt-2 flex items-center justify-between">
+                       <div>
+                         <p className="text-[9px] font-black text-text-muted uppercase tracking-widest">Clave Privada JWT (KEY)</p>
+                         <p className="font-mono text-xs text-text-main font-semibold mt-1">
+                           {backendStatus.hasKey ? "••••••••••••••••••••••••••••••••" : <span className="text-red-500 font-bold">FALTA: GOOGLE_SERVICE_ACCOUNT_KEY</span>}
+                         </p>
+                       </div>
+                       <span className={cn(
+                         "text-[10px] uppercase tracking-widest px-2.5 py-1 rounded font-bold",
+                         backendStatus.hasKey ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"
+                       )}>
+                         {backendStatus.hasKey ? "PRESENTE" : "AUSENTE"}
+                       </span>
+                     </div>
+                   </div>
+                 </div>
+               </div>
+
+               <div className="mt-6 pt-4 border-t border-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                 <div className="text-xs font-semibold text-text-muted flex items-center gap-2">
+                   <Info size={14} className="text-primary" />
+                   <span>Al sincronizar, las pestañas tendrán el sufijo <strong className="text-primary font-black">V2</strong>.</span>
+                 </div>
+                 
+                 <button 
+                   disabled={!backendStatus.configured || isSyncingAll}
+                   onClick={async () => {
+                     setIsSyncingAll(true);
+                     const items = [
+                       { suffix: 'TURNOSV2', type: 'SHIFTS', data: masters.shifts },
+                       { suffix: 'PALETIZADORAV2', type: 'MACHINES', data: masters.palletizers },
+                       { suffix: 'ENSACADORAV2', type: 'BAGGERS', data: masters.baggers },
+                       { suffix: 'HACSV2', type: 'HACS', data: masters.hacs },
+                       { suffix: 'CAUSASV2', type: 'CAUSES', data: masters.causes },
+                       { suffix: 'MATERIALESV2', type: 'MATERIALS', data: masters.materials },
+                       { suffix: 'CAPACIDADESV2', type: 'CAPACITIES', data: masters.capacities },
+                       { suffix: 'USUARIOSV2', type: 'USERS', data: masters.users },
+                       { suffix: 'EMPRESASV2', type: 'COMPANIES', data: masters.companies },
+                       { suffix: 'PUNTOS_CARGAV2', type: 'PUNTOS_CARGA', data: masters.loadingPoints },
+                     ];
+                     for (const item of items) {
+                       setSyncStatus(prev => ({ ...prev, [item.suffix]: { status: 'loading' } }));
+                       const result = await syncTableToSheets(item.suffix, item.data);
+                       if (result) {
+                         setSyncStatus(prev => ({ ...prev, [item.suffix]: { status: 'success', message: `Enviados ${item.data.length}` } }));
+                       } else {
+                         setSyncStatus(prev => ({ ...prev, [item.suffix]: { status: 'error', message: 'Fallo' } }));
+                       }
+                     }
+                     setIsSyncingAll(false);
+                   }}
+                   className="px-4 h-10 rounded-lg font-bold text-xs bg-primary text-white flex items-center gap-2 hover:bg-primary/95 transition-all outline-none disabled:opacity-40 disabled:pointer-events-none active:scale-95 shadow-sm uppercase tracking-widest text-center justify-center w-full sm:w-auto"
+                 >
+                   <RefreshCw size={14} className={cn("text-white", isSyncingAll && "animate-spin")} />
+                   {isSyncingAll ? 'Sincronizando...' : 'Sincronizar Todas (V2)'}
+                 </button>
+               </div>
+             </div>
+
+             <div className="p-6 bg-surface border border-border rounded-xl flex flex-col justify-between shadow-sm">
+               <div>
+                 <h4 className="text-sm font-black text-text-main uppercase tracking-wider">Integración Holcim Servidor</h4>
+                 <div className="mt-4 flex items-center gap-3 p-3.5 rounded-xl bg-bg/50 border border-border">
+                   <div className={cn(
+                     "w-3.5 h-3.5 rounded-full flex items-center justify-center relative",
+                     backendStatus.configured ? "text-emerald-500" : "text-amber-500"
+                   )}>
+                     <div className={cn(
+                       "absolute inset-0 rounded-full animate-ping opacity-70",
+                       backendStatus.configured ? "bg-emerald-500" : "bg-amber-500"
+                     )} />
+                     <div className={cn(
+                       "w-2 h-2 rounded-full",
+                       backendStatus.configured ? "bg-emerald-500" : "bg-amber-500"
+                     )} />
+                   </div>
+                   <div className="text-left">
+                     <p className="text-[11px] font-black text-text-main uppercase tracking-wide">
+                       {backendStatus.configured ? 'DIRECCIONADA EN VERCEL' : 'MODO LOCAL DESCONECTADO'}
+                     </p>
+                     <p className="text-[10px] text-text-muted mt-0.5">
+                       {backendStatus.configured ? 'Google Sheets con Service Account' : 'Usando tablas internas de sesión'}
+                     </p>
+                   </div>
+                 </div>
+               </div>
+
+               <div className="mt-6 space-y-2 text-xs text-text-muted">
+                 <p className="flex items-start gap-2">
+                   <span className="text-primary font-bold">1.</span>
+                   <span>Escribe y actualiza cualquier maestro en la app local.</span>
+                 </p>
+                 <p className="flex items-start gap-2">
+                   <span className="text-primary font-bold">2.</span>
+                   <span>Presiona <strong>Enviar</strong> para guardar la tabla en Google Sheets.</span>
+                 </p>
+                 <p className="flex items-start gap-2">
+                   <span className="text-primary font-bold">3.</span>
+                   <span>Presiona <strong>Traer</strong> para cargar datos remotos a tu sesión de Vercel.</span>
+                 </p>
+               </div>
+             </div>
+           </div>
+
+           {/* Tables Mapping list & individual actions */}
+           <div className="bg-surface border border-border rounded-xl shadow-sm overflow-hidden">
+             <div className="px-6 py-4 bg-bg-input/30 border-b border-border flex justify-between items-center">
+               <h4 className="text-xs font-black text-text-main uppercase tracking-widest flex items-center gap-2">
+                 <Database size={14} className="text-primary" />
+                 MÁPEO Y SINCRONIZACIÓN DE HOJAS DE RUTA (TABLAS V2)
+               </h4>
+               <span className="text-[9px] font-bold bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full uppercase">
+                 Estructuras terminadas en V2
+               </span>
+             </div>
+
+             <div className="divide-y divide-border">
+               {[
+                 { label: 'Turnos', suffix: 'TURNOSV2', type: 'SHIFTS', data: masters.shifts },
+                 { label: 'Paletizadoras', suffix: 'PALETIZADORAV2', type: 'MACHINES', data: masters.palletizers },
+                 { label: 'Ensacadoras', suffix: 'ENSACADORAV2', type: 'BAGGERS', data: masters.baggers },
+                 { label: 'Equipos (HAC)', suffix: 'HACSV2', type: 'HACS', data: masters.hacs },
+                 { label: 'Causas de Paros', suffix: 'CAUSASV2', type: 'CAUSES', data: masters.causes },
+                 { label: 'Materiales', suffix: 'MATERIALESV2', type: 'MATERIALS', data: masters.materials },
+                 { label: 'Capacidades', suffix: 'CAPACIDADESV2', type: 'CAPACITIES', data: masters.capacities },
+                 { label: 'Usuarios (USUARIO2)', suffix: 'USUARIOSV2', type: 'USERS', data: masters.users },
+                 { label: 'Empresas', suffix: 'EMPRESASV2', type: 'COMPANIES', data: masters.companies },
+                 { label: 'Puntos Carga', suffix: 'PUNTOS_CARGAV2', type: 'PUNTOS_CARGA', data: masters.loadingPoints },
+               ].map((tbl) => {
+                 const status = syncStatus[tbl.suffix];
+                 return (
+                   <div key={tbl.suffix} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-bg/10 transition-colors">
+                     <div className="flex items-center gap-4">
+                       <div className="w-1.5 h-6 bg-primary/30 rounded-full" />
+                       <div>
+                         <span className="text-xs font-bold text-text-main block uppercase">{tbl.label}</span>
+                         <span className="font-mono text-[10px] text-text-muted mt-0.5 uppercase tracking-wide">
+                           Hoja de cálculo: <strong className="text-primary font-semibold">{tbl.suffix}</strong>
+                         </span>
+                       </div>
+                     </div>
+
+                     {/* Count and state */}
+                     <div className="flex flex-wrap items-center gap-4">
+                       <div className="px-3 py-1.5 bg-bg border border-border rounded-lg text-center min-w-32">
+                         <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">Registros Locales</span>
+                         <span className="text-xs font-black text-text-main">{tbl.data.length} ítems</span>
+                       </div>
+
+                       {status && (
+                         <div className={cn(
+                           "px-3 py-1 bg-border/20 border text-[10px] font-bold rounded-lg flex items-center gap-1.5 max-w-xs",
+                           status.status === 'loading' && "border-primary/20 text-primary bg-primary/5",
+                           status.status === 'success' && "border-emerald-500/20 text-emerald-500 bg-emerald-500/5",
+                           status.status === 'error' && "border-red-500/20 text-red-500 bg-red-500/5"
+                         )}>
+                           {status.status === 'loading' && <RefreshCw size={11} className="animate-spin text-primary" />}
+                           {status.status === 'success' && <CheckCircle2 size={11} className="text-emerald-500" />}
+                           <span className="truncate">{status.status === 'loading' ? 'Transmitiendo...' : status.message}</span>
+                         </div>
+                       )}
+
+                       <div className="flex gap-2">
+                         <button
+                           disabled={!backendStatus.configured || isSyncingAll || (status?.status === 'loading')}
+                           onClick={async () => {
+                             setSyncStatus(prev => ({ ...prev, [tbl.suffix]: { status: 'loading' } }));
+                             const result = await syncTableToSheets(tbl.suffix, tbl.data);
+                             if (result) {
+                               setSyncStatus(prev => ({ ...prev, [tbl.suffix]: { status: 'success', message: `Enviados ${tbl.data.length}` } }));
+                             } else {
+                               setSyncStatus(prev => ({ ...prev, [tbl.suffix]: { status: 'error', message: 'Fallo' } }));
+                             }
+                           }}
+                           className="h-8 px-3 rounded bg-surface border border-border text-[10px] font-bold uppercase tracking-widest text-text-main flex items-center gap-1.5 hover:bg-bg outline-none transition-all hover:border-primary/30 disabled:opacity-40 disabled:pointer-events-none active:scale-95"
+                         >
+                           <ArrowUpCircle size={12} className="text-primary" />
+                           Enviar
+                         </button>
+
+                         <button
+                           disabled={!backendStatus.configured || isSyncingAll || (status?.status === 'loading')}
+                           onClick={async () => {
+                             setSyncStatus(prev => ({ ...prev, [tbl.suffix]: { status: 'loading' } }));
+                             const result = await fetchTableFromSheets(tbl.suffix);
+                             if (result) {
+                               onUpdateMasters(tbl.type, result);
+                               setSyncStatus(prev => ({ ...prev, [tbl.suffix]: { status: 'success', message: `Recibidos ${result.length}` } }));
+                             } else {
+                               setSyncStatus(prev => ({ ...prev, [tbl.suffix]: { status: 'error', message: 'Vacía / Error' } }));
+                             }
+                           }}
+                           className="h-8 px-3 rounded bg-surface border border-border text-[10px] font-bold uppercase tracking-widest text-text-main flex items-center gap-1.5 hover:bg-bg outline-none transition-all hover:border-emerald-500/30 disabled:opacity-40 disabled:pointer-events-none active:scale-95"
+                         >
+                           <ArrowDownCircle size={12} className="text-emerald-500" />
+                           Traer
+                         </button>
+                       </div>
+                     </div>
+                   </div>
+                 );
+               })}
+             </div>
+           </div>
+
+           {/* Google Service Account setup instructions guide */}
+           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+             <div className="p-6 bg-surface border border-border rounded-xl shadow-sm space-y-4">
+               <h4 className="text-sm font-black text-text-main uppercase tracking-wider">Instrucciones de Servicio</h4>
+               <div className="space-y-3.5 text-xs text-text-muted font-medium">
+                 <div className="flex gap-2.5">
+                   <div className="w-5 h-5 rounded bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-black text-primary">1</div>
+                   <p className="flex-1 leading-relaxed">
+                     Crea una <strong>Cuenta de Servicio</strong> en Google Cloud Console.
+                   </p>
+                 </div>
+                 <div className="flex gap-2.5">
+                   <div className="w-5 h-5 rounded bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-black text-primary">2</div>
+                   <p className="flex-1 leading-relaxed">
+                     Genera y descarga la clave <strong>JSON</strong> de esa cuenta.
+                   </p>
+                 </div>
+                 <div className="flex gap-2.5">
+                   <div className="w-5 h-5 rounded bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-black text-primary">3</div>
+                   <p className="flex-1 leading-relaxed">
+                     Copia ese correo electronico de servicio y <strong>compártele</strong> tu planilla de Google Sheet con permisos de <strong>Editor</strong>.
+                   </p>
+                 </div>
+                 <div className="flex gap-2.5">
+                   <div className="w-5 h-5 rounded bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-black text-primary">4</div>
+                   <p className="flex-1 leading-relaxed">
+                     Ingresa a Vercel y añade las tres variables descritas a la derecha.
+                   </p>
+                 </div>
+               </div>
+             </div>
+
+             {/* Code Block paste container */}
+             <div className="lg:col-span-2 p-6 bg-neutral-900 border border-neutral-800 rounded-xl flex flex-col justify-between shadow-lg relative">
+               <div className="flex justify-between items-center pb-4 border-b border-neutral-800">
+                 <div className="flex items-center gap-2">
+                   <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                   <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
+                   <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+                   <span className="font-mono text-[10px] text-neutral-400 font-bold ml-2">vercel-credentials-guide.md</span>
+                 </div>
+
+                 <button 
+                   onClick={() => {
+                     navigator.clipboard.writeText(VERCEL_SETUP_GUIDE);
+                     setCopiedScript(true);
+                     setTimeout(() => setCopiedScript(false), 2000);
+                   }}
+                   className="h-8 px-3 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 transition-all outline-none"
+                 >
+                   {copiedScript ? (
+                     <>
+                       <Check size={12} className="text-emerald-500 animate-pulse" />
+                       <span className="text-emerald-500">Copiado!</span>
+                     </>
+                   ) : (
+                     <>
+                       <Copy size={12} />
+                       <span>Copiar Guía</span>
+                     </>
+                   )}
+                 </button>
+               </div>
+
+               <div className="mt-4 flex-1 max-h-[220px] overflow-auto no-scrollbar rounded-lg bg-neutral-950 p-4 border border-neutral-900">
+                 <pre className="text-[10px] font-mono text-neutral-300 leading-relaxed text-left whitespace-pre-wrap">
+                   {VERCEL_SETUP_GUIDE}
+                 </pre>
+               </div>
+             </div>
+           </div>
+         </div>
+       ) : (
+         <div className="space-y-6">
+           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="relative flex-1 max-w-md">
+                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" size={16} />
+                 <input 
+                   type="text" 
+                   value={searchTerm}
+                   onChange={(e) => setSearchTerm(e.target.value)}
+                   placeholder="Buscar en maestros..." 
+                   className="w-full h-10 bg-bg-input border border-border rounded-lg pl-10 pr-4 text-sm text-text-main focus:border-primary/50 outline-none transition-all"
+                 />
+              </div>
+              <div className="flex items-center gap-2">
+                 <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    accept=".xlsx, .xls" 
+                    onChange={handleExcelImport}
+                 />
+                 {isEditable && (
+                   <>
+                     {(activeTab === 'HACS' || activeTab === 'CAUSES') && (
+                       <GlassButton 
+                         variant="secondary" 
+                         className="h-10 px-4" 
+                         onClick={() => fileInputRef.current?.click()}
+                       >
+                         <FileUp size={16} /> Importar Excel
+                       </GlassButton>
+                     )}
+                     <button 
+                       onClick={() => { setEditingItem(null); setIsFormOpen(true); }}
+                       className="h-10 px-4 bg-primary text-white rounded-lg font-semibold text-xs flex items-center gap-2 hover:bg-primary/90 transition-colors active:scale-95 shadow-sm"
+                     >
+                         <Plus size={16} /> Nuevo Registro
+                     </button>
+                   </>
+                 )}
+              </div>
+           </div>
+
+           <div className="max-h-[600px] overflow-auto no-scrollbar">
+             {activeTab === 'SHIFTS' && <DataTable title="Listado de Turnos" countLabel="turnos" columns={shiftColumns} data={filteredData} keyExtractor={r => r.id} />}
+             {activeTab === 'MACHINES' && <DataTable title="Listado de Maquinas" countLabel="equipos" columns={machineColumns} data={filteredData} keyExtractor={r => r.id} />}
+             {activeTab === 'BAGGERS' && <DataTable title="Listado de Ensacadoras" countLabel="ensacadoras" columns={baggerColumns} data={filteredData} keyExtractor={r => r.id} />}
+             {activeTab === 'HACS' && <DataTable title="Listado de Equipos (HAC)" countLabel="items" columns={hacColumns} data={filteredData} keyExtractor={r => r.id} />}
+             {activeTab === 'CAUSES' && <DataTable title="Catálogo de Causas" countLabel="registros" columns={causeColumns} data={filteredData} keyExtractor={r => r.id} />}
+             {activeTab === 'MATERIALS' && <DataTable title="Listado de Materiales" countLabel="materiales" columns={materialColumns} data={filteredData} keyExtractor={r => r.id} />}
+             {activeTab === 'CAPACITIES' && <DataTable title="Matriz de Capacidades" countLabel="combinaciones" columns={capacityColumns} data={filteredData} keyExtractor={r => `${r.palletizerId}-${r.baggerId}-${r.materialId}`} />}
+             {activeTab === 'USERS' && <DataTable title="Base de Usuarios" countLabel="usuarios" columns={userColumns} data={filteredData} keyExtractor={r => r.dni} />}
+             {activeTab === 'COMPANIES' && <DataTable title="Datos de Empresa" countLabel="sedes" columns={companyColumns} data={filteredData} keyExtractor={r => r.id} />}
+             {(activeTab === 'PUNTOS_CARGA' || activeTab === 'LOADING_POINTS') && <DataTable title="Puntos de Carga" countLabel="puntos" columns={loadingPointColumns} data={filteredData} keyExtractor={r => r.id} />}
+           </div>
+         </div>
+       )}
 
        <ConfirmModal 
          isOpen={!!deletingId}
@@ -576,6 +932,14 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                 <>
                   <GlassInput label="Descripción" value={formData.name || ''} onChange={(e:any) => setFormData({...formData, name: e.target.value})} />
                   <GlassInput label="HAC ID" value={formData.hacId || ''} onChange={(e:any) => setFormData({...formData, hacId: e.target.value})} />
+                </>
+              )}
+
+              {type === 'BAGGERS' && (
+                <>
+                  <GlassInput label="Descripción" value={formData.name || ''} onChange={(e:any) => setFormData({...formData, name: e.target.value})} />
+                  <GlassInput label="HAC ID" value={formData.hacId || ''} onChange={(e:any) => setFormData({...formData, hacId: e.target.value})} />
+                  <GlassInput label="Boquillas" type="number" value={formData.nozzles || ''} onChange={(e:any) => setFormData({...formData, nozzles: parseInt(e.target.value)})} />
                   <div className="flex items-center gap-2 p-3 bg-primary/5 rounded-lg border border-primary/10">
                     <input 
                       type="checkbox" 
@@ -586,14 +950,6 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                     />
                     <label htmlFor="isSamplingPoint" className="text-[10px] font-bold uppercase cursor-pointer">Es Punto de Muestreo?</label>
                   </div>
-                </>
-              )}
-
-              {type === 'BAGGERS' && (
-                <>
-                  <GlassInput label="Descripción" value={formData.name || ''} onChange={(e:any) => setFormData({...formData, name: e.target.value})} />
-                  <GlassInput label="HAC ID" value={formData.hacId || ''} onChange={(e:any) => setFormData({...formData, hacId: e.target.value})} />
-                  <GlassInput label="Boquillas" type="number" value={formData.nozzles || ''} onChange={(e:any) => setFormData({...formData, nozzles: parseInt(e.target.value)})} />
                 </>
               )}
 

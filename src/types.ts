@@ -65,6 +65,7 @@ export interface MachineStop {
   date: string; // FECHA
   finishDate: string; // FECHAFIN
   machineId: string; // MÁQUINA AFECTADA (ID)
+  machineName: string; // MÁQUINA AFECTADA (Nombre - de la paletizadora creada en MAQUINAS)
   shiftId: string; // TURNO (ID)
   materialId: string; // MATERIAL (ID)
   startTime: string; // INICIO
