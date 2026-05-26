@@ -281,7 +281,19 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
             <div className="space-y-6">
               <GlassSearchableSelect 
                 label="Equipo Afectado (HAC)" 
-                options={masters.hacs.filter((h: any) => h && h.hac).map((h:any) => ({label: `${h.hac || ''} - ${h.detail || ''}`, value: h.hac || ''}))} 
+                options={masters.hacs
+                  .filter((h: any) => h && h.hac)
+                  .map((h: any) => ({
+                    label: `${h.hac || ''} - ${h.detail || ''} ${h.equipment ? `(${h.equipment})` : ''}`, 
+                    value: h.hac || '',
+                    searchTags: [
+                      h.hac,
+                      h.detail,
+                      h.equipment,
+                      h.id,
+                      h.gpoCodObjeto,
+                    ].filter(Boolean).map(s => String(s).toLowerCase())
+                  }))} 
                 value={formData.hacId} 
                 onChange={(e: any) => setFormData({...formData, hacId: e.target.value, causeId: ''})} 
               />

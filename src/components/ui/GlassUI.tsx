@@ -36,7 +36,7 @@ export function GlassSelect({ label, options, className, ...props }: any) {
         {...props}
       >
         <option value="" className="bg-bg-input">Seleccionar...</option>
-        {options.map((o: any) => <option key={o.value} value={o.value} className="bg-bg-input">{o.label}</option>)}
+        {options.map((o: any, idx: number) => <option key={`${o.value}-${idx}`} value={o.value} className="bg-bg-input">{o.label}</option>)}
       </select>
     </div>
   );
@@ -229,10 +229,17 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
 
   const filtered = options.filter((o: any) => {
     if (!o) return false;
+    const searchStr = String(search || '').toLowerCase();
+    const words = searchStr.split(/\s+/).filter(Boolean);
+    if (words.length === 0) return true;
+
+    if (o.searchTags && Array.isArray(o.searchTags)) {
+      return words.every(word => o.searchTags.some((tag: string) => String(tag || '').toLowerCase().includes(word)));
+    }
+
     const labelStr = String(o.label || '').toLowerCase();
     const valStr = String(o.value || '').toLowerCase();
-    const searchStr = String(search || '').toLowerCase();
-    return labelStr.includes(searchStr) || valStr.includes(searchStr);
+    return words.every(word => labelStr.includes(word) || valStr.includes(word));
   });
 
   return (
@@ -289,18 +296,18 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
               )}
             </div>
 
-            {/* List */}
+             {/* List */}
             <div className="overflow-y-auto max-h-48 divide-y divide-border/20 custom-scrollbar">
               {filtered.length === 0 ? (
                 <div className="p-3 text-xs text-text-muted/50 text-center uppercase tracking-wider font-semibold">
                   Sin resultados
                 </div>
               ) : (
-                filtered.map((o: any) => {
+                filtered.map((o: any, idx: number) => {
                   const isSelected = o.value === value;
                   return (
                     <div 
-                      key={o.value}
+                      key={`${o.value}-${idx}`}
                       onClick={() => {
                         onChange({ target: { value: o.value } });
                         setIsOpen(false);
