@@ -1350,7 +1350,8 @@ async function enrichParos(sheets: any, spreadsheetId: string, data: any[]) {
       if (item.machineId) {
         const pal = dbPalletizers.find((p: any) => p.id === item.machineId) || dbBaggers.find((b: any) => b.id === item.machineId);
         const hacPal = dbHacs.find((h: any) => h.id === pal?.hacId || h.hac === pal?.hacId);
-        item.machineHacText = item.machineHacText || (hacPal ? hacPal.hac : (pal?.hacId || ""));
+        // If there is no HAC related to this machine, use the machine's ID so we can map it back perfectly on read
+        item.machineHacText = item.machineHacText || (hacPal ? hacPal.hac : (pal?.id || item.machineId));
       }
       if (item.materialId) {
         const mat = dbMaterials.find((m: any) => m.id === item.materialId);
@@ -1898,9 +1899,10 @@ async function enrichProductionReportsWithNozzleNews(sheets: any, spreadsheetId:
 
 async function enrichParosOnRead(sheets: any, spreadsheetId: string, list: any[]) {
   try {
-    const [shifts, palletizers, hacs, materials, causes] = await Promise.all([
+    const [shifts, palletizers, baggers, hacs, materials, causes] = await Promise.all([
       readTableData(sheets, spreadsheetId, "TURNOSV2").catch(() => []),
       readTableData(sheets, spreadsheetId, "PALETIZADORAV2").catch(() => []),
+      readTableData(sheets, spreadsheetId, "ENSACADORAV2").catch(() => []),
       readTableData(sheets, spreadsheetId, "HACSV2").catch(() => []),
       readTableData(sheets, spreadsheetId, "MATERIALESV2").catch(() => []),
       readTableData(sheets, spreadsheetId, "CAUSASV2").catch(() => []),
@@ -1915,17 +1917,38 @@ async function enrichParosOnRead(sheets: any, spreadsheetId: string, list: any[]
         item.shiftId = item.shiftName || "";
       }
 
-      // 2. Machine Affected (Palletizer)
-      const hacForPal = hacs.find((h: any) => h.hac === item.machineHacText);
-      if (hacForPal) {
-        const pal = palletizers.find((p: any) => p.hacId === hacForPal.id);
-        if (pal) {
-          item.machineId = pal.id;
-          item.machineName = pal.name || pal.nombre || "";
-        }
+      // 2. Machine Affected (Palletizer / Bagger)
+      const allMachines = [...palletizers, ...baggers];
+      const pal = allMachines.find((p: any) => 
+        (p.id && String(p.id).toUpperCase() === String(item.machineHacText).toUpperCase()) || 
+        (p.name && String(p.name).toUpperCase() === String(item.machineHacText).toUpperCase()) ||
+        (p.nombre && String(p.nombre).toUpperCase() === String(item.machineHacText).toUpperCase())
+      );
+
+      if (pal) {
+        item.machineId = pal.id;
+        item.machineName = pal.name || pal.nombre || "";
       } else {
-        item.machineId = item.machineHacText || "";
-        item.machineName = item.machineHacText || "";
+        // Find if item.machineHacText represents a HAC code
+        const hacForPal = hacs.find((h: any) => h.hac && String(h.hac).toUpperCase() === String(item.machineHacText).toUpperCase());
+        if (hacForPal) {
+          const matchedPal = allMachines.find((p: any) => 
+            p.hacId === hacForPal.id || 
+            p.hacId === hacForPal.hac || 
+            p.hac_id === hacForPal.id || 
+            p.hac_id === hacForPal.hac
+          );
+          if (matchedPal) {
+            item.machineId = matchedPal.id;
+            item.machineName = matchedPal.name || matchedPal.nombre || "";
+          } else {
+            item.machineId = item.machineHacText || "";
+            item.machineName = item.machineHacText || "";
+          }
+        } else {
+          item.machineId = item.machineHacText || "";
+          item.machineName = item.machineHacText || "";
+        }
       }
 
       // 3. Material

@@ -225,12 +225,15 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const selectedOption = options.find((o: any) => o.value === value);
+  const selectedOption = options.find((o: any) => o && String(o.value) === String(value));
 
-  const filtered = options.filter((o: any) => 
-    o.label.toLowerCase().includes(search.toLowerCase()) || 
-    (o.value && o.value.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filtered = options.filter((o: any) => {
+    if (!o) return false;
+    const labelStr = String(o.label || '').toLowerCase();
+    const valStr = String(o.value || '').toLowerCase();
+    const searchStr = String(search || '').toLowerCase();
+    return labelStr.includes(searchStr) || valStr.includes(searchStr);
+  });
 
   return (
     <div className="flex flex-col gap-2 w-full relative" ref={containerRef}>
@@ -255,16 +258,23 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
             initial={{ opacity: 0, y: 3 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 3 }}
+            onClick={(e) => e.stopPropagation()}
             className="absolute top-full left-0 right-0 mt-1.5 bg-surface-elevated border border-border shadow-[0_15px_45px_rgba(0,0,0,0.15)] rounded-xl z-[150] overflow-hidden flex flex-col max-h-64"
           >
             {/* Search Input Bar */}
-            <div className="p-2 border-b border-border bg-bg/50 flex items-center gap-2">
+            <div className="p-2 border-b border-border bg-bg/50 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
               <Search size={14} className="text-text-muted/60 ml-2" />
               <input 
                 type="text"
                 autoFocus
                 value={search}
                 onChange={e => setSearch(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                  if (e.key === ' ') {
+                    e.stopPropagation();
+                  }
+                }}
                 placeholder="Buscar..."
                 className="w-full bg-transparent border-none text-xs text-text-main focus:outline-none placeholder:text-text-muted/50 py-1"
               />
