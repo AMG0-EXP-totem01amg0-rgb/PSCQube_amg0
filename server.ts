@@ -945,6 +945,25 @@ function parseRowToClientObject(headers: string[], row: any[], tableName: string
         }
       }
 
+      // Standardize boolean fields across all tables to prevent false-positives
+      const isBoolean = header.endsWith("?") || 
+                        ["isPallet", "isProductive", "isSupply", "isBigBag", "isSamplingPoint", "isDater", "isScale", "isEnabled", "purge"].includes(clientKey);
+      if (isBoolean) {
+        const norm = String(val).trim().toUpperCase();
+        parsedVal = (val === true || val === 1 || norm === "TRUE" || norm === "1" || norm === "SI" || norm === "SÍ" || norm === "HABILITADO" || norm === "HABILITADA" || norm === "CUMPLIDO");
+      }
+
+      // Standardize generic numeric fields that can be read as string
+      if (upperTable === "MATERIALESV2" && ["packingWeight", "bagWeight"].includes(clientKey)) {
+        parsedVal = Number(String(val).replace(",", ".")) || 0;
+      }
+      if (upperTable === "CAPACIDADESV2" && clientKey === "bdp") {
+        parsedVal = Number(String(val).replace(",", ".")) || 0;
+      }
+      if (upperTable === "ENSACADORAV2" && clientKey === "nozzles") {
+        parsedVal = Number(String(val).replace(",", ".")) || 0;
+      }
+
       rowObj[clientKey] = parsedVal;
 
       if (val !== "") {
