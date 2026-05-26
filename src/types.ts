@@ -127,6 +127,7 @@ export interface ProductionReport {
   discardedBagsVentocheck: number;
   discardedBagsTransport: number;
   nozzleNews: NozzleNews[];
+  nozzleAvailability?: string;
 }
 
 export interface DaterControl {

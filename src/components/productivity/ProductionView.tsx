@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Package, Plus, Trash2, History, Pencil, TrendingUp, Filter, BarChart3, Clock, AlertCircle, ShieldCheck } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parse, differenceInMinutes } from 'date-fns';
 import { GlassCard, GlassInput, GlassSelect, GlassButton, ConfirmModal, Modal } from '../ui/GlassUI';
 import { DataTable, Column, TableActions } from '../ui/DataTable';
 import { MasterData, ProductionReport, NozzleNews, AppUser } from '../../types';
@@ -22,6 +22,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ProductionReport | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isNozzleModalOpen, setIsNozzleModalOpen] = useState(false);
 
   const canEdit = useMemo(() => {
     const perm = currentUser?.permissions?.find(p => p.viewId === 'PRODUCCION');
@@ -81,8 +82,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
 
   // Calculate Global Summary (Automated)
   const totals = useMemo(() => {
-    const totalTons = history.reduce((sum, r) => sum + r.tonsProduced, 0);
-    const totalBags = history.reduce((sum, r) => sum + (r.bagsProduced || 0), 0);
+    const totalTons = history.reduce((sum, r) => sum + (Number(r.tonsProduced) || 0), 0);
+    const totalBags = history.reduce((sum, r) => sum + (Number(r.bagsProduced) || 0), 0);
     const count = history.length;
     return { totalTons, totalBags, count };
   }, [history]);
@@ -143,6 +144,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
     }));
 
     setTempNews({ nozzleNumber: '', startTime: '', endTime: '', isAllShift: false, observation: '' });
+    setIsNozzleModalOpen(false);
   };
 
   const removeNozzleNews = (id: string) => {
@@ -154,6 +156,30 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
 
   const handleSave = () => {
     if (!formData.baggerId || !formData.materialId || !formData.tons || !palletizerId || !shiftId) return;
+
+    if (tempNews.nozzleNumber || tempNews.observation || tempNews.startTime || tempNews.endTime) {
+      const confirmAdd = window.confirm(
+        "¡Atención! Has ingresado datos en la sección de Novedad de Boquilla pero NO has presionado 'Añadir Novedad'.\n\n" +
+        "¿Deseas agregar esta novedad automáticamente antes de guardar el reporte?"
+      );
+      if (confirmAdd) {
+        const news: NozzleNews = {
+          id: Math.random().toString(36).substr(2, 9),
+          nozzleNumber: parseInt(tempNews.nozzleNumber) || 1,
+          startTime: tempNews.isAllShift ? (selectedShiftObj?.startTime || '00:00') : (tempNews.startTime || '00:00'),
+          endTime: tempNews.isAllShift ? (selectedShiftObj?.endTime || '23:59') : (tempNews.endTime || '23:59'),
+          isAllShift: tempNews.isAllShift,
+          observation: tempNews.observation
+        };
+        formData.nozzleNews.push(news);
+        setTempNews({ nozzleNumber: '', startTime: '', endTime: '', isAllShift: false, observation: '' });
+      } else {
+        const discard = window.confirm("¿Seguro que deseas guardar el reporte SIN registrar esta novedad de boquilla?");
+        if (!discard) {
+          return;
+        }
+      }
+    }
     
     // Calculate BDP
     const bdp = masters.capacities.find((c: any) => 
@@ -161,6 +187,40 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       c.palletizerId === palletizerId && 
       c.materialId === formData.materialId
     )?.bdp || 100;
+
+    // Calculate Bagger Nozzle Availability Percentage based on reported stoppages
+    const shiftHours = selectedShiftObj ? Number(selectedShiftObj.durationHours || 8) : 8;
+    const totalShiftMinutes = shiftHours * 60;
+    const totalBaggerNozzles = selectedBaggerObj?.nozzles || parseInt(formData.availableNozzlesShift) || 4;
+    const totalNozzleMinutes = totalBaggerNozzles * totalShiftMinutes;
+
+    let totalNozzleDowntimeMinutes = 0;
+    formData.nozzleNews.forEach(news => {
+      let stopDuration = 0;
+      if (news.isAllShift) {
+        stopDuration = totalShiftMinutes;
+      } else if (news.startTime && news.endTime) {
+        try {
+          const start = parse(news.startTime, 'HH:mm', new Date());
+          const end = parse(news.endTime, 'HH:mm', new Date());
+          let diff = differenceInMinutes(end, start);
+          if (diff < 0) {
+            diff += 24 * 60; // overnight crossing
+          }
+          stopDuration = Math.min(totalShiftMinutes, diff);
+        } catch {
+          stopDuration = 0;
+        }
+      }
+      totalNozzleDowntimeMinutes += stopDuration;
+    });
+
+    const activeNozzleDowntime = Math.min(totalNozzleMinutes, totalNozzleDowntimeMinutes);
+    const nozzleAvailabilityPercent = totalNozzleMinutes > 0
+      ? ((totalNozzleMinutes - activeNozzleDowntime) / totalNozzleMinutes) * 100
+      : 100;
+
+    const nozzleAvailabilityStr = `${nozzleAvailabilityPercent.toFixed(1)}%`;
 
     const record = {
       id: editingItem?.id || Math.random().toString(36).substr(2, 9),
@@ -178,7 +238,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       notNozzledBags: parseInt(formData.notNozzledBags) || 0,
       discardedBagsVentocheck: parseInt(formData.discardedBagsVentocheck) || 0,
       discardedBagsTransport: parseInt(formData.discardedBagsTransport) || 0,
-      nozzleNews: formData.nozzleNews
+      nozzleNews: formData.nozzleNews,
+      nozzleAvailability: nozzleAvailabilityStr
     };
 
     onSave(record);
@@ -230,6 +291,23 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       )
     },
     {
+      header: 'Disp. Boquillas',
+      align: 'center',
+      accessor: (row) => {
+        const value = row.nozzleAvailability || '100.0%';
+        const num = parseFloat(value);
+        let colorClass = 'text-emerald-500 bg-emerald-500/10';
+        if (num < 85) colorClass = 'text-red-500 bg-red-500/10';
+        else if (num < 100) colorClass = 'text-amber-500 bg-amber-500/10';
+        
+        return (
+          <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-black font-mono", colorClass)}>
+            {value}
+          </span>
+        );
+      }
+    },
+    {
       header: 'Acciones',
       align: 'right',
       accessor: (row) => canEdit ? (
@@ -246,7 +324,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
   const newsColumns: Column<NozzleNews>[] = [
     {
       header: 'Boquilla',
-      accessor: (row) => <span className="font-bold text-text-main">Noz. {row.nozzleNumber}</span>
+      accessor: (row) => <span className="font-bold text-text-main">Boq. {row.nozzleNumber}</span>
     },
     {
       header: 'Rango',
@@ -258,6 +336,14 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
             <span>{row.startTime} - {row.endTime}</span>
           )}
         </div>
+      )
+    },
+    {
+      header: 'Causa / Observación',
+      accessor: (row) => (
+        <span className="text-[10px] text-text-muted italic block truncate max-w-[180px]" title={row.observation}>
+          {row.observation || '-'}
+        </span>
       )
     },
     {
@@ -457,63 +543,26 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
 
           {/* Section 3: Boquillas Fuera de Servicio */}
           <div className="space-y-4">
-            <div className="flex items-center gap-2 text-red-500">
-              <Clock size={16} />
-              <h4 className="text-xs font-black uppercase tracking-widest">Novedades de Boquillas</h4>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-red-500">
+                <Clock size={16} />
+                <h4 className="text-xs font-black uppercase tracking-widest">Novedades de Boquillas</h4>
+              </div>
+              <GlassButton
+                type="button"
+                variant="secondary"
+                disabled={!formData.baggerId}
+                onClick={() => setIsNozzleModalOpen(true)}
+                className="h-9 px-4 text-xs font-bold bg-primary/10 hover:bg-primary text-primary hover:text-white border-primary/20"
+              >
+                <Plus size={14} className="mr-1" />
+                Añadir Novedad
+              </GlassButton>
             </div>
             
             <div className="bg-bg-input/60 p-4 rounded-xl border border-border/50 space-y-4">
-               {/* Quick Add Nozzle News */}
-               <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-                  <GlassSelect 
-                    label="Boquilla" 
-                    disabled={!formData.baggerId}
-                    options={Array.from({length: selectedBaggerObj?.nozzles || 0}, (_, i) => ({label: `Boquilla ${i+1}`, value: (i+1).toString()}))}
-                    value={tempNews.nozzleNumber}
-                    onChange={e => setTempNews({...tempNews, nozzleNumber: (e.target as HTMLSelectElement).value})}
-                  />
-                  <div className="md:col-span-2 flex items-center gap-2">
-                     <div className="flex-1">
-                        <GlassInput 
-                          label="Inicio" 
-                          type="time" 
-                          disabled={tempNews.isAllShift}
-                          value={tempNews.startTime}
-                          onChange={e => setTempNews({...tempNews, startTime: e.target.value})}
-                        />
-                     </div>
-                     <div className="flex-1">
-                        <GlassInput 
-                          label="Fin" 
-                          type="time" 
-                          disabled={tempNews.isAllShift}
-                          value={tempNews.endTime}
-                          onChange={e => setTempNews({...tempNews, endTime: e.target.value})}
-                        />
-                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 justify-between">
-                     <label className="flex items-center gap-2 cursor-pointer group">
-                        <input 
-                          type="checkbox" 
-                          checked={tempNews.isAllShift}
-                          onChange={e => setTempNews({...tempNews, isAllShift: e.target.checked})}
-                          className="w-4 h-4 rounded border-border bg-bg text-primary focus:ring-primary/20"
-                        />
-                        <span className="text-[10px] font-bold text-text-muted group-hover:text-text-main transition-colors">TODO EL TURNO</span>
-                     </label>
-                     <button 
-                        onClick={addNozzleNews}
-                        disabled={!tempNews.nozzleNumber || (!tempNews.isAllShift && (!tempNews.startTime || !tempNews.endTime))}
-                        className="p-2.5 bg-primary/10 text-primary hover:bg-primary rounded-lg hover:text-white transition-all disabled:opacity-30 disabled:pointer-events-none"
-                     >
-                        <Plus size={16} />
-                     </button>
-                  </div>
-               </div>
-
                {/* Current Nozzle News List */}
-               {formData.nozzleNews.length > 0 && (
+               {formData.nozzleNews.length > 0 ? (
                  <div className="border border-border/30 rounded-lg overflow-hidden">
                     <DataTable 
                       title=""
@@ -521,6 +570,10 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                       data={formData.nozzleNews}
                       keyExtractor={r => r.id}
                     />
+                 </div>
+               ) : (
+                 <div className="text-center py-4 text-xs text-text-muted">
+                   Ninguna novedad de boquilla registrada aún en esta producción.
                  </div>
                )}
             </div>
@@ -552,6 +605,78 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
         title="Confirmar eliminación"
         message="¿Estás seguro de eliminar este registro de producción? El total global se recalculará automáticamente."
       />
+
+      <Modal
+        isOpen={isNozzleModalOpen}
+        onClose={() => setIsNozzleModalOpen(false)}
+        title="Registrar Novedad de Boquilla"
+        isSubModal={true}
+        className="max-w-md"
+      >
+        <div className="space-y-4">
+          <GlassSelect 
+            label="Boquilla" 
+            options={Array.from({length: selectedBaggerObj?.nozzles || 4}, (_, i) => ({label: `Boquilla ${i+1}`, value: (i+1).toString()}))}
+            value={tempNews.nozzleNumber}
+            onChange={(e: any) => setTempNews({...tempNews, nozzleNumber: e.target.value})}
+          />
+          <div className="flex items-center gap-2">
+             <div className="flex-1">
+                <GlassInput 
+                  label="Inicio" 
+                  type="time" 
+                  disabled={tempNews.isAllShift}
+                  value={tempNews.startTime}
+                  onChange={(e: any) => setTempNews({...tempNews, startTime: e.target.value})}
+                />
+             </div>
+             <div className="flex-1">
+                <GlassInput 
+                  label="Fin" 
+                  type="time" 
+                  disabled={tempNews.isAllShift}
+                  value={tempNews.endTime}
+                  onChange={(e: any) => setTempNews({...tempNews, endTime: e.target.value})}
+                />
+             </div>
+          </div>
+          <div className="flex items-center justify-start py-1">
+             <label className="flex items-center gap-2 cursor-pointer group">
+                <input 
+                  type="checkbox" 
+                  checked={tempNews.isAllShift}
+                  onChange={(e: any) => setTempNews({...tempNews, isAllShift: e.target.checked})}
+                  className="w-4 h-4 rounded border-border bg-bg text-primary focus:ring-primary/20"
+                />
+                <span className="text-xs font-bold text-text-muted group-hover:text-text-main transition-colors">TODO EL TURNO</span>
+             </label>
+          </div>
+          <GlassInput 
+            label="Causa de la Novedad / Observación" 
+            placeholder="Ej: Obstrucción de válvula, limpieza..."
+            value={tempNews.observation || ''}
+            onChange={(e: any) => setTempNews({...tempNews, observation: e.target.value})}
+          />
+          <div className="pt-4 border-t border-border flex gap-2">
+            <GlassButton
+              type="button"
+              variant="secondary"
+              className="flex-1"
+              onClick={() => setIsNozzleModalOpen(false)}
+            >
+              Cancelar
+            </GlassButton>
+            <GlassButton
+              type="button"
+              className="flex-1"
+              onClick={addNozzleNews}
+              disabled={!tempNews.nozzleNumber || (!tempNews.isAllShift && (!tempNews.startTime || !tempNews.endTime))}
+            >
+              Agregar
+            </GlassButton>
+          </div>
+        </div>
+      </Modal>
     </motion.div>
   );
 }

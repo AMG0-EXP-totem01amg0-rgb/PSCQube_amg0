@@ -52,8 +52,9 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
 
       // 2. STOP SEGMENT
       const cause = masters.causes.find(c => c.id === stop.causeId);
+      const stopTypeResolved = String(stop.stopType || cause?.stopType || 'INTERNO').toUpperCase();
       list.push({
-        type: cause?.stopType === 'INTERNO' ? 'INTERNAL' : 'EXTERNAL',
+        type: stopTypeResolved === 'EXTERNO' ? 'EXTERNAL' : 'INTERNAL',
         duration: stopDuration,
         startTime: stop.startTime,
         endTime: stop.endTime,
@@ -100,7 +101,7 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
           
           let bgColorClass = "bg-success"; // OPERATIVE
           if (seg.type === 'INTERNAL') bgColorClass = "bg-danger"; // INTERNAL
-          if (seg.type === 'EXTERNAL') bgColorClass = "bg-danger"; // EXTERNAL
+          if (seg.type === 'EXTERNAL') bgColorClass = "bg-zinc-500"; // EXTERNAL
 
           const isOperative = seg.type === 'OPERATIVE';
           

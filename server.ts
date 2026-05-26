@@ -336,7 +336,7 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
       "rendimineto",
       "disponibilidad",
       "oee",
-      "novedades_boquillas"
+      "disponibilidad_boquillas"
     ],
     clientToSheet: {
       id: "id",
@@ -361,7 +361,7 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
       yield: "rendimineto",
       availability: "disponibilidad",
       oee: "oee",
-      nozzleNews: "novedades_boquillas"
+      nozzleAvailability: "disponibilidad_boquillas"
     },
     sheetToClient: {
       id: "id",
@@ -386,7 +386,7 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
       rendimineto: "yield",
       disponibilidad: "availability",
       oee: "oee",
-      novedades_boquillas: "nozzleNews"
+      disponibilidad_boquillas: "nozzleAvailability"
     }
   },
   PAROS_BOQUILLASV2: {
@@ -926,6 +926,25 @@ function parseRowToClientObject(headers: string[], row: any[], tableName: string
         }
       }
 
+      if (upperTable === "PRODUCCIONV2") {
+        const numericFields = [
+          "bagsProduced",
+          "tonsProduced",
+          "bdp",
+          "availableNozzlesShift",
+          "discardedBagsBagger",
+          "notNozzledBags",
+          "discardedBagsVentocheck",
+          "discardedBagsTransport",
+          "yield",
+          "availability",
+          "oee"
+        ];
+        if (numericFields.includes(clientKey)) {
+          parsedVal = Number(String(val).replace(",", ".")) || 0;
+        }
+      }
+
       rowObj[clientKey] = parsedVal;
 
       if (val !== "") {
@@ -977,7 +996,7 @@ const PREDEFINED_HEADERS: Record<string, string[]> = {
     "rendimineto",
     "disponibilidad",
     "oee",
-    "novedades_boquillas"
+    "disponibilidad_boquillas"
   ],
   PAROS_BOQUILLASV2: [
     "id",
@@ -1059,11 +1078,17 @@ async function ensureSheetExists(sheets: any, spreadsheetId: string, tableName: 
 // DATABASE OPERATION HELPERS & SAFETY WRAPPER METHODS
 // ----------------------------------------------------
 
+const verifiedTables = new Set<string>();
+
 // 1. Ensure sheet exists AND column headers row is correct (Point 1, 7)
 async function ensureHeadersAndColumns(sheets: any, spreadsheetId: string, tableName: string): Promise<string[]> {
   const upperTable = tableName.toUpperCase();
   const schema = TABLE_SCHEMAS[upperTable];
   let expectedHeaders = schema ? schema.sheetHeaders : (PREDEFINED_HEADERS[upperTable] || []);
+
+  if (verifiedTables.has(upperTable)) {
+    return expectedHeaders;
+  }
 
   await ensureSheetExists(sheets, spreadsheetId, tableName);
 
@@ -1074,7 +1099,24 @@ async function ensureHeadersAndColumns(sheets: any, spreadsheetId: string, table
   }));
 
   const existingRows = response.data.values;
-  const existingHeaders: string[] = existingRows && existingRows[0] ? existingRows[0].map((h: any) => String(h || "").trim()) : [];
+  let existingHeaders: string[] = existingRows && existingRows[0] ? existingRows[0].map((h: any) => String(h || "").trim()) : [];
+
+  if (upperTable === "PRODUCCIONV2" && existingHeaders.some(h => h.toLowerCase() === "novedades_boquillas")) {
+    console.log(`[ensureHeadersAndColumns] Found obsolete column 'novedades_boquillas' in PRODUCCIONV2 sheet, clearing and rewritimg headers.`);
+    existingHeaders = existingHeaders.filter(h => h.toLowerCase() !== "novedades_boquillas");
+    await callWithRetry(() => sheets.spreadsheets.values.clear({
+      spreadsheetId,
+      range: `${tableName}!A1:ZZ1`,
+    }));
+    await callWithRetry(() => sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `${tableName}!A1`,
+      valueInputOption: "RAW",
+      requestBody: {
+        values: [existingHeaders],
+      },
+    }));
+  }
 
   if (existingHeaders.length === 0 || existingHeaders.every(h => h === "")) {
     console.log(`[ensureHeadersAndColumns] Table ${tableName} header is empty. Writing default headers:`, expectedHeaders);
@@ -1086,6 +1128,7 @@ async function ensureHeadersAndColumns(sheets: any, spreadsheetId: string, table
         values: [expectedHeaders],
       },
     }));
+    verifiedTables.add(upperTable);
     return expectedHeaders;
   }
 
@@ -1102,9 +1145,11 @@ async function ensureHeadersAndColumns(sheets: any, spreadsheetId: string, table
         values: [updatedHeaders],
       },
     }));
+    verifiedTables.add(upperTable);
     return updatedHeaders;
   }
 
+  verifiedTables.add(upperTable);
   return existingHeaders;
 }
 
@@ -1148,13 +1193,15 @@ function areRecordsEqual(recordA: any, recordB: any, schemaHeaders: string[], sc
 async function enrichProductionRecords(sheets: any, spreadsheetId: string, data: any[]) {
   if (!data || data.length === 0) return;
   try {
-    const [turnsRes, palRes, bagRes, matRes, hacRes, parosRes] = await Promise.all([
+    const [turnsRes, palRes, bagRes, matRes, hacRes, parosRes, causasRes, capacitiesRes] = await Promise.all([
       callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "TURNOSV2!A1:Z5000" })).catch(() => null),
       callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "PALETIZADORAV2!A1:Z5000" })).catch(() => null),
       callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "ENSACADORAV2!A1:Z5000" })).catch(() => null),
       callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "MATERIALESV2!A1:Z5000" })).catch(() => null),
       callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "HACSV2!A1:Z5000" })).catch(() => null),
       callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "PAROSV2!A1:Z50000" })).catch(() => null),
+      callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "CAUSASV2!A1:Z5000" })).catch(() => null),
+      callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "CAPACIDADESV2!A1:Z5000" })).catch(() => null),
     ]);
 
     const parseRows = (res: any, tableName: string) => {
@@ -1170,6 +1217,9 @@ async function enrichProductionRecords(sheets: any, spreadsheetId: string, data:
     const dbMaterials = parseRows(matRes, "MATERIALESV2");
     const dbHacs = parseRows(hacRes, "HACSV2");
     const dbParos = parseRows(parosRes, "PAROSV2");
+    const dbCauses = parseRows(causasRes, "CAUSASV2");
+    const dbCapacities = parseRows(capacitiesRes, "CAPACIDADESV2");
+    await enrichParosOnRead(sheets, spreadsheetId, dbParos);
 
     data.forEach((item: any) => {
       const shift = dbShifts.find((s: any) => s.id === item.shiftId);
@@ -1187,7 +1237,6 @@ async function enrichProductionRecords(sheets: any, spreadsheetId: string, data:
       item.materialDescription = mat ? mat.name : "";
 
       const shiftDurationHours = shift ? Number(shift.durationHours || 8) : 8;
-      const totalMins = shiftDurationHours * 60;
 
       const stops = dbParos.filter((s: any) => 
         s.date === item.date && 
@@ -1195,27 +1244,105 @@ async function enrichProductionRecords(sheets: any, spreadsheetId: string, data:
         s.machineId === item.palletizerId
       );
       const stopMins = stops.reduce((sum: number, s: any) => sum + (Number(s.durationMinutes) || 0), 0);
-      const runMinutes = Math.max(0, totalMins - stopMins);
-      const availabilityPercent = totalMins > 0 ? (runMinutes / totalMins) * 100 : 100;
-      item.availability = `${availabilityPercent.toFixed(1)}%`;
+      const hsMarcha = Math.max(0, shiftDurationHours - (stopMins / 60));
 
-      const runHours = runMinutes / 60;
-      const bdpValue = Number(item.bdp) || 100;
-      const theoreticalBags = bdpValue * runHours;
-      const bagsProduced = Number(item.bagsProduced) || 0;
-      const yieldPercent = theoreticalBags > 0 ? (bagsProduced / theoreticalBags) * 100 : 100;
-      item.yield = `${Math.min(100, Math.round(yieldPercent))}%`;
+      const externalStopMinutes = stops
+        .filter((s: any) => {
+          const c = dbCauses.find((cause: any) => 
+            cause.id === s.causeId || 
+            cause.text === s.causeText || 
+            cause.descripcion === s.causeText || 
+            cause.id === s.causeText
+          );
+          return (c && c.stopType === 'EXTERNO') || s.stopType === 'EXTERNO';
+        })
+        .reduce((sum: number, s: any) => sum + (Number(s.durationMinutes) || 0), 0);
+      const externalStopHours = externalStopMinutes / 60;
 
-      const discardedBags = (Number(item.discardedBagsBagger) || 0) + 
-                            (Number(item.notNozzledBags) || 0) + 
-                            (Number(item.discardedBagsVentocheck) || 0) + 
-                            (Number(item.discardedBagsTransport) || 0);
-      const qualityPercent = bagsProduced > 0 ? Math.max(0, (bagsProduced - discardedBags) / bagsProduced) * 100 : 100;
-      const oeePercent = (availabilityPercent / 100) * (yieldPercent / 100) * (qualityPercent / 100) * 100;
-      item.oee = `${Math.min(100, Math.round(oeePercent))}%`;
+      // Disponibilidad = (hs. de paro externo + hs. de marcha) / duración de turno
+      let availabilityPercent = 100;
+      if (shiftDurationHours > 0) {
+        availabilityPercent = ((externalStopHours + hsMarcha) / shiftDurationHours) * 100;
+      }
+      item.availability = `${Math.min(100, Math.round(availabilityPercent))}%`;
+
+      // Rendimiento = (totalTons / hsMarcha) / bdp_ponderado
+      const contextReports = data.filter((r: any) => 
+        r.date === item.date && 
+        r.shiftId === item.shiftId && 
+        r.palletizerId === item.palletizerId
+      );
+
+      let yieldPercent = 100;
+      if (contextReports.length > 0 && hsMarcha > 0) {
+        let totalTons = 0;
+        let sumTonsOverBDP = 0;
+
+        contextReports.forEach((r: any) => {
+          const tons = Number(r.tonsProduced) || 0;
+          totalTons += tons;
+
+          // Find BDP in database capacities
+          const cap = dbCapacities.find((c: any) => 
+            String(c.palletizerId || "").trim().toUpperCase() === String(r.palletizerId || "").trim().toUpperCase() &&
+            String(c.baggerId || "").trim().toUpperCase() === String(r.baggerId || "").trim().toUpperCase() &&
+            String(c.materialId || "").trim().toUpperCase() === String(r.materialId || "").trim().toUpperCase()
+          );
+
+          const bdpVal = cap ? Number(cap.bdp) : (Number(r.bdp) || 100);
+          if (bdpVal > 0) {
+            sumTonsOverBDP += tons / bdpVal;
+          } else {
+            sumTonsOverBDP += tons / 100;
+          }
+        });
+
+        if (totalTons > 0 && sumTonsOverBDP > 0) {
+          const rate = totalTons / hsMarcha;
+          const bdpPonderado = totalTons / sumTonsOverBDP; // tons/hour
+          yieldPercent = (rate / bdpPonderado) * 100;
+        } else {
+          yieldPercent = 0;
+        }
+      } else {
+        yieldPercent = 0;
+      }
+      
+      item.yield = `${Math.round(yieldPercent)}%`;
+
+      // OEE = rendimiento * disponibilidad
+      const oeePercent = (availabilityPercent / 100) * (yieldPercent / 100) * 100;
+      item.oee = `${Math.round(oeePercent)}%`;
     });
   } catch (enrichError) {
     console.error("Error enriching production data:", enrichError);
+  }
+}
+
+async function autoRecalculateProductionMetrics(sheets: any, spreadsheetId: string) {
+  try {
+    console.log("[autoRecalculateProductionMetrics] Starting automatic OEE/Availability/Yield recalculation...");
+    delete readCache["PRODUCCIONV2"];
+    delete readCache["PAROSV2"];
+
+    const productionList = await readTableData(sheets, spreadsheetId, "PRODUCCIONV2");
+    if (!productionList || productionList.length === 0) {
+      console.log("[autoRecalculateProductionMetrics] No production records found to recalculate.");
+      return;
+    }
+
+    // Recalculate
+    await enrichProductionRecords(sheets, spreadsheetId, productionList);
+
+    console.log(`[autoRecalculateProductionMetrics] Recalculated ${productionList.length} records. Committing updates to PRODUCCIONV2...`);
+    for (const report of productionList) {
+      await updateRecord(sheets, spreadsheetId, "PRODUCCIONV2", report.id, report);
+    }
+    
+    delete readCache["PRODUCCIONV2"];
+    console.log("[autoRecalculateProductionMetrics] Done recalculating.");
+  } catch (err) {
+    console.error("[autoRecalculateProductionMetrics] Failed to auto-recalculate:", err);
   }
 }
 
@@ -1562,7 +1689,18 @@ async function syncProductionNozzles(sheets: any, spreadsheetId: string, item: a
 // 9. Delete single record uniquely by original ID (Point 4)
 async function deleteRecord(sheets: any, spreadsheetId: string, tableName: string, targetId: string): Promise<boolean> {
   const upperTable = tableName.toUpperCase();
+  delete readCache[upperTable];
+  if (upperTable === "PRODUCCIONV2") {
+    delete readCache["PAROS_BOQUILLASV2"];
+  } else if (upperTable === "PAROS_BOQUILLASV2") {
+    delete readCache["PRODUCCIONV2"];
+  }
+
   const { sheetCol } = getIdColumnAndKey(tableName);
+
+  if (upperTable === "PRODUCCIONV2") {
+    await deleteNozzlesForProduction(sheets, spreadsheetId, targetId);
+  }
 
   const response: any = await callWithRetry(() => sheets.spreadsheets.values.get({
     spreadsheetId,
@@ -1634,6 +1772,37 @@ async function deleteRecord(sheets: any, spreadsheetId: string, tableName: strin
     console.log(`[Database log: DELETE] Cleared values of row ${matchingRowIndex} in table ${tableName}. ID: ${targetId}`);
   }
 
+  delete readCache[upperTable];
+  if (upperTable === "PRODUCCIONV2") {
+    delete readCache["PAROS_BOQUILLASV2"];
+  } else if (upperTable === "PAROS_BOQUILLASV2") {
+    delete readCache["PRODUCCIONV2"];
+  }
+
+  return true;
+}
+
+function areNozzleNewsListsEqual(listA: any[], listB: any[]): boolean {
+  const arrA = Array.isArray(listA) ? listA : [];
+  const arrB = Array.isArray(listB) ? listB : [];
+  if (arrA.length !== arrB.length) return false;
+  
+  const sortedA = [...arrA].sort((a, b) => (Number(a.nozzleNumber) || 0) - (Number(b.nozzleNumber) || 0));
+  const sortedB = [...arrB].sort((a, b) => (Number(a.nozzleNumber) || 0) - (Number(b.nozzleNumber) || 0));
+  
+  for (let i = 0; i < sortedA.length; i++) {
+    const a = sortedA[i];
+    const b = sortedB[i];
+    if (
+      Number(a.nozzleNumber) !== Number(b.nozzleNumber) ||
+      String(a.startTime || "").trim() !== String(b.startTime || "").trim() ||
+      String(a.endTime || "").trim() !== String(b.endTime || "").trim() ||
+      Boolean(a.isAllShift) !== Boolean(b.isAllShift) ||
+      String(a.observation || "").trim() !== String(b.observation || "").trim()
+    ) {
+      return false;
+    }
+  }
   return true;
 }
 
@@ -1674,7 +1843,13 @@ async function reconcileTableData(sheets: any, spreadsheetId: string, tableName:
       const schema = TABLE_SCHEMAS[upperTable];
       const headers = schema ? schema.sheetHeaders : (PREDEFINED_HEADERS[upperTable] || []);
       
-      if (!areRecordsEqual(item, dbItem, headers, schema)) {
+      const equalBase = areRecordsEqual(item, dbItem, headers, schema);
+      let equalNozzles = true;
+      if (upperTable === "PRODUCCIONV2") {
+        equalNozzles = areNozzleNewsListsEqual(item.nozzleNews, dbItem.nozzleNews);
+      }
+
+      if (!equalBase || !equalNozzles) {
         console.log(`[Reconciler] Item ${itemId} has changed in table ${tableName}. Modifying single row...`);
         await updateRecord(sheets, spreadsheetId, tableName, itemId, item);
       }
@@ -1684,15 +1859,13 @@ async function reconcileTableData(sheets: any, spreadsheetId: string, tableName:
     }
   }
 
-  // Safely execute deletions only if incoming list does not miss items due to empty/concurrency issues
-  if (incomingData.length > 0) {
-    for (const dbItem of dbData) {
-      if (!dbItem) continue;
-      const dbId = String(dbItem[clientKey]);
-      if (!incomingMap.has(dbId)) {
-        console.log(`[Reconciler] Item ${dbId} is deleted in client. Triggering single row deletion...`);
-        await deleteRecord(sheets, spreadsheetId, tableName, dbId);
-      }
+  // Safely execute deletions against incoming state
+  for (const dbItem of dbData) {
+    if (!dbItem) continue;
+    const dbId = String(dbItem[clientKey]);
+    if (!incomingMap.has(dbId)) {
+      console.log(`[Reconciler] Item ${dbId} is deleted in client. Triggering single row deletion...`);
+      await deleteRecord(sheets, spreadsheetId, tableName, dbId);
     }
   }
 }
@@ -2038,6 +2211,9 @@ app.post("/api/sheets", async (req, res) => {
           return res.status(400).json({ success: false, error: "Faltan los datos para la acción write" });
         }
         await reconcileTableData(sheets, spreadsheetId, table, data);
+        if (table === "PAROSV2") {
+          await autoRecalculateProductionMetrics(sheets, spreadsheetId);
+        }
         return res.json({ success: true, count: data.length });
       } catch (error: any) {
         console.error(`Error in reconciled write action for ${table}:`, error);
@@ -2053,6 +2229,9 @@ app.post("/api/sheets", async (req, res) => {
           return res.status(400).json({ success: false, error: "Falta el parámetro 'item' para crear" });
         }
         await insertRecord(sheets, spreadsheetId, table, item);
+        if (table === "PAROSV2") {
+          await autoRecalculateProductionMetrics(sheets, spreadsheetId);
+        }
         return res.json({ success: true, message: "Registro guardado con éxito" });
       } catch (error: any) {
         console.error(`Error in create action for ${table}:`, error);
@@ -2068,6 +2247,9 @@ app.post("/api/sheets", async (req, res) => {
           return res.status(400).json({ success: false, error: "Faltan 'id' o 'item' para actualizar" });
         }
         await updateRecord(sheets, spreadsheetId, table, id, item);
+        if (table === "PAROSV2") {
+          await autoRecalculateProductionMetrics(sheets, spreadsheetId);
+        }
         return res.json({ success: true, message: "Registro actualizado con éxito" });
       } catch (error: any) {
         console.error(`Error in update action for ${table}:`, error);
@@ -2083,6 +2265,9 @@ app.post("/api/sheets", async (req, res) => {
           return res.status(400).json({ success: false, error: "Falta el parámetro 'id' para eliminar" });
         }
         const isDeleted = await deleteRecord(sheets, spreadsheetId, table, id);
+        if (table === "PAROSV2" && isDeleted) {
+          await autoRecalculateProductionMetrics(sheets, spreadsheetId);
+        }
         return res.json({ success: true, message: isDeleted ? "Registro eliminado con éxito" : "Registro no encontrado para eliminar" });
       } catch (error: any) {
         console.error(`Error in delete action for ${table}:`, error);

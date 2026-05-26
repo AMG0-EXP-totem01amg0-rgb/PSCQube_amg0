@@ -141,12 +141,35 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
   // Palletizer Detailed Analysis
   const palletizerData = React.useMemo(() => {
     return masters.palletizers.map((p: any) => {
-      const lineStops = stops.filter(s => s.machineId === p.id);
+      const lineStops = stops.filter(s => {
+        if (!s) return false;
+        // 1. Direct match by ID
+        if (s.machineId === p.id) return true;
+        if (s.machineId && String(s.machineId).toUpperCase() === String(p.id).toUpperCase()) return true;
+
+        // 2. Direct match by Name
+        if (s.machineName && p.name && String(s.machineName).toUpperCase() === String(p.name).toUpperCase()) return true;
+        if (s.machineName && p.nombre && String(s.machineName).toUpperCase() === String(p.nombre).toUpperCase()) return true;
+
+        // 3. Match by machine HAC code
+        const pHacObj = masters.hacs.find((h: any) => h.id === p.hacId || h.hac === p.hacId);
+        if (pHacObj) {
+          if (s.machineId && String(s.machineId).toUpperCase() === String(pHacObj.hac).toUpperCase()) return true;
+          if (s.machineId && String(s.machineId).toUpperCase() === String(pHacObj.id).toUpperCase()) return true;
+          if (s.machineHacText && String(s.machineHacText).toUpperCase() === String(pHacObj.hac).toUpperCase()) return true;
+        }
+
+        return false;
+      });
       const lineReports = productionReports.filter(r => r.palletizerId === p.id);
 
       // 1. Top 4 Relevant Internal Stops
       const topStops = [...lineStops]
-        .filter(s => s.stopType === 'INTERNO')
+        .filter(s => {
+          const causeObj = masters.causes.find(c => c.id === s.causeId || c.text === s.causeText);
+          const type = String(s.stopType || causeObj?.stopType || 'INTERNO').toUpperCase();
+          return type === 'INTERNO' || type === 'INTERNAL';
+        })
         .sort((a, b) => (Number(b.durationMinutes) || 0) - (Number(a.durationMinutes) || 0))
         .slice(0, 4);
 
@@ -403,7 +426,7 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
                       {activeNozzles.length > 0 ? activeNozzles.map((nozzle, idx) => (
                         <div key={idx} className="bg-amber-500/5 border border-amber-500/20 px-4 py-2.5 rounded-xl flex flex-col justify-center">
                           <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mb-1">{nozzle.baggerName}</p>
-                          <p className="text-xl font-black text-amber-500 font-mono tracking-tighter">#{nozzle.nozzles}</p>
+                          <p className="text-xl font-black text-amber-500 font-mono tracking-tighter">{nozzle.nozzles}</p>
                         </div>
                       )) : (
                         <p className="text-[10px] text-text-muted italic">Sin datos</p>

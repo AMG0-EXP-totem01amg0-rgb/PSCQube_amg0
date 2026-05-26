@@ -306,7 +306,7 @@ export default function DashboardShareModal({
 
                     <div className="text-right">
                       <div className="font-mono text-[22px] font-black tracking-tighter text-blue-950 leading-none">PSCQube</div>
-                      <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mt-1">Holcim Group S.A.</span>
+                      <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mt-1">Holcim Argentina S.A.</span>
                       <div className="mt-4 text-[10px] text-gray-500 font-bold tracking-tight">
                         <p>Impreso: {currentDateTimeStr}</p>
                       </div>
@@ -446,7 +446,7 @@ export default function DashboardShareModal({
                                   {activeNozzles.map((nozzle, nidx) => (
                                     <div key={nidx} className="bg-gray-50 border border-gray-200 px-2 py-1 rounded flex justify-between items-center text-[9px]">
                                       <span className="font-bold text-gray-700 uppercase truncate max-w-[70px]">{nozzle.baggerName}</span>
-                                      <span className="font-mono font-extrabold text-amber-600">#{nozzle.nozzles}</span>
+                                      <span className="font-mono font-extrabold text-amber-600">{nozzle.nozzles}</span>
                                     </div>
                                   ))}
                                 </div>

@@ -319,6 +319,11 @@ export default function App() {
     syncTableToSheets("PAROSV2", nextStops).then(res => {
       if (res.success) {
         addToast(exists ? "Paro actualizado con éxito" : "Paro registrado con éxito", "success");
+        fetchTableFromSheets("PRODUCCIONV2").then(pRes => {
+          if (pRes.success && pRes.data) {
+            setProductionReports(pRes.data);
+          }
+        });
       } else {
         addToast("Registrado localmente. Error al sincronizar con Sheets.", "warning");
       }
@@ -335,6 +340,11 @@ export default function App() {
     syncTableToSheets("PAROSV2", nextStops).then(res => {
       if (res.success) {
         addToast("Paro eliminado de Google Sheets", "success");
+        fetchTableFromSheets("PRODUCCIONV2").then(pRes => {
+          if (pRes.success && pRes.data) {
+            setProductionReports(pRes.data);
+          }
+        });
       } else {
         addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
       }
@@ -598,9 +608,9 @@ export default function App() {
     let performance = 0;
     let totalTons = 0;
     if (contextReports.length > 0 && hsMarcha > 0) {
-      totalTons = contextReports.reduce((sum, r) => sum + r.tonsProduced, 0);
+      totalTons = contextReports.reduce((sum, r) => sum + (Number(r.tonsProduced) || 0), 0);
       // Guard against BDP = 0 to avoid Infinity
-      const sumTonsOverBDP = contextReports.reduce((sum, r) => sum + (r.tonsProduced / (r.bdp || 100)), 0);
+      const sumTonsOverBDP = contextReports.reduce((sum, r) => sum + ((Number(r.tonsProduced) || 0) / (Number(r.bdp) || 100)), 0);
       const theoreticBDPWeighted = sumTonsOverBDP > 0 ? totalTons / sumTonsOverBDP : 100;
       performance = Math.min(1.5, (totalTons / hsMarcha) / theoreticBDPWeighted);
     }

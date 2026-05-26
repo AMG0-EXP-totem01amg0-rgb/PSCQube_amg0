@@ -99,9 +99,13 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   className?: string;
+  isSubModal?: boolean;
 }
 
-export function Modal({ isOpen, onClose, title, children, className }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, className, isSubModal = false }: ModalProps) {
+  const overlayZ = isSubModal ? "z-[300]" : "z-[200]";
+  const contentZ = isSubModal ? "z-[301]" : "z-[201]";
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -110,10 +114,10 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]"
+            className={cn("fixed inset-0 bg-black/60 backdrop-blur-sm", overlayZ)}
             onClick={onClose}
           />
-          <div className="fixed inset-0 flex items-center justify-center z-[201] p-4 pointer-events-none">
+          <div className={cn("fixed inset-0 flex items-center justify-center p-4 pointer-events-none", contentZ)}>
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
