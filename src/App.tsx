@@ -534,17 +534,31 @@ export default function App() {
   const handleSaveLaneStatus = (laneStatus: any) => {
     let exists = false;
     let nextLanes: any[] = [];
+    const statusesToSave = Array.isArray(laneStatus) ? laneStatus : [laneStatus];
+
     setLaneStatuses(prev => {
-      exists = !!prev.find(x => x.id === laneStatus.id);
-      nextLanes = exists
-        ? prev.map(x => x.id === laneStatus.id ? laneStatus : x)
-        : [laneStatus, ...prev];
-      return nextLanes;
+      let current = [...prev];
+      statusesToSave.forEach(status => {
+        const idx = current.findIndex(x => x.id === status.id);
+        if (idx > -1) {
+          current[idx] = status;
+          exists = true;
+        } else {
+          current = [status, ...current];
+        }
+      });
+      nextLanes = current;
+      return current;
     });
 
     syncTableToSheets("ESTADO_CALLESV2", nextLanes).then(res => {
       if (res.success) {
-        addToast(exists ? "Calle de carga actualizada con éxito" : "Calle de carga registrada con éxito", "success");
+        addToast(
+          Array.isArray(laneStatus)
+            ? "Estados de calles actualizados con éxito"
+            : (exists ? "Calle de carga actualizada con éxito" : "Calle de carga registrada con éxito"),
+          "success"
+        );
       } else {
         addToast("Registrada localmente. Error al sincronizar con Sheets.", "warning");
       }

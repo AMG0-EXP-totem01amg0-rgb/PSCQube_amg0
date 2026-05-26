@@ -10,7 +10,7 @@ interface Props {
   masters: MasterData;
   currentUser: AppUser;
   history: LaneShiftStatus[];
-  onSave: (laneStatus: LaneShiftStatus) => void;
+  onSave: (laneStatus: LaneShiftStatus | LaneShiftStatus[]) => void;
   onDelete: (id: string) => void;
   selectedShiftId: string | null;
   selectedDate: string;
@@ -74,6 +74,7 @@ export default function LoadingLanesView({ masters, currentUser, history, onSave
   const handleSaveAll = () => {
     if (!selectedShiftId) return;
 
+    const statuses: LaneShiftStatus[] = [];
     (Object.values(selectedLanes) as Partial<LaneShiftStatus>[]).forEach(lane => {
       const status: LaneShiftStatus = {
         id: lane.id || `LS-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
@@ -84,8 +85,10 @@ export default function LoadingLanesView({ masters, currentUser, history, onSave
         materialIds: lane.materialIds || [],
         observation: lane.observation || ''
       };
-      onSave(status);
+      statuses.push(status);
     });
+
+    onSave(statuses);
 
     // Show success toast
     setShowToast(true);
