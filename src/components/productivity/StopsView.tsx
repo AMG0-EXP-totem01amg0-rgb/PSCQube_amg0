@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { AlertTriangle, Pencil, Trash2, XCircle, Clock, ShieldAlert } from 'lucide-react';
 import { format, parse, differenceInMinutes, isBefore, isAfter, isEqual } from 'date-fns';
-import { GlassCard, GlassInput, GlassSelect, GlassButton, ConfirmModal } from '../ui/GlassUI';
+import { GlassCard, GlassInput, GlassSelect, GlassButton, ConfirmModal, GlassSearchableSelect } from '../ui/GlassUI';
 import ShiftTimeline from './ShiftTimeline';
 import { MasterData, MachineStop, Shift, AppUser } from '../../types';
 import { cn } from '../../lib/utils';
@@ -104,6 +104,8 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
     }
 
     const machineObj = masters.palletizers.find(p => p.id === palletizerId) || masters.baggers.find(b => b.id === palletizerId);
+    const machineHacObj = masters.hacs.find(h => h.id === machineObj?.hacId || h.hac === machineObj?.hacId);
+    const machineHacText = machineHacObj ? machineHacObj.hac : (machineObj?.hacId || '');
 
     onSave({
       id: editingId || `STP-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
@@ -111,6 +113,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
       finishDate: selectedDate, // Igual a fecha de registro (FECHAFIN = FECHA)
       machineId: palletizerId || '', 
       machineName: machineObj?.name || '', // MÁQUINA AFECTADA es el nombre de la paletizadora creada en MAQUINAS
+      machineHacText: machineHacText, // HAC de la máquina afectada
       shiftId: shiftId || '',
       materialId: formData.materialId,
       startTime: formData.startTime,
@@ -194,11 +197,11 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
             </div>
             <div className="flex gap-4">
                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-danger/40" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-danger" />
                   <span className="text-[8px] font-black text-text-muted uppercase">Interno</span>
                </div>
                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-neutral/40" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-danger" />
                   <span className="text-[8px] font-black text-text-muted uppercase">Externo</span>
                </div>
             </div>
@@ -276,17 +279,17 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
 
             {/* Clasificación (HAC/Causa) */}
             <div className="space-y-6">
-              <GlassSelect 
+              <GlassSearchableSelect 
                 label="Equipo Afectado (HAC)" 
                 options={masters.hacs.map((h:any) => ({label: `${h.hac} - ${h.detail}`, value: h.hac}))} 
                 value={formData.hacId} 
-                onChange={e => setFormData({...formData, hacId: (e.target as HTMLSelectElement).value, causeId: ''})} 
+                onChange={(e: any) => setFormData({...formData, hacId: e.target.value, causeId: ''})} 
               />
               <GlassSelect 
                 label="Causa Específica" 
                 options={masters.causes.filter((c:any) => c.hac === formData.hacId).map((c:any) => ({label: c.text, value: c.id}))} 
                 value={formData.causeId} 
-                onChange={e => setFormData({...formData, causeId: (e.target as HTMLSelectElement).value})} 
+                onChange={(e: any) => setFormData({...formData, causeId: (e.target as HTMLSelectElement).value})} 
                 disabled={!formData.hacId} 
               />
             </div>

@@ -100,9 +100,14 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
           
           let bgColorClass = "bg-success"; // OPERATIVE
           if (seg.type === 'INTERNAL') bgColorClass = "bg-danger"; // INTERNAL
-          if (seg.type === 'EXTERNAL') bgColorClass = "bg-neutral opacity-50"; // EXTERNAL
+          if (seg.type === 'EXTERNAL') bgColorClass = "bg-danger"; // EXTERNAL
 
           const isOperative = seg.type === 'OPERATIVE';
+          
+          const isStop = seg.type === 'INTERNAL' || seg.type === 'EXTERNAL';
+          const prevSeg = idx > 0 ? segments[idx - 1] : null;
+          const hasPrevStop = prevSeg && (prevSeg.type === 'INTERNAL' || prevSeg.type === 'EXTERNAL');
+          const showDivider = isStop && hasPrevStop;
 
           return (
             <div 
@@ -110,6 +115,7 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
               className={cn(
                 "h-full relative group transition-all duration-200",
                 bgColorClass,
+                showDivider && "border-l border-white/40",
                 !readOnly && !isOperative && "cursor-pointer hover:filter hover:brightness-110",
                 readOnly && "cursor-default"
               )}

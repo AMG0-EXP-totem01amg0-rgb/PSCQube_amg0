@@ -83,18 +83,21 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
 
     masters.materials.forEach((m: any) => {
       const materialEntries = (inventoryEntries || []).filter(e => e.materialId === m.id);
-      const stockVal = materialEntries.reduce((sum, e) => sum + e.weightTn, 0);
+      const stockVal = materialEntries.reduce((sum, e) => sum + (Number(e.weightTn) || 0), 0);
       
       const isUnitary = m.isPallet || m.isSupply || m.isBigBag;
       
       const productionVal = m.isProductive 
         ? productionReports.filter(r => r.materialId === m.id)
-            .reduce((sum, r) => sum + (isUnitary ? (r.bagsProduced || 0) : (r.tonsProduced || 0)), 0)
+            .reduce((sum, r) => {
+              const val = isUnitary ? (r.bagsProduced || 0) : (r.tonsProduced || 0);
+              return sum + (Number(val) || 0);
+            }, 0)
         : 0;
 
       const dispatchVal = (m.isProductive || m.isBigBag || m.isPallet)
         ? (dispatchEntries || []).filter(d => d.materialId === m.id)
-            .reduce((sum, d) => sum + d.tons, 0)
+            .reduce((sum, d) => sum + (Number(d.tons) || 0), 0)
         : 0;
 
       // Only show if there is actual activity or a count record
@@ -144,18 +147,18 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
       // 1. Top 4 Relevant Internal Stops
       const topStops = [...lineStops]
         .filter(s => s.stopType === 'INTERNO')
-        .sort((a, b) => b.durationMinutes - a.durationMinutes)
+        .sort((a, b) => (Number(b.durationMinutes) || 0) - (Number(a.durationMinutes) || 0))
         .slice(0, 4);
 
       // 2. Tons per Material
       const tonsByMaterial = lineReports.reduce((acc, r) => {
-        acc[r.materialId] = (acc[r.materialId] || 0) + r.tonsProduced;
+        acc[r.materialId] = (acc[r.materialId] || 0) + (Number(r.tonsProduced) || 0);
         return acc;
       }, {} as Record<string, number>);
 
       // 3. Operating Hours (Run time)
       const shiftTotalMinutes = selectedShift ? selectedShift.durationHours * 60 : 480;
-      const stopMinutes = lineStops.reduce((sum, s) => sum + s.durationMinutes, 0);
+      const stopMinutes = lineStops.reduce((sum, s) => sum + (Number(s.durationMinutes) || 0), 0);
       const runMinutes = Math.max(0, shiftTotalMinutes - stopMinutes);
       const runHours = (runMinutes / 60).toFixed(1);
 
@@ -171,7 +174,7 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
         tonsByMaterial,
         runHours,
         activeNozzles,
-        totalTons: lineReports.reduce((sum, r) => sum + r.tonsProduced, 0)
+        totalTons: lineReports.reduce((sum, r) => sum + (Number(r.tonsProduced) || 0), 0)
       };
     });
   }, [masters.palletizers, masters.materials, stops, productionReports, selectedShift]);

@@ -115,6 +115,112 @@ export async function fetchTableFromSheets(tableName: string): Promise<FetchResu
 }
 
 /**
+ * Insert a single record into Google Sheets precisely (using append on Row 2 onward)
+ */
+export async function createRecordInSheets(tableName: string, item: any): Promise<SyncResult> {
+  let sheetName = tableName.toUpperCase();
+  if (!sheetName.endsWith('V2')) {
+    sheetName = `${sheetName}V2`;
+  }
+
+  try {
+    const response = await fetch('/api/sheets', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'create',
+        table: sheetName,
+        item: item
+      })
+    });
+
+    if (!response.ok) {
+      const errorResponse = await response.json().catch(() => ({}));
+      return { success: false, error: errorResponse.error || `Error HTTP ${response.status}` };
+    }
+
+    const result = await response.json();
+    return { success: result.success === true, error: result.error };
+  } catch (error: any) {
+    console.error(`Error creating record in ${sheetName}:`, error);
+    return { success: false, error: error.message || String(error) };
+  }
+}
+
+/**
+ * Update a single record in Google Sheets precisely by finding its ID row
+ */
+export async function updateRecordInSheets(tableName: string, id: string, item: any): Promise<SyncResult> {
+  let sheetName = tableName.toUpperCase();
+  if (!sheetName.endsWith('V2')) {
+    sheetName = `${sheetName}V2`;
+  }
+
+  try {
+    const response = await fetch('/api/sheets', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'update',
+        table: sheetName,
+        id: id,
+        item: item
+      })
+    });
+
+    if (!response.ok) {
+      const errorResponse = await response.json().catch(() => ({}));
+      return { success: false, error: errorResponse.error || `Error HTTP ${response.status}` };
+    }
+
+    const result = await response.json();
+    return { success: result.success === true, error: result.error };
+  } catch (error: any) {
+    console.error(`Error updating record in ${sheetName}:`, error);
+    return { success: false, error: error.message || String(error) };
+  }
+}
+
+/**
+ * Delete a single record in Google Sheets precisely from its matching row
+ */
+export async function deleteRecordInSheets(tableName: string, id: string): Promise<SyncResult> {
+  let sheetName = tableName.toUpperCase();
+  if (!sheetName.endsWith('V2')) {
+    sheetName = `${sheetName}V2`;
+  }
+
+  try {
+    const response = await fetch('/api/sheets', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'delete',
+        table: sheetName,
+        id: id
+      })
+    });
+
+    if (!response.ok) {
+      const errorResponse = await response.json().catch(() => ({}));
+      return { success: false, error: errorResponse.error || `Error HTTP ${response.status}` };
+    }
+
+    const result = await response.json();
+    return { success: result.success === true, error: result.error };
+  } catch (error: any) {
+    console.error(`Error deleting record in ${sheetName}:`, error);
+    return { success: false, error: error.message || String(error) };
+  }
+}
+
+/**
  * Help text with environment variables explanation for Vercel.
  */
 export const VERCEL_SETUP_GUIDE = `### CONFIGURACIÓN DE VARIABLES DE ENTORNO EN VERCEL

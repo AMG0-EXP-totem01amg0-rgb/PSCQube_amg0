@@ -81,7 +81,7 @@ export function KPICircle({ label, value, color }: { label: string; value: numbe
 }
 
 import { motion, AnimatePresence } from 'motion/react';
-import { AlertCircle, X } from 'lucide-react';
+import { AlertCircle, X, Search, ChevronDown, Check } from 'lucide-react';
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -207,5 +207,110 @@ export function ConfirmModal({
         </>
       )}
     </AnimatePresence>
+  );
+}
+
+export function GlassSearchableSelect({ label, options, value, onChange, placeholder = "Seleccionar...", disabled }: any) {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [search, setSearch] = React.useState('');
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find((o: any) => o.value === value);
+
+  const filtered = options.filter((o: any) => 
+    o.label.toLowerCase().includes(search.toLowerCase()) || 
+    (o.value && o.value.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  return (
+    <div className="flex flex-col gap-2 w-full relative" ref={containerRef}>
+      <label className="text-xs font-semibold text-text-muted ml-0.5">{label}</label>
+      
+      <div 
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        className={cn(
+          "h-11 bg-bg-input text-sm border-border text-text-main focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/5 transition-all rounded-lg px-3.5 border flex items-center justify-between cursor-pointer select-none",
+          disabled && "opacity-50 cursor-not-allowed"
+        )}
+      >
+        <span className={cn("truncate pr-2", !selectedOption && "text-text-muted/50")}>
+          {selectedOption ? selectedOption.label : placeholder}
+        </span>
+        <ChevronDown size={16} className={cn("text-text-muted/50 transition-transform shrink-0", isOpen && "rotate-180")} />
+      </div>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div 
+            initial={{ opacity: 0, y: 3 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 3 }}
+            className="absolute top-full left-0 right-0 mt-1.5 bg-surface-elevated border border-border shadow-[0_15px_45px_rgba(0,0,0,0.15)] rounded-xl z-[150] overflow-hidden flex flex-col max-h-64"
+          >
+            {/* Search Input Bar */}
+            <div className="p-2 border-b border-border bg-bg/50 flex items-center gap-2">
+              <Search size={14} className="text-text-muted/60 ml-2" />
+              <input 
+                type="text"
+                autoFocus
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Buscar..."
+                className="w-full bg-transparent border-none text-xs text-text-main focus:outline-none placeholder:text-text-muted/50 py-1"
+              />
+              {search && (
+                <button 
+                  type="button" 
+                  onClick={() => setSearch('')} 
+                  className="text-[10px] text-text-muted hover:text-text-main bg-bg px-1.5 py-0.5 rounded"
+                >
+                  Limpiar
+                </button>
+              )}
+            </div>
+
+            {/* List */}
+            <div className="overflow-y-auto max-h-48 divide-y divide-border/20 custom-scrollbar">
+              {filtered.length === 0 ? (
+                <div className="p-3 text-xs text-text-muted/50 text-center uppercase tracking-wider font-semibold">
+                  Sin resultados
+                </div>
+              ) : (
+                filtered.map((o: any) => {
+                  const isSelected = o.value === value;
+                  return (
+                    <div 
+                      key={o.value}
+                      onClick={() => {
+                        onChange({ target: { value: o.value } });
+                        setIsOpen(false);
+                        setSearch('');
+                      }}
+                      className={cn(
+                        "p-2.5 text-xs text-text-main hover:bg-primary/10 transition-colors cursor-pointer flex items-center justify-between",
+                        isSelected && "bg-primary/5 text-primary font-bold"
+                      )}
+                    >
+                      <span className="truncate pr-2">{o.label}</span>
+                      {isSelected && <Check size={14} className="text-primary shrink-0" />}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

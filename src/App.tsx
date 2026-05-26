@@ -64,17 +64,17 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [isDark]);
 
-  // Master States for CRUD
-  const [shifts, setShifts] = useState<Shift[]>(SHIFTS);
-  const [palletizers, setPalletizers] = useState(PALLETIZERS);
-  const [baggers, setBaggers] = useState(BAGGERS);
-  const [materials, setMaterials] = useState(MATERIALS);
-  const [hacs, setHacs] = useState(HACS);
-  const [causes, setCauses] = useState(CAUSES);
-  const [capacities, setCapacities] = useState(CAPACITIES);
-  const [users, setUsers] = useState<AppUser[]>(USERS);
-  const [companies, setCompanies] = useState<Company[]>(COMPANIES);
-  const [loadingPoints, setLoadingPoints] = useState(LOADING_POINTS);
+  // Master States for CRUD - Completely clean, without mock or preloaded local seed data
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [palletizers, setPalletizers] = useState<any[]>([]);
+  const [baggers, setBaggers] = useState<any[]>([]);
+  const [materials, setMaterials] = useState<any[]>([]);
+  const [hacs, setHacs] = useState<any[]>([]);
+  const [causes, setCauses] = useState<any[]>([]);
+  const [capacities, setCapacities] = useState<any[]>([]);
+  const [users, setUsers] = useState<AppUser[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [loadingPoints, setLoadingPoints] = useState<any[]>([]);
 
   const masters: MasterData = {
     palletizers,
@@ -89,17 +89,33 @@ export default function App() {
     loadingPoints
   };
 
+  // Secure full fallback admin user context if Sheets is completely empty
+  const DEFAULT_USER = useMemo<AppUser>(() => ({
+    dni: 'ADMIN-SUP',
+    name: 'Administrador Principal',
+    sapUser: 'admin',
+    email: 'admin@system.com',
+    position: 'Supervisor General',
+    profile: 'Administrador',
+    permissions: SYSTEM_VIEWS.map(v => ({
+      viewId: v.id,
+      label: v.label,
+      section: v.section,
+      level: 'EDIT'
+    }))
+  }), []);
+
   const [userContext, setUserContext] = useState<UserContext>({
     role: 'ADMIN',
-    selectedPalletizerId: PALLETIZERS[0].id,
-    selectedShiftId: SHIFTS[0].id,
+    selectedPalletizerId: '',
+    selectedShiftId: '',
     selectedDate: format(new Date(), 'yyyy-MM-dd'),
-    currentUserDni: USERS[0].dni
+    currentUserDni: ''
   });
 
   const currentUser = useMemo(() => 
-    masters.users.find(u => u.dni === userContext.currentUserDni) || masters.users[0],
-    [masters.users, userContext.currentUserDni]
+    masters.users.find(u => u.dni === userContext.currentUserDni) || masters.users[0] || DEFAULT_USER,
+    [masters.users, userContext.currentUserDni, DEFAULT_USER]
   );
 
   const canView = (viewId: string) => {
@@ -111,6 +127,25 @@ export default function App() {
     const perm = currentUser?.permissions?.find(p => p.viewId === viewId);
     return perm ? perm.level === 'EDIT' : false;
   };
+
+  // Auto-selection observers as Google Sheets data loads
+  useEffect(() => {
+    if (palletizers.length > 0 && !userContext.selectedPalletizerId) {
+      setUserContext(prev => ({ ...prev, selectedPalletizerId: palletizers[0].id }));
+    }
+  }, [palletizers, userContext.selectedPalletizerId]);
+
+  useEffect(() => {
+    if (shifts.length > 0 && !userContext.selectedShiftId) {
+      setUserContext(prev => ({ ...prev, selectedShiftId: shifts[0].id }));
+    }
+  }, [shifts, userContext.selectedShiftId]);
+
+  useEffect(() => {
+    if (users.length > 0 && !userContext.currentUserDni) {
+      setUserContext(prev => ({ ...prev, currentUserDni: users[0].dni }));
+    }
+  }, [users, userContext.currentUserDni]);
 
   // Redirect if current tab is hidden
   useEffect(() => {
@@ -129,7 +164,7 @@ export default function App() {
   const [scaleControls, setScaleControls] = useState<ScaleControl[]>([]);
   const [inventoryEntries, setInventoryEntries] = useState<InventoryEntry[]>([]);
   const [productChanges, setProductChanges] = useState<ProductChange[]>([]);
-  const [laneStatuses, setLaneStatuses] = useState<any[]>(LANE_STATUSES);
+  const [laneStatuses, setLaneStatuses] = useState<any[]>([]);
 
   // Toast notifications State
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -138,350 +173,387 @@ export default function App() {
     setToasts((prev) => [...prev, { id, message, type }]);
   };
 
-  // Load initial data from Google Sheets if configured
-  const [isLoadingSheets, setIsLoadingSheets] = useState(false);
-  
-  useEffect(() => {
-    async function loadConfigAndData() {
-      try {
-        const status = await getBackendSheetsStatus();
-        if (status.configured) {
-          setIsLoadingSheets(true);
-          addToast("Sincronizando con Google Sheets v2...", "info");
-          
-          // Parallel fetching of master & transactional data
-          const [
-            resStops,
-            resProduction,
-            resDater,
-            resScale,
-            resStock,
-            resChange,
-            resDespachos,
-            resLoadingLanes,
-            // Masters
-            resShifts,
-            resPalletizers,
-            resBaggers,
-            resHacs,
-            resCauses,
-            resMaterials,
-            resCapacities,
-            resUsers,
-            resCompanies,
-            resLoadingPoints
-          ] = await Promise.all([
-            fetchTableFromSheets("PAROSV2"),
-            fetchTableFromSheets("PRODUCCIONV2"),
-            fetchTableFromSheets("DATERV2"),
-            fetchTableFromSheets("SCALEV2"),
-            fetchTableFromSheets("STOCKV2"),
-            fetchTableFromSheets("CHANGEV2"),
-            fetchTableFromSheets("DESPACHOSV2"),
-            fetchTableFromSheets("LOADING_LANESV2"),
-            // Masters
-            fetchTableFromSheets("TURNOSV2"),
-            fetchTableFromSheets("PALETIZADORAV2"),
-            fetchTableFromSheets("ENSACADORAV2"),
-            fetchTableFromSheets("HACSV2"),
-            fetchTableFromSheets("CAUSASV2"),
-            fetchTableFromSheets("MATERIALESV2"),
-            fetchTableFromSheets("CAPACIDADESV2"),
-            fetchTableFromSheets("USUARIOSV2"),
-            fetchTableFromSheets("EMPRESASV2"),
-            fetchTableFromSheets("PUNTOS_CARGAV2")
-          ]);
-          
-          if (resStops.success && resStops.data) setStops(resStops.data);
-          if (resProduction.success && resProduction.data) setProductionReports(resProduction.data);
-          if (resDater.success && resDater.data) setDaterControls(resDater.data);
-          if (resScale.success && resScale.data) setScaleControls(resScale.data);
-          if (resStock.success && resStock.data) setInventoryEntries(resStock.data);
-          if (resChange.success && resChange.data) setProductChanges(resChange.data);
-          if (resDespachos.success && resDespachos.data) setDispatchEntries(resDespachos.data);
-          if (resLoadingLanes.success && resLoadingLanes.data) setLaneStatuses(resLoadingLanes.data);
-          
-          // Set Masters if present
-          if (resShifts.success && resShifts.data && resShifts.data.length > 0) setShifts(resShifts.data);
-          if (resPalletizers.success && resPalletizers.data && resPalletizers.data.length > 0) setPalletizers(resPalletizers.data);
-          if (resBaggers.success && resBaggers.data && resBaggers.data.length > 0) setBaggers(resBaggers.data);
-          if (resHacs.success && resHacs.data && resHacs.data.length > 0) setHacs(resHacs.data);
-          if (resCauses.success && resCauses.data && resCauses.data.length > 0) setCauses(resCauses.data);
-          if (resMaterials.success && resMaterials.data && resMaterials.data.length > 0) setMaterials(resMaterials.data);
-          if (resCapacities.success && resCapacities.data && resCapacities.data.length > 0) setCapacities(resCapacities.data);
-          if (resUsers.success && resUsers.data && resUsers.data.length > 0) setUsers(resUsers.data);
-          if (resCompanies.success && resCompanies.data && resCompanies.data.length > 0) setCompanies(resCompanies.data);
-          if (resLoadingPoints.success && resLoadingPoints.data && resLoadingPoints.data.length > 0) setLoadingPoints(resLoadingPoints.data);
-          
-          addToast("Base de datos de Google Sheets importada correctamente", "success");
-        } else {
-          console.log("[SheetsConfig] Google Sheets is not configured or offline. Running using local memory.");
-        }
-      } catch (err) {
-        console.error("[SheetsLoad] Error querying service account spreadsheet:", err);
-        addToast("Error al cargar la planilla desde Sheets. Iniciando con base interna.", "warning");
-      } finally {
-        setIsLoadingSheets(false);
+  // On-demand database synchronization triggered by pressing "Ingresar"
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState('Sincronizando información...');
+
+  const handleSyncOnEnter = async () => {
+    setIsSyncing(true);
+    setSyncMessage('Iniciando sincronización...');
+    try {
+      setSyncMessage('Estableciendo conexión con Google Sheets...');
+      const status = await getBackendSheetsStatus();
+      
+      setSyncMessage('Sincronizando información...');
+      // Parallel fetching of master & transactional data
+      const [
+        resStops,
+        resProduction,
+        resDater,
+        resScale,
+        resStock,
+        resChange,
+        resDespachos,
+        resLoadingLanes,
+        // Masters
+        resShifts,
+        resPalletizers,
+        resBaggers,
+        resHacs,
+        resCauses,
+        resMaterials,
+        resCapacities,
+        resUsers,
+        resCompanies,
+        resLoadingPoints
+      ] = await Promise.all([
+        fetchTableFromSheets("PAROSV2"),
+        fetchTableFromSheets("PRODUCCIONV2"),
+        fetchTableFromSheets("CONTROL_FECHADORV2"),
+        fetchTableFromSheets("CONTROL_BALANZAV2"),
+        fetchTableFromSheets("INVENTARIO_FISICOV2"),
+        fetchTableFromSheets("CAMBIO_PRODUCTOV2"),
+        fetchTableFromSheets("DESPACHOSV2"),
+        fetchTableFromSheets("ESTADO_CALLESV2"),
+        // Masters
+        fetchTableFromSheets("TURNOSV2"),
+        fetchTableFromSheets("PALETIZADORAV2"),
+        fetchTableFromSheets("ENSACADORAV2"),
+        fetchTableFromSheets("HACSV2"),
+        fetchTableFromSheets("CAUSASV2"),
+        fetchTableFromSheets("MATERIALESV2"),
+        fetchTableFromSheets("CAPACIDADESV2"),
+        fetchTableFromSheets("USUARIOSV2"),
+        fetchTableFromSheets("EMPRESASV2"),
+        fetchTableFromSheets("PUNTOS_CARGAV2")
+      ]);
+
+      setSyncMessage('Preparando sistema...');
+
+      if (resStops.success && resStops.data) setStops(resStops.data);
+      if (resProduction.success && resProduction.data) setProductionReports(resProduction.data);
+      if (resDater.success && resDater.data) setDaterControls(resDater.data);
+      if (resScale.success && resScale.data) setScaleControls(resScale.data);
+      if (resStock.success && resStock.data) setInventoryEntries(resStock.data);
+      if (resChange.success && resChange.data) setProductChanges(resChange.data);
+      if (resDespachos.success && resDespachos.data) setDispatchEntries(resDespachos.data);
+      if (resLoadingLanes.success && resLoadingLanes.data) setLaneStatuses(resLoadingLanes.data);
+      
+      // Set Masters if present
+      if (resShifts.success && resShifts.data) setShifts(resShifts.data);
+      if (resPalletizers.success && resPalletizers.data) setPalletizers(resPalletizers.data);
+      if (resBaggers.success && resBaggers.data) setBaggers(resBaggers.data);
+      if (resHacs.success && resHacs.data) setHacs(resHacs.data);
+      if (resCauses.success && resCauses.data) setCauses(resCauses.data);
+      if (resMaterials.success && resMaterials.data) setMaterials(resMaterials.data);
+      if (resCapacities.success && resCapacities.data) setCapacities(resCapacities.data);
+      if (resUsers.success && resUsers.data) setUsers(resUsers.data);
+      if (resCompanies.success && resCompanies.data) setCompanies(resCompanies.data);
+      if (resLoadingPoints.success && resLoadingPoints.data) setLoadingPoints(resLoadingPoints.data);
+
+      if (status.configured) {
+        addToast("Sincronización de Google Sheets completada exitosamente.", "success");
+        console.log("[SheetsConfig] Google Sheets database successfully synced on login.");
+      } else {
+        addToast("Ejecutando en memoria local (credenciales no detectadas).", "warning");
+        console.log("[SheetsConfig] Google Sheets mode offline. Ready.");
       }
+    } catch (err) {
+      console.error("[SheetsLoad] Error during on-demand synchronization:", err);
+      addToast("Error al sincronizar con Google Sheets.", "error");
+    } finally {
+      setIsSyncing(false);
+      setHasEnteredApp(true);
     }
-    loadConfigAndData();
-  }, []);
+  };
 
   // --- Centralized, Synchronized & Toast-Enabled handlers ---
   
   const handleSaveDispatch = (entry: any) => {
+    let exists = false;
+    let nextEntries: any[] = [];
     setDispatchEntries(prev => {
-      const exists = prev.find(x => x.id === entry.id);
-      const updated = exists
+      exists = !!prev.find(x => x.id === entry.id);
+      nextEntries = exists
         ? prev.map(x => x.id === entry.id ? entry : x)
         : [entry, ...prev];
-      
-      syncTableToSheets("DESPACHOSV2", updated).then(res => {
-        if (res.success) {
-          addToast(exists ? "Despacho actualizado con éxito" : "Despacho guardado con éxito", "success");
-        } else {
-          addToast("Guardado localmente. Error al sincronizar con Sheets.", "warning");
-        }
-      });
-      return updated;
+      return nextEntries;
+    });
+
+    syncTableToSheets("DESPACHOSV2", nextEntries).then(res => {
+      if (res.success) {
+        addToast(exists ? "Despacho actualizado con éxito" : "Despacho guardado con éxito", "success");
+      } else {
+        addToast("Guardado localmente. Error al sincronizar con Sheets.", "warning");
+      }
     });
   };
 
   const handleDeleteDispatch = (id: string) => {
+    let nextEntries: any[] = [];
     setDispatchEntries(prev => {
-      const updated = prev.filter(e => e.id !== id);
-      syncTableToSheets("DESPACHOSV2", updated).then(res => {
-        if (res.success) {
-          addToast("Despacho eliminado de Google Sheets", "success");
-        } else {
-          addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
-        }
-      });
-      return updated;
+      nextEntries = prev.filter(e => e.id !== id);
+      return nextEntries;
+    });
+
+    syncTableToSheets("DESPACHOSV2", nextEntries).then(res => {
+      if (res.success) {
+        addToast("Despacho eliminado de Google Sheets", "success");
+      } else {
+        addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
+      }
     });
   };
 
   const handleSaveStop = (stop: MachineStop) => {
+    let exists = false;
+    let nextStops: MachineStop[] = [];
     setStops(prev => {
-      const exists = prev.find(x => x.id === stop.id);
-      const updated = exists
+      exists = !!prev.find(x => x.id === stop.id);
+      nextStops = exists
         ? prev.map(x => x.id === stop.id ? stop : x)
         : [stop, ...prev];
-      
-      syncTableToSheets("PAROSV2", updated).then(res => {
-        if (res.success) {
-          addToast(exists ? "Paro actualizado con éxito" : "Paro registrado con éxito", "success");
-        } else {
-          addToast("Registrado localmente. Error al sincronizar con Sheets.", "warning");
-        }
-      });
-      return updated;
+      return nextStops;
+    });
+
+    syncTableToSheets("PAROSV2", nextStops).then(res => {
+      if (res.success) {
+        addToast(exists ? "Paro actualizado con éxito" : "Paro registrado con éxito", "success");
+      } else {
+        addToast("Registrado localmente. Error al sincronizar con Sheets.", "warning");
+      }
     });
   };
 
   const handleDeleteStop = (id: string) => {
+    let nextStops: MachineStop[] = [];
     setStops(prev => {
-      const updated = prev.filter(s => s.id !== id);
-      syncTableToSheets("PAROSV2", updated).then(res => {
-        if (res.success) {
-          addToast("Paro eliminado de Google Sheets", "success");
-        } else {
-          addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
-        }
-      });
-      return updated;
+      nextStops = prev.filter(s => s.id !== id);
+      return nextStops;
+    });
+
+    syncTableToSheets("PAROSV2", nextStops).then(res => {
+      if (res.success) {
+        addToast("Paro eliminado de Google Sheets", "success");
+      } else {
+        addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
+      }
     });
   };
 
   const handleSaveProductionReport = (report: ProductionReport) => {
+    let exists = false;
+    let nextReports: ProductionReport[] = [];
     setProductionReports(prev => {
-      const exists = prev.find(x => x.id === report.id);
-      const updated = exists
+      exists = !!prev.find(x => x.id === report.id);
+      nextReports = exists
         ? prev.map(x => x.id === report.id ? report : x)
         : [report, ...prev];
-      
-      syncTableToSheets("PRODUCCIONV2", updated).then(res => {
-        if (res.success) {
-          addToast(exists ? "Producción actualizada con éxito" : "Producción guardada con éxito", "success");
-        } else {
-          addToast("Guardada localmente. Error al sincronizar con Sheets.", "warning");
-        }
-      });
-      return updated;
+      return nextReports;
+    });
+
+    syncTableToSheets("PRODUCCIONV2", nextReports).then(res => {
+      if (res.success) {
+        addToast(exists ? "Producción actualizada con éxito" : "Producción guardada con éxito", "success");
+      } else {
+        addToast("Guardada localmente. Error al sincronizar con Sheets.", "warning");
+      }
     });
   };
 
   const handleDeleteProductionReport = (id: string) => {
+    let nextReports: ProductionReport[] = [];
     setProductionReports(prev => {
-      const updated = prev.filter(r => r.id !== id);
-      syncTableToSheets("PRODUCCIONV2", updated).then(res => {
-        if (res.success) {
-          addToast("Reporte de producción eliminado de Google Sheets", "success");
-        } else {
-          addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
-        }
-      });
-      return updated;
+      nextReports = prev.filter(r => r.id !== id);
+      return nextReports;
+    });
+
+    syncTableToSheets("PRODUCCIONV2", nextReports).then(res => {
+      if (res.success) {
+        addToast("Reporte de producción eliminado de Google Sheets", "success");
+      } else {
+        addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
+      }
     });
   };
 
   const handleSaveDaterControl = (report: DaterControl) => {
+    let exists = false;
+    let nextDater: DaterControl[] = [];
     setDaterControls(prev => {
-      const exists = prev.find(x => x.id === report.id);
-      const updated = exists
+      exists = !!prev.find(x => x.id === report.id);
+      nextDater = exists
         ? prev.map(x => x.id === report.id ? report : x)
         : [report, ...prev];
-      
-      syncTableToSheets("DATERV2", updated).then(res => {
-        if (res.success) {
-          addToast(exists ? "Control fechador actualizado con éxito" : "Control fechador registrado con éxito", "success");
-        } else {
-          addToast("Registrado localmente. Error al sincronizar con Sheets.", "warning");
-        }
-      });
-      return updated;
+      return nextDater;
+    });
+
+    syncTableToSheets("CONTROL_FECHADORV2", nextDater).then(res => {
+      if (res.success) {
+        addToast(exists ? "Control fechador actualizado con éxito" : "Control fechador registrado con éxito", "success");
+      } else {
+        addToast("Registrado localmente. Error al sincronizar con Sheets.", "warning");
+      }
     });
   };
 
   const handleDeleteDaterControl = (id: string) => {
+    let nextDater: DaterControl[] = [];
     setDaterControls(prev => {
-      const updated = prev.filter(c => c.id !== id);
-      syncTableToSheets("DATERV2", updated).then(res => {
-        if (res.success) {
-          addToast("Control fechador eliminado de Google Sheets", "success");
-        } else {
-          addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
-        }
-      });
-      return updated;
+      nextDater = prev.filter(c => c.id !== id);
+      return nextDater;
+    });
+
+    syncTableToSheets("CONTROL_FECHADORV2", nextDater).then(res => {
+      if (res.success) {
+        addToast("Control fechador eliminado de Google Sheets", "success");
+      } else {
+        addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
+      }
     });
   };
 
   const handleSaveScaleControl = (report: ScaleControl) => {
+    let exists = false;
+    let nextScale: ScaleControl[] = [];
     setScaleControls(prev => {
-      const exists = prev.find(x => x.id === report.id);
-      const updated = exists
+      exists = !!prev.find(x => x.id === report.id);
+      nextScale = exists
         ? prev.map(x => x.id === report.id ? report : x)
         : [report, ...prev];
-      
-      syncTableToSheets("SCALEV2", updated).then(res => {
-        if (res.success) {
-          addToast(exists ? "Control de balanza actualizado con éxito" : "Control de balanza registrado con éxito", "success");
-        } else {
-          addToast("Registrado localmente. Error al sincronizar con Sheets.", "warning");
-        }
-      });
-      return updated;
+      return nextScale;
+    });
+
+    syncTableToSheets("CONTROL_BALANZAV2", nextScale).then(res => {
+      if (res.success) {
+        addToast(exists ? "Control de balanza actualizado con éxito" : "Control de balanza registrado con éxito", "success");
+      } else {
+        addToast("Registrado localmente. Error al sincronizar con Sheets.", "warning");
+      }
     });
   };
 
   const handleDeleteScaleControl = (id: string) => {
+    let nextScale: ScaleControl[] = [];
     setScaleControls(prev => {
-      const updated = prev.filter(c => c.id !== id);
-      syncTableToSheets("SCALEV2", updated).then(res => {
-        if (res.success) {
-          addToast("Control de balanza eliminado de Google Sheets", "success");
-        } else {
-          addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
-        }
-      });
-      return updated;
+      nextScale = prev.filter(c => c.id !== id);
+      return nextScale;
+    });
+
+    syncTableToSheets("CONTROL_BALANZAV2", nextScale).then(res => {
+      if (res.success) {
+        addToast("Control de balanza eliminado de Google Sheets", "success");
+      } else {
+        addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
+      }
     });
   };
 
   const handleSaveInventory = (entry: InventoryEntry) => {
+    let exists = false;
+    let nextInventory: InventoryEntry[] = [];
     setInventoryEntries(prev => {
-      const exists = prev.find(x => x.id === entry.id);
-      const updated = exists
+      exists = !!prev.find(x => x.id === entry.id);
+      nextInventory = exists
         ? prev.map(x => x.id === entry.id ? entry : x)
         : [entry, ...prev];
-      
-      syncTableToSheets("STOCKV2", updated).then(res => {
-        if (res.success) {
-          addToast(exists ? "Registro de insumo actualizado" : "Registro de insumo guardado", "success");
-        } else {
-          addToast("Guardado localmente. Error al sincronizar con Sheets.", "warning");
-        }
-      });
-      return updated;
+      return nextInventory;
+    });
+
+    syncTableToSheets("INVENTARIO_FISICOV2", nextInventory).then(res => {
+      if (res.success) {
+        addToast(exists ? "Registro de insumo actualizado" : "Registro de insumo guardado", "success");
+      } else {
+        addToast("Guardado localmente. Error al sincronizar con Sheets.", "warning");
+      }
     });
   };
 
   const handleDeleteInventory = (id: string) => {
+    let nextInventory: InventoryEntry[] = [];
     setInventoryEntries(prev => {
-      const updated = prev.filter(e => e.id !== id);
-      syncTableToSheets("STOCKV2", updated).then(res => {
-        if (res.success) {
-          addToast("Registro de insumo eliminado de Google Sheets", "success");
-        } else {
-          addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
-        }
-      });
-      return updated;
+      nextInventory = prev.filter(e => e.id !== id);
+      return nextInventory;
+    });
+
+    syncTableToSheets("INVENTARIO_FISICOV2", nextInventory).then(res => {
+      if (res.success) {
+        addToast("Registro de insumo eliminado de Google Sheets", "success");
+      } else {
+        addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
+      }
     });
   };
 
   const handleSaveProductChange = (report: ProductChange) => {
+    let exists = false;
+    let nextChanges: ProductChange[] = [];
     setProductChanges(prev => {
-      const exists = prev.find(x => x.id === report.id);
-      const updated = exists
+      exists = !!prev.find(x => x.id === report.id);
+      nextChanges = exists
         ? prev.map(x => x.id === report.id ? report : x)
         : [report, ...prev];
-      
-      syncTableToSheets("CHANGEV2", updated).then(res => {
-        if (res.success) {
-          addToast(exists ? "Cambio de producto actualizado con éxito" : "Cambio de producto registrado con éxito", "success");
-        } else {
-          addToast("Registrado localmente. Error al sincronizar con Sheets.", "warning");
-        }
-      });
-      return updated;
+      return nextChanges;
+    });
+
+    syncTableToSheets("CAMBIO_PRODUCTOV2", nextChanges).then(res => {
+      if (res.success) {
+        addToast(exists ? "Cambio de producto actualizado con éxito" : "Cambio de producto registrado con éxito", "success");
+      } else {
+        addToast("Registrado localmente. Error al sincronizar con Sheets.", "warning");
+      }
     });
   };
 
   const handleDeleteProductChange = (id: string) => {
+    let nextChanges: ProductChange[] = [];
     setProductChanges(prev => {
-      const updated = prev.filter(c => c.id !== id);
-      syncTableToSheets("CHANGEV2", updated).then(res => {
-        if (res.success) {
-          addToast("Cambio de producto eliminado de Google Sheets", "success");
-        } else {
-          addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
-        }
-      });
-      return updated;
+      nextChanges = prev.filter(c => c.id !== id);
+      return nextChanges;
+    });
+
+    syncTableToSheets("CAMBIO_PRODUCTOV2", nextChanges).then(res => {
+      if (res.success) {
+        addToast("Cambio de producto eliminado de Google Sheets", "success");
+      } else {
+        addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
+      }
     });
   };
 
   const handleSaveLaneStatus = (laneStatus: any) => {
+    let exists = false;
+    let nextLanes: any[] = [];
     setLaneStatuses(prev => {
-      const exists = prev.find(x => x.id === laneStatus.id);
-      const updated = exists
+      exists = !!prev.find(x => x.id === laneStatus.id);
+      nextLanes = exists
         ? prev.map(x => x.id === laneStatus.id ? laneStatus : x)
         : [laneStatus, ...prev];
-      
-      syncTableToSheets("LOADING_LANESV2", updated).then(res => {
-        if (res.success) {
-          addToast(exists ? "Calle de carga actualizada con éxito" : "Calle de carga registrada con éxito", "success");
-        } else {
-          addToast("Registrada localmente. Error al sincronizar con Sheets.", "warning");
-        }
-      });
-      return updated;
+      return nextLanes;
+    });
+
+    syncTableToSheets("ESTADO_CALLESV2", nextLanes).then(res => {
+      if (res.success) {
+        addToast(exists ? "Calle de carga actualizada con éxito" : "Calle de carga registrada con éxito", "success");
+      } else {
+        addToast("Registrada localmente. Error al sincronizar con Sheets.", "warning");
+      }
     });
   };
 
   const handleDeleteLaneStatus = (id: string) => {
+    let nextLanes: any[] = [];
     setLaneStatuses(prev => {
-      const updated = prev.filter(l => l.id !== id);
-      syncTableToSheets("LOADING_LANESV2", updated).then(res => {
-        if (res.success) {
-          addToast("Calle de carga eliminada de Google Sheets", "success");
-        } else {
-          addToast("Eliminada localmente. Error al sincronizar con Sheets.", "warning");
-        }
-      });
-      return updated;
+      nextLanes = prev.filter(l => l.id !== id);
+      return nextLanes;
+    });
+
+    syncTableToSheets("ESTADO_CALLESV2", nextLanes).then(res => {
+      if (res.success) {
+        addToast("Calle de carga eliminada de Google Sheets", "success");
+      } else {
+        addToast("Eliminada localmente. Error al sincronizar con Sheets.", "warning");
+      }
     });
   };
   
@@ -542,18 +614,55 @@ export default function App() {
   }, [selectedPalletizer, selectedShift, stops, productionReports, masters.causes]);
 
   return (
-    <AnimatePresence mode="wait">
-      {!hasEnteredApp ? (
-        <motion.div
-          key="welcome"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.5 }}
-        >
-          <WelcomeScreen onEnter={() => setHasEnteredApp(true)} />
-        </motion.div>
-      ) : (
+    <>
+      <AnimatePresence mode="wait">
+        {isSyncing && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-md z-[9999] flex flex-col items-center justify-center p-6 text-center"
+          >
+            <div className="max-w-md w-full bg-[#1c1d24]/60 border border-white/10 p-10 rounded-2xl shadow-2xl flex flex-col items-center space-y-6">
+              {/* Spinning Circle */}
+              <div className="relative w-16 h-16">
+                <div className="absolute inset-0 border-4 border-primary/20 rounded-full"></div>
+                <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+              </div>
+              
+              <div className="space-y-2">
+                <h3 className="text-xl font-black tracking-tight text-white uppercase logo-glow">
+                  PSCQUBE
+                </h3>
+                <p className="text-[10px] font-bold text-primary uppercase tracking-[0.25em]">
+                  Sincronizando Base de Datos
+                </p>
+              </div>
+
+              <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                <div className="bg-primary h-full animate-[pulse_2s_infinite] w-full" />
+              </div>
+
+              <p className="text-xs text-text-muted font-black uppercase tracking-widest leading-relaxed">
+                {syncMessage}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence mode="wait">
+        {!hasEnteredApp ? (
+          <motion.div
+            key="welcome"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.5 }}
+          >
+            <WelcomeScreen onEnter={handleSyncOnEnter} />
+          </motion.div>
+        ) : (
         <motion.div 
           key="app-main"
           initial={{ opacity: 0 }}
@@ -840,6 +949,7 @@ export default function App() {
         </motion.div>
       )}
     </AnimatePresence>
+   </>
   );
 }
 
