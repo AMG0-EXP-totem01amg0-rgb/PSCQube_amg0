@@ -92,6 +92,22 @@ const TABLE_ALIASES: Record<string, string[]> = {
   "capacidadesv2": ["capacidades", "capacidad"]
 };
 
+function sanitizeValue(val: any): any {
+  if (val === undefined || val === null) return val;
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    // Match percentage value, e.g., "99.3%" or "99.3 %" or "-15.2%"
+    const matchPercent = trimmed.match(/^(-?\d+(?:\.\d+)?)\s*%$/);
+    if (matchPercent) {
+      const num = parseFloat(matchPercent[1]);
+      if (!isNaN(num)) {
+        return num;
+      }
+    }
+  }
+  return val;
+}
+
 function mapItemForSupabase(tableName: string, item: any): Record<string, any> {
   const upperTable = tableName.toUpperCase();
   const schema = TABLE_SCHEMAS[upperTable];
@@ -108,7 +124,8 @@ function mapItemForSupabase(tableName: string, item: any): Record<string, any> {
     for (const [key, val] of Object.entries(item)) {
       if (val !== undefined && val !== null) {
         if (allowedColumns.has(key)) {
-          tempPayload[key] = typeof val === "object" ? JSON.stringify(val) : val;
+          const sanitized = sanitizeValue(val);
+          tempPayload[key] = typeof sanitized === "object" ? JSON.stringify(sanitized) : sanitized;
         }
       }
     }
@@ -120,7 +137,8 @@ function mapItemForSupabase(tableName: string, item: any): Record<string, any> {
         val = item[header];
       }
       if (val !== undefined && val !== null) {
-        const processedVal = typeof val === "object" ? JSON.stringify(val) : val;
+        const sanitized = sanitizeValue(val);
+        const processedVal = typeof sanitized === "object" ? JSON.stringify(sanitized) : sanitized;
         tempPayload[header] = processedVal;
       }
     }
@@ -150,7 +168,8 @@ function mapItemForSupabase(tableName: string, item: any): Record<string, any> {
       if (val !== undefined && val !== null) {
         const cleanKey = sanitizeColumnName(key);
         if (allowedColumns.has(cleanKey)) {
-          tempPayload[cleanKey] = typeof val === "object" ? JSON.stringify(val) : val;
+          const sanitized = sanitizeValue(val);
+          tempPayload[cleanKey] = typeof sanitized === "object" ? JSON.stringify(sanitized) : sanitized;
         }
       }
     }
@@ -168,7 +187,8 @@ function mapItemForSupabase(tableName: string, item: any): Record<string, any> {
       }
 
       if (val !== undefined && val !== null) {
-        const processedVal = typeof val === "object" ? JSON.stringify(val) : val;
+        const sanitized = sanitizeValue(val);
+        const processedVal = typeof sanitized === "object" ? JSON.stringify(sanitized) : sanitized;
         tempPayload[cleanCol] = processedVal;
       }
     }
@@ -187,7 +207,8 @@ function mapItemForSupabase(tableName: string, item: any): Record<string, any> {
   for (const [key, val] of Object.entries(item)) {
     if (val !== undefined && val !== null) {
       const cleanKey = sanitizeColumnName(key);
-      mapped[cleanKey] = typeof val === "object" ? JSON.stringify(val) : val;
+      const sanitized = sanitizeValue(val);
+      mapped[cleanKey] = typeof sanitized === "object" ? JSON.stringify(sanitized) : sanitized;
     }
   }
 
@@ -367,13 +388,15 @@ async function writeToSupabase(tableName: string, action: 'insert' | 'update' | 
   const table = tableName.toLowerCase();
   let payload = mapItemForSupabase(tableName, rawData);
 
-  // If we are doing an update/upsert, ensure ID is set both raw and sanitized
+  const { sheetCol: dbIdCol } = getIdColumnAndKey(tableName);
+
+  // If we are doing an update/upsert, ensure ID is set both raw and sanitized using the DB column name
   if (idVal !== undefined && idVal !== null) {
-    payload[idKey] = idVal;
+    payload[dbIdCol] = idVal;
     
-    const cleanIdKey = sanitizeColumnName(idKey);
-    if (cleanIdKey && cleanIdKey !== idKey) {
-      payload[cleanIdKey] = idVal;
+    const cleanDbIdCol = sanitizeColumnName(dbIdCol);
+    if (cleanDbIdCol && cleanDbIdCol !== dbIdCol) {
+      payload[cleanDbIdCol] = idVal;
     }
   }
 
@@ -391,10 +414,10 @@ async function writeToSupabase(tableName: string, action: 'insert' | 'update' | 
       } else if (action === 'update') {
         const cleanIdVal = typeof idVal === 'string' ? idVal.trim() : idVal;
         
-        // We will perform the query using the supplied idKey first
-        query = supabase.from(currentTable).update(payload).eq(idKey, cleanIdVal);
+        // We will perform the query using the DB column name
+        query = supabase.from(currentTable).update(payload).eq(dbIdCol, cleanIdVal);
       } else {
-        query = supabase.from(currentTable).upsert([payload], { onConflict: idKey });
+        query = supabase.from(currentTable).upsert([payload], { onConflict: dbIdCol });
       }
 
       const { data, error } = await query;
@@ -491,6 +514,12 @@ async function writeToSupabase(tableName: string, action: 'insert' | 'update' | 
                   payload[key] = null;
                 }
                 fixedAny = true;
+              } else if (errStrLower.includes('boolean')) {
+                const lowerVal = String(payload[key]).toLowerCase().trim();
+                const isTrue = lowerVal === 'si' || lowerVal === 'sí' || lowerVal === 'yes' || lowerVal === 'true' || lowerVal === '1' || lowerVal === 't' || lowerVal === 's';
+                console.log(`[Supabase Self-Heal] Fixed invalid boolean column '${key}' from '${payload[key]}' to ${isTrue}.`);
+                payload[key] = isTrue;
+                fixedAny = true;
               } else {
                 console.log(`[Supabase Self-Heal] Nullifying invalid value '${payload[key]}' for column '${key}'.`);
                 payload[key] = null;
@@ -522,6 +551,8 @@ async function deleteFromSupabase(tableName: string, idKey: string, idVal: any):
 
   const table = tableName.toLowerCase();
   const cleanIdVal = typeof idVal === 'string' ? idVal.trim() : idVal;
+
+  const { sheetCol: dbIdCol } = getIdColumnAndKey(tableName);
   
   const tablesToTry = [table, ...(TABLE_ALIASES[table] || [])];
   if (table.endsWith("v2") && !tablesToTry.includes(table.slice(0, -2))) {
@@ -530,8 +561,8 @@ async function deleteFromSupabase(tableName: string, idKey: string, idVal: any):
 
   for (const targetTable of tablesToTry) {
     try {
-      // Attempt delete by standard idKey
-      const { data, error } = await supabase.from(targetTable).delete().eq(idKey, cleanIdVal);
+      // Attempt delete by standard dbIdCol first
+      const { data, error } = await supabase.from(targetTable).delete().eq(dbIdCol, cleanIdVal);
       if (!error) {
         return data;
       }
@@ -544,9 +575,15 @@ async function deleteFromSupabase(tableName: string, idKey: string, idVal: any):
         continue; // Try the next table in the fallback list
       }
 
+      // If there is another error, try by the client idKey as fallback
+      if (idKey && idKey !== dbIdCol) {
+        const rxFallback = await supabase.from(targetTable).delete().eq(idKey, cleanIdVal);
+        if (!rxFallback.error) return rxFallback.data;
+      }
+
       // If there is another error, try by sanitized close id key as well
-      const cleanIdKey = sanitizeColumnName(idKey);
-      if (cleanIdKey !== idKey) {
+      const cleanIdKey = sanitizeColumnName(dbIdCol);
+      if (cleanIdKey !== dbIdCol) {
         const rx = await supabase.from(targetTable).delete().eq(cleanIdKey, cleanIdVal);
         if (!rx.error) return rx.data;
       }
@@ -1135,7 +1172,7 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
       "silo_cambiado",
       "fechador_actualizado",
       "envase_correcto",
-      "dos_bib_bags_pal",
+      "dos_big_bags_pal",
       "muestreo_color",
       "muestra_enviada_lab",
       "producto_liberado",
@@ -1164,7 +1201,7 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
       siloChanged: "silo_cambiado",
       setupChanged: "fechador_actualizado",
       packagingChanged: "envase_correcto",
-      twoBigBagsPalletized: "dos_bib_bags_pal",
+      twoBigBagsPalletized: "dos_big_bags_pal",
       colorSampling: "muestreo_color",
       sampleSentToLab: "muestra_enviada_lab",
       productReleased: "producto_liberado",
@@ -1193,7 +1230,7 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
       silo_cambiado: "siloChanged",
       fechador_actualizado: "setupChanged",
       envase_correcto: "packagingChanged",
-      dos_bib_bags_pal: "twoBigBagsPalletized",
+      dos_big_bags_pal: "twoBigBagsPalletized",
       muestreo_color: "colorSampling",
       muestra_enviada_lab: "sampleSentToLab",
       producto_liberado: "productReleased",
@@ -1644,7 +1681,7 @@ const PREDEFINED_HEADERS: Record<string, string[]> = {
     "id", "fecha", "turno_id", "descripcion_turno", "material_id", "descripcion_material", "cantidad", "peso_tn", "usuario_id", "descripcion_maquinista"
   ],
   CAMBIO_PRODUCTOV2: [
-    "id", "fecha", "turno_id", "maquinista_id", "maquinista_nombre", "maquina_id", "valvula_silo_cerrada", "circuito_vaciado", "maquina_limpia", "tolva_vaciada", "silo_cambiado", "fechador_actualizado", "envase_correcto", "dos_bib_bags_pal", "muestreo_color", "muestra_enviada_lab", "producto_liberado", "material_anterior_id", "material_nuevo_id", "motivo_cambio", "lab_operador_id", "lab_operador_name", "p_calcinacion", "aire_incorporado", "porcentaje_ck_drx", "estado_aprobacion", "observacion_rechazo"
+    "id", "fecha", "turno_id", "maquinista_id", "maquinista_nombre", "maquina_id", "valvula_silo_cerrada", "circuito_vaciado", "maquina_limpia", "tolva_vaciada", "silo_cambiado", "fechador_actualizado", "envase_correcto", "dos_big_bags_pal", "muestreo_color", "muestra_enviada_lab", "producto_liberado", "material_anterior_id", "material_nuevo_id", "motivo_cambio", "lab_operador_id", "lab_operador_name", "p_calcinacion", "aire_incorporado", "porcentaje_ck_drx", "estado_aprobacion", "observacion_rechazo"
   ],
   ESTADO_CALLESV2: [
     "id", "fecha", "turno_id", "descripcion_turno", "punto_carga_id", "descripcion_punto_de_carga", "habilitada?", "materiales_permitidos", "observaciones_falla"
