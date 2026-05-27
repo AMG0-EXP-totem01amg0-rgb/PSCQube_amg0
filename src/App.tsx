@@ -30,7 +30,7 @@ import WelcomeScreen from './components/auth/WelcomeScreen';
 
 // Lib & Types
 import { cn } from './lib/utils';
-import { Shift, MachineStop, ProductionReport, DaterControl, ScaleControl, InventoryEntry, UserContext, MasterData, AppUser, ProductChange, Company, FuelLoad } from './types';
+import { Shift, MachineStop, ProductionReport, DaterControl, ScaleControl, InventoryEntry, UserContext, MasterData, AppUser, ProductChange, Company, FuelLoad, AlertNotification } from './types';
 import { SHIFTS, PALLETIZERS, BAGGERS, MATERIALS, HACS, CAUSES, CAPACITIES, USERS, SYSTEM_VIEWS, COMPANIES, LOADING_POINTS, LANE_STATUSES } from './lib/mockData';
 import { syncTableToSheets, getBackendSheetsStatus, fetchTableFromSheets } from './lib/sheetsService';
 import { ToastContainer, ToastMessage } from './components/ui/Toast';
@@ -197,6 +197,78 @@ export default function App() {
     const id = Math.random().toString(36).substring(2, 9);
     setToasts((prev) => [...prev, { id, message, type }]);
   };
+
+  // Alert Notifications State (derived + read key tracker mapped by user DNI)
+  const [readNotificationKeys, setReadNotificationKeys] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('read_notifications_v1') || '[]');
+    } catch {
+      return [];
+    }
+  });
+
+  const handleMarkAsRead = (id: string) => {
+    setReadNotificationKeys(prev => {
+      const key = `${currentUser.dni}-${id}`;
+      if (prev.includes(key)) return prev;
+      const updated = [...prev, key];
+      localStorage.setItem('read_notifications_v1', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const handleMarkAllAsRead = (ids: string[]) => {
+    setReadNotificationKeys(prev => {
+      const prefixes = ids.map(id => `${currentUser.dni}-${id}`);
+      const updated = Array.from(new Set([...prev, ...prefixes]));
+      localStorage.setItem('read_notifications_v1', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const notifications = useMemo<AlertNotification[]>(() => {
+    const list: AlertNotification[] = [];
+    
+    productChanges.forEach(pc => {
+      const prevMat = masters.materials.find(m => m.id === pc.previousMaterialId)?.name || 'Desconocido';
+      const newMat = masters.materials.find(m => m.id === pc.newMaterialId)?.name || 'Desconocido';
+      
+      // Notification for Lab users when product change is pending
+      if (pc.approvalStatus === 'PENDIENTE') {
+        const id = `${pc.id}-PENDIENTE`;
+        list.push({
+          id,
+          type: 'NEW_PRODUCT_CHANGE',
+          date: pc.date,
+          title: 'Nuevo Cambio de Producto Pendiente',
+          message: `El operario ${pc.operatorName} registró un cambio pidiendo análisis para el nuevo material: ${newMat}.`,
+          isReadByUsers: [],
+          targetProfile: 'Laboratorio',
+          createdAt: pc.date,
+          relatedId: pc.id
+        });
+      }
+      
+      // Notification for operators when product change has been APPROVED or RECHAZADO
+      if (pc.approvalStatus === 'APROBADO' || pc.approvalStatus === 'RECHAZADO') {
+        const id = `${pc.id}-${pc.approvalStatus}`;
+        list.push({
+          id,
+          type: 'LAB_ANALYSIS_COMPLETED',
+          date: pc.date,
+          title: `Cambio de Producto ${pc.approvalStatus === 'APROBADO' ? 'Aprobado' : 'Rechazado'}`,
+          message: `El análisis para el cambio de producto de ${prevMat} a ${newMat} fue ${pc.approvalStatus === 'APROBADO' ? 'APROBADO' : 'RECHAZADO'}.${pc.rejectionObservation ? ' Obs: ' + pc.rejectionObservation : ''}`,
+          isReadByUsers: [],
+          targetProfile: 'Operario',
+          createdAt: pc.date,
+          relatedId: pc.id
+        });
+      }
+    });
+
+    // Sort newer first
+    return [...list].reverse();
+  }, [productChanges, masters.materials]);
 
   // On-demand database synchronization triggered by pressing "Ingresar"
   const [isSyncing, setIsSyncing] = useState(false);
@@ -788,6 +860,15 @@ export default function App() {
             onDateChange={date => setUserContext({...userContext, selectedDate: date})}
             isDark={isDark}
             toggleTheme={() => setIsDark(!isDark)}
+            currentUser={currentUser}
+            notifications={notifications}
+            readNotificationKeys={readNotificationKeys}
+            onMarkAsRead={handleMarkAsRead}
+            onMarkAllAsRead={handleMarkAllAsRead}
+            onNavigateToChange={() => {
+              setActiveSection('PRODUCTIVITY');
+              setProdTab('CHANGE');
+            }}
           />
 
           <main className="p-4 md:p-8 max-w-7xl mx-auto pt-4 md:pt-8">

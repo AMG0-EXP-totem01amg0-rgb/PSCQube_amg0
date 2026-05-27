@@ -3,10 +3,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Factory, ChevronDown, Bot, AlertTriangle, Package, Settings, 
   ShieldCheck, Leaf, Users, Sun, Moon, Home, X, Filter, 
-  ChevronUp, Calendar, LogOut, User as UserIcon
+  ChevronUp, Calendar, LogOut, User as UserIcon,
+  Bell, CheckCheck, Beaker, AlertCircle, Info
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { Machine } from '../../types';
+import { Machine, AlertNotification, AppUser } from '../../types';
 
 interface HeaderProps {
   palletizers: Machine[];
@@ -19,6 +20,183 @@ interface HeaderProps {
   onDateChange: (date: string) => void;
   isDark: boolean;
   toggleTheme: () => void;
+  currentUser: AppUser;
+  notifications: AlertNotification[];
+  readNotificationKeys: string[];
+  onMarkAsRead: (id: string) => void;
+  onMarkAllAsRead: (ids: string[]) => void;
+  onNavigateToChange: () => void;
+}
+
+interface NotificationBellDropdownProps {
+  currentUser: AppUser;
+  notifications: AlertNotification[];
+  readNotificationKeys: string[];
+  onMarkAsRead: (id: string) => void;
+  onMarkAllAsRead: (ids: string[]) => void;
+  onNavigateToChange: () => void;
+}
+
+export function NotificationBellDropdown({
+  currentUser,
+  notifications,
+  readNotificationKeys,
+  onMarkAsRead,
+  onMarkAllAsRead,
+  onNavigateToChange
+}: NotificationBellDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const isLabUser = currentUser.profile === 'Laboratorio' || currentUser.position === 'Laboratórista';
+  const isMaquinista = currentUser.profile === 'Operario' || currentUser.position === 'Operario Maquinista';
+  const isAdmin = currentUser.profile === 'Administrador';
+
+  const userNotifications = React.useMemo(() => {
+    return notifications.filter(n => {
+      const isRelevant = (n.targetProfile === 'Laboratorio' && (isLabUser || isAdmin)) ||
+                         (n.targetProfile === 'Operario' && (isMaquinista || isAdmin));
+      return isRelevant;
+    });
+  }, [notifications, currentUser, isLabUser, isMaquinista, isAdmin]);
+
+  const unreadNotifications = React.useMemo(() => {
+    return userNotifications.filter(n => !readNotificationKeys.includes(`${currentUser.dni}-${n.id}`));
+  }, [userNotifications, readNotificationKeys, currentUser.dni]);
+
+  const toggleOpen = () => setIsOpen(!isOpen);
+
+  const handleItemClick = (n: AlertNotification) => {
+    onMarkAsRead(n.id);
+    onNavigateToChange();
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="relative shrink-0 flex items-center" ref={dropdownRef}>
+      <button
+        onClick={toggleOpen}
+        className="relative p-1.5 sm:p-2 rounded-full hover:bg-bg transition-all text-text-main hover:text-primary shrink-0 active:scale-95"
+        title="Notificaciones"
+      >
+        <Bell size={18} className={unreadNotifications.length > 0 ? "animate-bounce" : ""} />
+        {unreadNotifications.length > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-black text-white ring-2 ring-surface">
+            {unreadNotifications.length}
+          </span>
+        )}
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            className="absolute right-0 mt-3 w-80 sm:w-96 rounded-2xl border border-border bg-surface-elevated p-3 shadow-2xl z-[120]"
+          >
+            <div className="flex items-center justify-between border-b border-border pb-2.5 mb-2.5 px-1">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-black uppercase tracking-wider text-text-main">
+                  Notificaciones
+                </span>
+                {unreadNotifications.length > 0 && (
+                  <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[9px] font-bold rounded-full">
+                    {unreadNotifications.length} nueva{unreadNotifications.length > 1 ? "s" : ""}
+                  </span>
+                )}
+              </div>
+              {unreadNotifications.length > 0 && (
+                <button
+                  onClick={() => onMarkAllAsRead(unreadNotifications.map(n => n.id))}
+                  className="text-[9px] font-bold text-primary hover:text-primary/80 uppercase tracking-widest flex items-center gap-1 hover:underline cursor-pointer bg-transparent border-none"
+                >
+                  <CheckCheck size={12} /> Marcar todas
+                </button>
+              )}
+            </div>
+
+            <div className="max-h-[320px] overflow-y-auto space-y-2 pr-0.5 scrollbar-thin">
+              {userNotifications.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center px-4">
+                  <div className="w-12 h-12 rounded-full bg-bg/50 border border-border flex items-center justify-center text-text-muted mb-2.5">
+                    <Info size={18} />
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Sin Alertas</span>
+                  <p className="text-[9px] text-text-muted mt-1 opacity-70">No hay eventos recientes de Cambio de Producto.</p>
+                </div>
+              ) : (
+                userNotifications.map(n => {
+                  const isUnread = !readNotificationKeys.includes(`${currentUser.dni}-${n.id}`);
+                  return (
+                    <div
+                      key={n.id}
+                      className={cn(
+                        "relative flex items-start gap-3 p-2.5 rounded-xl border border-transparent transition-all cursor-pointer group hover:border-border hover:bg-bg/40",
+                        isUnread ? "bg-primary/5 border-primary/10 shadow-sm animate-pulse-subtle" : "opacity-75"
+                      )}
+                      onClick={() => handleItemClick(n)}
+                    >
+                      <div className={cn(
+                        "w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 text-white",
+                        n.type === 'NEW_PRODUCT_CHANGE' 
+                          ? "bg-amber-500 shadow-sm" 
+                          : n.title.includes('Rechazado') ? "bg-red-500 shadow-sm" : "bg-emerald-500 shadow-sm"
+                      )}>
+                        {n.type === 'NEW_PRODUCT_CHANGE' ? <Beaker size={14} /> : <CheckCheck size={14} />}
+                      </div>
+
+                      <div className="flex-1 min-w-0 pr-4">
+                        <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                          <span className="text-[10.5px] font-black text-text-main leading-tight truncate">
+                            {n.title}
+                          </span>
+                          {isUnread && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0 animate-pulse" />
+                          )}
+                        </div>
+                        <p className="text-[9.5px] text-text-muted font-medium leading-relaxed">
+                          {n.message}
+                        </p>
+                        <span className="text-[8px] font-bold text-text-muted opacity-55 uppercase tracking-wider block mt-1">
+                          {n.date}
+                        </span>
+                      </div>
+
+                      {isUnread && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onMarkAsRead(n.id);
+                          }}
+                          className="absolute right-2 top-2 p-1 text-text-muted hover:text-primary transition-colors opacity-0 group-hover:opacity-100 bg-transparent border-none"
+                          title="Marcar como leída"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 export function Header({ 
@@ -31,7 +209,13 @@ export function Header({
   selectedDate,
   onDateChange,
   isDark,
-  toggleTheme
+  toggleTheme,
+  currentUser,
+  notifications,
+  readNotificationKeys,
+  onMarkAsRead,
+  onMarkAllAsRead,
+  onNavigateToChange
 }: HeaderProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -128,6 +312,18 @@ export function Header({
           </div>
 
           <div className="flex items-center gap-2">
+             {/* Notification Bell - Mobile */}
+             <div className="sm:hidden">
+               <NotificationBellDropdown 
+                 currentUser={currentUser}
+                 notifications={notifications}
+                 readNotificationKeys={readNotificationKeys}
+                 onMarkAsRead={onMarkAsRead}
+                 onMarkAllAsRead={onMarkAllAsRead}
+                 onNavigateToChange={onNavigateToChange}
+               />
+             </div>
+
              {/* Simple Theme Toggle Always Row 1 */}
             <button 
               onClick={toggleTheme}
@@ -226,10 +422,22 @@ export function Header({
                 </AnimatePresence>
               </div>
 
+              {/* Notification Bell - Desktop */}
+              <div className="hidden sm:block ml-2">
+                <NotificationBellDropdown 
+                  currentUser={currentUser}
+                  notifications={notifications}
+                  readNotificationKeys={readNotificationKeys}
+                  onMarkAsRead={onMarkAsRead}
+                  onMarkAllAsRead={onMarkAllAsRead}
+                  onNavigateToChange={onNavigateToChange}
+                />
+              </div>
+
               {/* Theme Toggle - Desktop */}
               <button 
                 onClick={toggleTheme}
-                className="hidden sm:flex p-2 rounded-full hover:bg-bg transition-colors text-text-main hover:text-primary shrink-0 ml-2"
+                className="hidden sm:flex p-2 rounded-full hover:bg-bg transition-colors text-text-main hover:text-primary shrink-0 ml-1"
               >
                 {isDark ? <Sun size={18} className="text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]" /> : <Moon size={18} className="text-primary drop-shadow-[0_0_8px_rgba(59,130,246,0.3)]" />}
               </button>

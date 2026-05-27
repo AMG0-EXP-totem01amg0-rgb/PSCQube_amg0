@@ -303,6 +303,19 @@ export interface FuelLoad {
   shiftId: string;
 }
 
+export interface AlertNotification {
+  id: string;
+  type: 'NEW_PRODUCT_CHANGE' | 'LAB_ANALYSIS_COMPLETED';
+  date: string;
+  title: string;
+  message: string;
+  isReadByUsers: string[]; // List of user DNIs who have marked this notification as read
+  targetProfile: 'Laboratorio' | 'Operario' | 'Administrador' | string;
+  targetDni?: string; // Optional specific user DNI
+  createdAt: string;
+  relatedId?: string; // productChange ID
+}
+
 export interface MasterData {
   palletizers: Machine[];
   baggers: Machine[];
