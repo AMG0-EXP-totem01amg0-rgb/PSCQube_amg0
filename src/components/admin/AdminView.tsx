@@ -147,12 +147,14 @@ export default function AdminView({
     EQUIPOS: "EQUIPOS",
     HACS: "EQUIPOS",
     CAUSES: "CAUSAS",
-    MATERIALS: "MATERIALES",
+     MATERIALS: "MATERIALES",
     CAPACITIES: "CAPACIDADES",
     USERS: "USUARIOS",
     COMPANIES: "EMPRESAS",
     LOADING_POINTS: "PUNTOS_CARGA",
     PUNTOS_CARGA: "PUNTOS_CARGA",
+    PROVEEDORES_BOLSA: "PROVEEDORES_BOLSA",
+    VEHICULOS: "VEHICULOS",
   };
 
   const isVisible = (tab: string) => {
@@ -166,21 +168,32 @@ export default function AdminView({
     return perm ? perm.level === "EDIT" : false;
   }, [currentUser, activeTab]);
 
+  const sectionsList = useMemo(() => {
+    return [
+      { key: "CAPACITIES", label: "Capacidades" },
+      { key: "CAUSES", label: "Causas" },
+      { key: "COMPANIES", label: "Empresas" },
+      { key: "BAGGERS", label: "Ensacadoras" },
+      { key: "HACS", label: "Equipos" },
+      { key: "MACHINES", label: "Maquinas" },
+      { key: "MATERIALS", label: "Materiales" },
+      { key: "PROVEEDORES_BOLSA", label: "Proveedores Bolsa" },
+      { key: "PUNTOS_CARGA", label: "Puntos Carga" },
+      { key: "SHIFTS", label: "Turnos" },
+      { key: "USERS", label: "Usuarios" },
+      { key: "VEHICULOS", label: "Vehículos" },
+      { key: "SHEETS", label: "Conexión Sheets v2" },
+    ].sort((a, b) => a.label.localeCompare(b.label, "es", { sensitivity: "base" }));
+  }, []);
+
   useEffect(() => {
     if (!isVisible(activeTab)) {
-      const firstVisible = [
-        "SHIFTS",
-        "MACHINES",
-        "BAGGERS",
-        "HACS",
-        "CAUSES",
-        "MATERIALS",
-        "CAPACITIES",
-        "USERS",
-      ].find((t) => isVisible(t));
+      const firstVisible = sectionsList
+        .map((s) => s.key)
+        .find((t) => isVisible(t));
       if (firstVisible) onTabChange(firstVisible);
     }
-  }, [currentUser, activeTab]);
+  }, [currentUser, activeTab, sectionsList]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -198,6 +211,25 @@ export default function AdminView({
     }
   }, [activeTab]);
 
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (el.scrollWidth > el.clientWidth) {
+        if (e.deltaY !== 0) {
+          e.preventDefault();
+          el.scrollLeft += e.deltaY;
+        }
+      }
+    };
+
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", handleWheel);
+    };
+  }, []);
+
   const getCurrentList = () => {
     if (activeTab === "SHIFTS") return masters.shifts;
     if (activeTab === "MACHINES") return masters.palletizers;
@@ -210,19 +242,116 @@ export default function AdminView({
     if (activeTab === "COMPANIES") return masters.companies;
     if (activeTab === "PUNTOS_CARGA" || activeTab === "LOADING_POINTS")
       return masters.loadingPoints;
+    if (activeTab === "PROVEEDORES_BOLSA") return masters.bagSuppliers || [];
+    if (activeTab === "VEHICULOS") return masters.vehicles || [];
     return [];
   };
 
   const filteredData = useMemo(() => {
     const list = getCurrentList();
-    if (!searchTerm) return list;
-    const term = searchTerm.toLowerCase();
-    return list.filter((item) =>
-      Object.values(item).some((val) =>
-        String(val).toLowerCase().includes(term),
-      ),
-    );
+    let result = [...list];
+
+    // Apply search filter
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter((item) =>
+        Object.values(item).some((val) =>
+          String(val).toLowerCase().includes(term),
+        ),
+      );
+    }
+
+    // Apply sorting based on activeTab
+    if (activeTab === "SHIFTS") {
+      result.sort((a: any, b: any) => {
+        const nameA = a.name || "";
+        const nameB = b.name || "";
+        return nameA.localeCompare(nameB, "es", { sensitivity: "base" });
+      });
+    } else if (activeTab === "MATERIALS") {
+      result.sort((a: any, b: any) => {
+        const nameA = a.name || "";
+        const nameB = b.name || "";
+        return nameA.localeCompare(nameB, "es", { sensitivity: "base" });
+      });
+    } else if (activeTab === "USERS") {
+      result.sort((a: any, b: any) => {
+        const nameA = a.name || "";
+        const nameB = b.name || "";
+        return nameA.localeCompare(nameB, "es", { sensitivity: "base" });
+      });
+    } else if (activeTab === "PROVEEDORES_BOLSA") {
+      result.sort((a: any, b: any) => {
+        const nameA = a.nombre || "";
+        const nameB = b.nombre || "";
+        return nameA.localeCompare(nameB, "es", { sensitivity: "base" });
+      });
+    } else if (activeTab === "VEHICULOS") {
+      result.sort((a: any, b: any) => {
+        const nameA = a.identificación || "";
+        const nameB = b.identificación || "";
+        return nameA.localeCompare(nameB, "es", { sensitivity: "base" });
+      });
+    } else if (activeTab === "CAPACITIES") {
+      result.sort((a: any, b: any) => {
+        const pNameA =
+          masters.palletizers.find((p) => p.id === a.palletizerId)?.name || "";
+        const pNameB =
+          masters.palletizers.find((p) => p.id === b.palletizerId)?.name || "";
+        const pCompare = pNameA.localeCompare(pNameB, "es", {
+          sensitivity: "base",
+        });
+        if (pCompare !== 0) return pCompare;
+
+        const bNameA =
+          masters.baggers.find((bg) => bg.id === a.baggerId)?.name || "";
+        const bNameB =
+          masters.baggers.find((bg) => bg.id === b.baggerId)?.name || "";
+        const bCompare = bNameA.localeCompare(bNameB, "es", {
+          sensitivity: "base",
+        });
+        if (bCompare !== 0) return bCompare;
+
+        const mNameA =
+          masters.materials.find((m) => m.id === a.materialId)?.name || "";
+        const mNameB =
+          masters.materials.find((m) => m.id === b.materialId)?.name || "";
+        return mNameA.localeCompare(mNameB, "es", { sensitivity: "base" });
+      });
+    }
+
+    return result;
   }, [masters, activeTab, searchTerm]);
+
+  const groupedCapacities = useMemo(() => {
+    if (activeTab !== "CAPACITIES") return [];
+
+    // Group filteredData capacities by palletizerId
+    const palletizerIds = Array.from(
+      new Set(filteredData.map((c: any) => c.palletizerId)),
+    );
+
+    const groups = palletizerIds.map((pId) => {
+      const palletizerObj = masters.palletizers.find((p) => p.id === pId) || {
+        id: pId,
+        name: `Paletizadora Desconocida (${pId})`,
+      };
+      const items = filteredData.filter((c: any) => c.palletizerId === pId);
+      return {
+        palletizer: palletizerObj,
+        capacities: items,
+      };
+    });
+
+    // Sort the groups by palletizer name alphabetically
+    groups.sort((a, b) =>
+      a.palletizer.name.localeCompare(b.palletizer.name, "es", {
+        sensitivity: "base",
+      }),
+    );
+
+    return groups;
+  }, [filteredData, activeTab, masters.palletizers]);
 
   const handleDelete = () => {
     if (!deletingId) return;
@@ -554,6 +683,32 @@ export default function AdminView({
     actionsColumn(),
   ];
 
+  const bagSupplierColumns: Column<any>[] = [
+    {
+      header: "Nombre",
+      accessor: (row) => (
+        <span className="font-bold text-text-main">{row.nombre}</span>
+      ),
+    },
+    { header: "Dirección", accessor: "direccion" },
+    { header: "Teléfono", accessor: "telefono" },
+    { header: "Email", accessor: "email" },
+    actionsColumn(),
+  ];
+
+  const vehicleColumns: Column<any>[] = [
+    {
+      header: "Identificación",
+      accessor: (row) => (
+        <span className="font-bold text-text-main">{row.identificación}</span>
+      ),
+    },
+    { header: "Marca", accessor: "marca" },
+    { header: "Tipo", accessor: "tipo" },
+    { header: "Carga Máxima", accessor: "carga_maxima" },
+    actionsColumn(),
+  ];
+
   const userColumns: Column<AppUser>[] = [
     { header: "DNI / Legajo", accessor: "dni" },
     {
@@ -727,81 +882,16 @@ export default function AdminView({
             ref={scrollRef}
             className="flex bg-bg-input/50 p-1.5 rounded-2xl border border-border overflow-x-auto gap-1 no-scrollbar select-none min-w-0 shadow-sm scroll-smooth px-6"
           >
-            {isVisible("SHIFTS") && (
-              <AdminSubTab
-                active={activeTab === "SHIFTS"}
-                onClick={() => onTabChange("SHIFTS")}
-                label="Turnos"
-              />
+            {sectionsList.map((sec) =>
+              isVisible(sec.key) ? (
+                <AdminSubTab
+                  key={sec.key}
+                  active={activeTab === sec.key}
+                  onClick={() => onTabChange(sec.key)}
+                  label={sec.label}
+                />
+              ) : null
             )}
-            {isVisible("MACHINES") && (
-              <AdminSubTab
-                active={activeTab === "MACHINES"}
-                onClick={() => onTabChange("MACHINES")}
-                label="Maquinas"
-              />
-            )}
-            {isVisible("BAGGERS") && (
-              <AdminSubTab
-                active={activeTab === "BAGGERS"}
-                onClick={() => onTabChange("BAGGERS")}
-                label="Ensacadoras"
-              />
-            )}
-            {isVisible("HACS") && (
-              <AdminSubTab
-                active={activeTab === "HACS"}
-                onClick={() => onTabChange("HACS")}
-                label="Equipos"
-              />
-            )}
-            {isVisible("CAUSES") && (
-              <AdminSubTab
-                active={activeTab === "CAUSES"}
-                onClick={() => onTabChange("CAUSES")}
-                label="Causas"
-              />
-            )}
-            {isVisible("MATERIALS") && (
-              <AdminSubTab
-                active={activeTab === "MATERIALS"}
-                onClick={() => onTabChange("MATERIALS")}
-                label="Materiales"
-              />
-            )}
-            {isVisible("CAPACITIES") && (
-              <AdminSubTab
-                active={activeTab === "CAPACITIES"}
-                onClick={() => onTabChange("CAPACITIES")}
-                label="Capacidades"
-              />
-            )}
-            {isVisible("USERS") && (
-              <AdminSubTab
-                active={activeTab === "USERS"}
-                onClick={() => onTabChange("USERS")}
-                label="Usuarios"
-              />
-            )}
-            {isVisible("COMPANIES") && (
-              <AdminSubTab
-                active={activeTab === "COMPANIES"}
-                onClick={() => onTabChange("COMPANIES")}
-                label="Empresas"
-              />
-            )}
-            {isVisible("PUNTOS_CARGA") && (
-              <AdminSubTab
-                active={activeTab === "PUNTOS_CARGA"}
-                onClick={() => onTabChange("PUNTOS_CARGA")}
-                label="Puntos Carga"
-              />
-            )}
-            <AdminSubTab
-              active={activeTab === "SHEETS"}
-              onClick={() => onTabChange("SHEETS")}
-              label="Conexión Sheets v2"
-            />
           </div>
         </div>
       </div>
@@ -1696,15 +1786,39 @@ export default function AdminView({
               />
             )}
             {activeTab === "CAPACITIES" && (
-              <DataTable
-                title="Matriz de Capacidades"
-                countLabel="combinaciones"
-                columns={capacityColumns}
-                data={filteredData}
-                keyExtractor={(r) =>
-                  `${r.palletizerId}-${r.baggerId}-${r.materialId}`
-                }
-              />
+              <div className="space-y-6">
+                {groupedCapacities.map((group) => (
+                  <div
+                    key={group.palletizer.id}
+                    className="border border-border rounded-xl bg-surface/10 overflow-hidden shadow-sm"
+                  >
+                    <div className="bg-surface/80 border-b border-border px-5 py-3 flex justify-between items-center bg-gradient-to-r from-bg to-transparent">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-xs font-black text-text-main uppercase tracking-wider">
+                          Paletizadora: {group.palletizer.name}
+                        </h4>
+                      </div>
+                      <span className="text-[10px] text-text-muted font-bold font-mono uppercase bg-bg px-2.5 py-0.5 rounded border border-border">
+                        {group.capacities.length} {group.capacities.length === 1 ? 'Combinación' : 'Combinaciones'}
+                      </span>
+                    </div>
+                    <div className="p-4 bg-bg-input/20">
+                      <DataTable
+                        columns={capacityColumns.filter((col) => col.header !== "Paletizadora")}
+                        data={group.capacities}
+                        keyExtractor={(r) =>
+                          `${r.palletizerId}-${r.baggerId}-${r.materialId}`
+                        }
+                      />
+                    </div>
+                  </div>
+                ))}
+                {groupedCapacities.length === 0 && (
+                  <div className="p-8 text-center text-xs text-text-muted bg-surface rounded-xl border border-border">
+                    No se encontraron combinaciones de capacidades.
+                  </div>
+                )}
+              </div>
             )}
             {activeTab === "USERS" && (
               <DataTable
@@ -1730,6 +1844,24 @@ export default function AdminView({
                 title="Puntos de Carga"
                 countLabel="puntos"
                 columns={loadingPointColumns}
+                data={filteredData}
+                keyExtractor={(r) => r.id}
+              />
+            )}
+            {activeTab === "PROVEEDORES_BOLSA" && (
+              <DataTable
+                title="Proveedores de Bolsa"
+                countLabel="proveedores"
+                columns={bagSupplierColumns}
+                data={filteredData}
+                keyExtractor={(r) => r.id}
+              />
+            )}
+            {activeTab === "VEHICULOS" && (
+              <DataTable
+                title="Vehículos"
+                countLabel="vehículos"
+                columns={vehicleColumns}
                 data={filteredData}
                 keyExtractor={(r) => r.id}
               />
@@ -1786,6 +1918,8 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
     COMPANIES: { name: "Empresa", female: true },
     PUNTOS_CARGA: { name: "Punto de Carga", female: false },
     LOADING_POINTS: { name: "Punto de Carga", female: false },
+    PROVEEDORES_BOLSA: { name: "Proveedor de Bolsa", female: false },
+    VEHICULOS: { name: "Vehículo", female: false },
   };
 
   const config = typeNames[type] || { name: type, female: false };
@@ -2518,6 +2652,95 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                       value={formData.type || ""}
                       onChange={(e: any) =>
                         setFormData({ ...formData, type: e.target.value })
+                      }
+                    />
+                  </div>
+                </>
+              )}
+
+              {type === "PROVEEDORES_BOLSA" && (
+                <>
+                  <div className="md:col-span-2">
+                    <GlassInput
+                      label="Nombre"
+                      value={formData.nombre || ""}
+                      onChange={(e: any) =>
+                        setFormData({ ...formData, nombre: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <GlassInput
+                      label="Dirección"
+                      value={formData.direccion || ""}
+                      onChange={(e: any) =>
+                        setFormData({ ...formData, direccion: e.target.value })
+                      }
+                    />
+                  </div>
+                  <GlassInput
+                    label="Teléfono"
+                    value={formData.telefono || ""}
+                    onChange={(e: any) =>
+                      setFormData({ ...formData, telefono: e.target.value })
+                    }
+                  />
+                  <GlassInput
+                    label="Email"
+                    type="email"
+                    value={formData.email || ""}
+                    onChange={(e: any) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
+                  />
+                </>
+              )}
+
+              {type === "VEHICULOS" && (
+                <>
+                  <div className="md:col-span-2">
+                    <GlassInput
+                      label="Identificación"
+                      value={formData.identificación || ""}
+                      onChange={(e: any) =>
+                        setFormData({ ...formData, identificación: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <GlassInput
+                      label="Marca"
+                      value={formData.marca || ""}
+                      onChange={(e: any) =>
+                        setFormData({ ...formData, marca: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                  <div className="md:col-span-1">
+                    <GlassSelect
+                      label="Tipo"
+                      options={[
+                        { label: "Autoelevador", value: "Autoelevador" },
+                        { label: "Camión", value: "Camión" },
+                        { label: "Camioneta", value: "Camioneta" },
+                        { label: "Vehículo utilitario", value: "Vehículo utilitario" }
+                      ]}
+                      value={formData.tipo || ""}
+                      onChange={(e: any) =>
+                        setFormData({ ...formData, tipo: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                  <div className="md:col-span-1">
+                    <GlassInput
+                      label="Carga Máxima"
+                      value={formData.carga_maxima || ""}
+                      onChange={(e: any) =>
+                        setFormData({ ...formData, carga_maxima: e.target.value })
                       }
                     />
                   </div>

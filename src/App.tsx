@@ -9,7 +9,7 @@ import { format, parse, differenceInMinutes } from 'date-fns';
 import { 
   AlertTriangle, Package, ClipboardList, Fuel, Wrench,
   Activity, PlusCircle, ShieldCheck, Settings, Bot,
-  ChevronLeft, ChevronRight, Truck
+  ChevronLeft, ChevronRight, Truck, Droplet
 } from 'lucide-react';
 
 // Modules
@@ -23,13 +23,14 @@ import ProductChangeView from './components/productivity/ProductChangeView';
 import ScaleControlView from './components/productivity/ScaleControlView';
 import InventoryView from './components/productivity/InventoryView';
 import DespachosView from './components/productivity/DespachosView';
+import FuelView from './components/productivity/FuelView';
 import AdminView from './components/admin/AdminView';
 import PlaceholderView from './components/PlaceholderView';
 import WelcomeScreen from './components/auth/WelcomeScreen';
 
 // Lib & Types
 import { cn } from './lib/utils';
-import { Shift, MachineStop, ProductionReport, DaterControl, ScaleControl, InventoryEntry, UserContext, MasterData, AppUser, ProductChange, Company } from './types';
+import { Shift, MachineStop, ProductionReport, DaterControl, ScaleControl, InventoryEntry, UserContext, MasterData, AppUser, ProductChange, Company, FuelLoad } from './types';
 import { SHIFTS, PALLETIZERS, BAGGERS, MATERIALS, HACS, CAUSES, CAPACITIES, USERS, SYSTEM_VIEWS, COMPANIES, LOADING_POINTS, LANE_STATUSES } from './lib/mockData';
 import { syncTableToSheets, getBackendSheetsStatus, fetchTableFromSheets } from './lib/sheetsService';
 import { ToastContainer, ToastMessage } from './components/ui/Toast';
@@ -64,6 +65,25 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [isDark]);
 
+  useEffect(() => {
+    const el = subNavRef.current;
+    if (!el) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (el.scrollWidth > el.clientWidth) {
+        if (e.deltaY !== 0) {
+          e.preventDefault();
+          el.scrollLeft += e.deltaY;
+        }
+      }
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', handleWheel);
+    };
+  }, [activeSection, hasEnteredApp]);
+
   // Master States for CRUD - Completely clean, without mock or preloaded local seed data
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [palletizers, setPalletizers] = useState<any[]>([]);
@@ -75,6 +95,9 @@ export default function App() {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loadingPoints, setLoadingPoints] = useState<any[]>([]);
+  const [bagSuppliers, setBagSuppliers] = useState<any[]>([]);
+  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [fuelLoads, setFuelLoads] = useState<any[]>([]);
 
   const masters: MasterData = {
     palletizers,
@@ -86,7 +109,9 @@ export default function App() {
     capacities,
     users,
     companies,
-    loadingPoints
+    loadingPoints,
+    bagSuppliers,
+    vehicles
   };
 
   // Secure full fallback admin user context if Sheets is completely empty
@@ -181,7 +206,7 @@ export default function App() {
     setIsSyncing(true);
     setSyncMessage('Iniciando sincronización...');
     try {
-      setSyncMessage('Estableciendo conexión con Google Sheets...');
+      setSyncMessage('Estableciendo conexión con base de datos...');
       const status = await getBackendSheetsStatus();
       
       setSyncMessage('Sincronizando información...');
@@ -205,7 +230,10 @@ export default function App() {
         resCapacities,
         resUsers,
         resCompanies,
-        resLoadingPoints
+        resLoadingPoints,
+        resBagSuppliers,
+        resVehicles,
+        resFuelLoads
       ] = await Promise.all([
         fetchTableFromSheets("PAROSV2"),
         fetchTableFromSheets("PRODUCCIONV2"),
@@ -225,7 +253,10 @@ export default function App() {
         fetchTableFromSheets("CAPACIDADESV2"),
         fetchTableFromSheets("USUARIOSV2"),
         fetchTableFromSheets("EMPRESASV2"),
-        fetchTableFromSheets("PUNTOS_CARGAV2")
+        fetchTableFromSheets("PUNTOS_CARGAV2"),
+        fetchTableFromSheets("PROVEEDORES_BOLSAV2"),
+        fetchTableFromSheets("VEHICULOSV2"),
+        fetchTableFromSheets("CARGA_COMBUSTIBLEV2")
       ]);
 
       setSyncMessage('Preparando sistema...');
@@ -250,9 +281,12 @@ export default function App() {
       if (resUsers.success && resUsers.data) setUsers(resUsers.data);
       if (resCompanies.success && resCompanies.data) setCompanies(resCompanies.data);
       if (resLoadingPoints.success && resLoadingPoints.data) setLoadingPoints(resLoadingPoints.data);
+      if (resBagSuppliers.success && resBagSuppliers.data) setBagSuppliers(resBagSuppliers.data);
+      if (resVehicles.success && resVehicles.data) setVehicles(resVehicles.data);
+      if (resFuelLoads.success && resFuelLoads.data) setFuelLoads(resFuelLoads.data);
 
       if (status.configured) {
-        addToast("Sincronización de Google Sheets completada exitosamente.", "success");
+        addToast("Sincronización con base de datos completada exitosamente.", "success");
         console.log("[SheetsConfig] Google Sheets database successfully synced on login.");
       } else {
         addToast("Ejecutando en memoria local (credenciales no detectadas).", "warning");
@@ -260,7 +294,7 @@ export default function App() {
       }
     } catch (err) {
       console.error("[SheetsLoad] Error during on-demand synchronization:", err);
-      addToast("Error al sincronizar con Google Sheets.", "error");
+      addToast("Error al sincronizar con base datos.", "error");
     } finally {
       setIsSyncing(false);
       setHasEnteredApp(true);
@@ -284,7 +318,7 @@ export default function App() {
       if (res.success) {
         addToast(exists ? "Despacho actualizado con éxito" : "Despacho guardado con éxito", "success");
       } else {
-        addToast("Guardado localmente. Error al sincronizar con Sheets.", "warning");
+        addToast("Guardado localmente. Error al sincronizar con base de datos.", "warning");
       }
     });
   };
@@ -298,9 +332,9 @@ export default function App() {
 
     syncTableToSheets("DESPACHOSV2", nextEntries).then(res => {
       if (res.success) {
-        addToast("Despacho eliminado de Google Sheets", "success");
+        addToast("Despacho eliminado", "success");
       } else {
-        addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
+        addToast("Eliminado localmente. Error al sincronizar con base de datos.", "warning");
       }
     });
   };
@@ -325,7 +359,7 @@ export default function App() {
           }
         });
       } else {
-        addToast("Registrado localmente. Error al sincronizar con Sheets.", "warning");
+        addToast("Registrado localmente. Error al sincronizar con base de datos.", "warning");
       }
     });
   };
@@ -339,14 +373,14 @@ export default function App() {
 
     syncTableToSheets("PAROSV2", nextStops).then(res => {
       if (res.success) {
-        addToast("Paro eliminado de Google Sheets", "success");
+        addToast("Paro eliminado", "success");
         fetchTableFromSheets("PRODUCCIONV2").then(pRes => {
           if (pRes.success && pRes.data) {
             setProductionReports(pRes.data);
           }
         });
       } else {
-        addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
+        addToast("Eliminado localmente. Error al sincronizar con base de datos.", "warning");
       }
     });
   };
@@ -366,7 +400,7 @@ export default function App() {
       if (res.success) {
         addToast(exists ? "Producción actualizada con éxito" : "Producción guardada con éxito", "success");
       } else {
-        addToast("Guardada localmente. Error al sincronizar con Sheets.", "warning");
+        addToast("Guardada localmente. Error al sincronizar con base de datos.", "warning");
       }
     });
   };
@@ -380,9 +414,9 @@ export default function App() {
 
     syncTableToSheets("PRODUCCIONV2", nextReports).then(res => {
       if (res.success) {
-        addToast("Reporte de producción eliminado de Google Sheets", "success");
+        addToast("Reporte de producción eliminado de base de datos", "success");
       } else {
-        addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
+        addToast("Eliminado localmente. Error al sincronizar con base de datos.", "warning");
       }
     });
   };
@@ -402,7 +436,7 @@ export default function App() {
       if (res.success) {
         addToast(exists ? "Control fechador actualizado con éxito" : "Control fechador registrado con éxito", "success");
       } else {
-        addToast("Registrado localmente. Error al sincronizar con Sheets.", "warning");
+        addToast("Registrado localmente. Error al sincronizar con base de datos.", "warning");
       }
     });
   };
@@ -418,7 +452,7 @@ export default function App() {
       if (res.success) {
         addToast("Control fechador eliminado de Google Sheets", "success");
       } else {
-        addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
+        addToast("Eliminado localmente. Error al sincronizar con base de datos.", "warning");
       }
     });
   };
@@ -438,7 +472,7 @@ export default function App() {
       if (res.success) {
         addToast(exists ? "Control de balanza actualizado con éxito" : "Control de balanza registrado con éxito", "success");
       } else {
-        addToast("Registrado localmente. Error al sincronizar con Sheets.", "warning");
+        addToast("Registrado localmente. Error al sincronizar con base de datos.", "warning");
       }
     });
   };
@@ -452,9 +486,9 @@ export default function App() {
 
     syncTableToSheets("CONTROL_BALANZAV2", nextScale).then(res => {
       if (res.success) {
-        addToast("Control de balanza eliminado de Google Sheets", "success");
+        addToast("Control de balanza eliminado", "success");
       } else {
-        addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
+        addToast("Eliminado localmente. Error al sincronizar con base de datos.", "warning");
       }
     });
   };
@@ -474,7 +508,7 @@ export default function App() {
       if (res.success) {
         addToast(exists ? "Registro de insumo actualizado" : "Registro de insumo guardado", "success");
       } else {
-        addToast("Guardado localmente. Error al sincronizar con Sheets.", "warning");
+        addToast("Guardado localmente. Error al sincronizar con base de datos.", "warning");
       }
     });
   };
@@ -488,9 +522,9 @@ export default function App() {
 
     syncTableToSheets("INVENTARIO_FISICOV2", nextInventory).then(res => {
       if (res.success) {
-        addToast("Registro de insumo eliminado de Google Sheets", "success");
+        addToast("Registro de insumo eliminado", "success");
       } else {
-        addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
+        addToast("Eliminado localmente. Error al sincronizar con base de datos.", "warning");
       }
     });
   };
@@ -510,7 +544,7 @@ export default function App() {
       if (res.success) {
         addToast(exists ? "Cambio de producto actualizado con éxito" : "Cambio de producto registrado con éxito", "success");
       } else {
-        addToast("Registrado localmente. Error al sincronizar con Sheets.", "warning");
+        addToast("Registrado localmente. Error al sincronizar con base de datos.", "warning");
       }
     });
   };
@@ -524,9 +558,9 @@ export default function App() {
 
     syncTableToSheets("CAMBIO_PRODUCTOV2", nextChanges).then(res => {
       if (res.success) {
-        addToast("Cambio de producto eliminado de Google Sheets", "success");
+        addToast("Cambio de producto eliminado", "success");
       } else {
-        addToast("Eliminado localmente. Error al sincronizar con Sheets.", "warning");
+        addToast("Eliminado localmente. Error al sincronizar con base de datos.", "warning");
       }
     });
   };
@@ -560,7 +594,7 @@ export default function App() {
           "success"
         );
       } else {
-        addToast("Registrada localmente. Error al sincronizar con Sheets.", "warning");
+        addToast("Registrada localmente. Error al sincronizar con base de datos.", "warning");
       }
     });
   };
@@ -574,9 +608,45 @@ export default function App() {
 
     syncTableToSheets("ESTADO_CALLESV2", nextLanes).then(res => {
       if (res.success) {
-        addToast("Calle de carga eliminada de Google Sheets", "success");
+        addToast("Calle de carga eliminada", "success");
       } else {
-        addToast("Eliminada localmente. Error al sincronizar con Sheets.", "warning");
+        addToast("Eliminada localmente. Error al sincronizar con base de datos.", "warning");
+      }
+    });
+  };
+
+  const handleSaveFuelLoad = (load: any) => {
+    let exists = false;
+    let nextLoads: any[] = [];
+    setFuelLoads(prev => {
+      exists = !!prev.find(x => x.id === load.id);
+      nextLoads = exists
+        ? prev.map(x => x.id === load.id ? load : x)
+        : [load, ...prev];
+      return nextLoads;
+    });
+
+    syncTableToSheets("CARGA_COMBUSTIBLEV2", nextLoads).then(res => {
+      if (res.success) {
+        addToast(exists ? "Carga de combustible actualizada con éxito" : "Carga de combustible registrada con éxito", "success");
+      } else {
+        addToast("Guardada localmente. Error al sincronizar con base de datos.", "warning");
+      }
+    });
+  };
+
+  const handleDeleteFuelLoad = (id: string) => {
+    let nextLoads: any[] = [];
+    setFuelLoads(prev => {
+      nextLoads = prev.filter(e => e.id !== id);
+      return nextLoads;
+    });
+
+    syncTableToSheets("CARGA_COMBUSTIBLEV2", nextLoads).then(res => {
+      if (res.success) {
+        addToast("Carga de combustible eliminada con éxito", "success");
+      } else {
+        addToast("Eliminada localmente. Error al sincronizar con base de datos.", "warning");
       }
     });
   };
@@ -753,19 +823,19 @@ export default function App() {
                           
                           <div 
                             ref={subNavRef}
-                            className="flex items-center gap-2 no-scrollbar py-1 scroll-smooth px-4 touch-horizontal touch-pan-x overscroll-x-contain"
+                            className="flex items-center gap-2 no-scrollbar py-1 scroll-smooth px-4 touch-horizontal touch-pan-x overscroll-x-contain overflow-x-auto"
                           >
+                            {canView('LOADING_LANES') && <ProductivitySubTab active={prodTab === 'LOADING_LANES'} onClick={() => setProdTab('LOADING_LANES')} icon={null} label="Calles Carga" />}
+                            {canView('CHANGE') && <ProductivitySubTab active={prodTab === 'CHANGE'} onClick={() => setProdTab('CHANGE')} icon={<Bot size={14} />} label="Cambio Producto" />}
+                            {canView('GASOIL') && <ProductivitySubTab active={prodTab === 'GASOIL'} onClick={() => setProdTab('GASOIL')} icon={<Droplet size={14} />} label="Combustible" />}
+                            {canView('SCALE') && <ProductivitySubTab active={prodTab === 'SCALE'} onClick={() => setProdTab('SCALE')} icon={<Activity size={14} />} label="Control Balanzas" />}
+                            {canView('DATER') && <ProductivitySubTab active={prodTab === 'DATER'} onClick={() => setProdTab('DATER')} icon={<ClipboardList size={14} />} label="Control Fechadores" />}
                             {canView('DASHBOARD') && <ProductivitySubTab active={prodTab === 'DASHBOARD'} onClick={() => setProdTab('DASHBOARD')} icon={<Activity size={14} />} label="Dashboard" />}
+                            {canView('DESPACHOS') && <ProductivitySubTab active={prodTab === 'DESPACHOS'} onClick={() => setProdTab('DESPACHOS')} icon={<Truck size={14} />} label="Despachos" />}
+                            {canView('STOCK') && <ProductivitySubTab active={prodTab === 'STOCK'} onClick={() => setProdTab('STOCK')} icon={<PlusCircle size={14} />} label="Insumos" />}
+                            {canView('MANTENIMIENTO') && <ProductivitySubTab active={prodTab === 'MANTENIMIENTO'} onClick={() => setProdTab('MANTENIMIENTO')} icon={<Settings size={14} />} label="Mantenimiento" />}
                             {canView('PAROS') && <ProductivitySubTab active={prodTab === 'PAROS'} onClick={() => setProdTab('PAROS')} icon={<AlertTriangle size={14} />} label="Paros" />}
                             {canView('PRODUCCION') && <ProductivitySubTab active={prodTab === 'PRODUCCION'} onClick={() => setProdTab('PRODUCCION')} icon={<Package size={14} />} label="Producción" />}
-                            {canView('DATER') && <ProductivitySubTab active={prodTab === 'DATER'} onClick={() => setProdTab('DATER')} icon={<ClipboardList size={14} />} label="Control Fechadores" />}
-                            {canView('SCALE') && <ProductivitySubTab active={prodTab === 'SCALE'} onClick={() => setProdTab('SCALE')} icon={<Activity size={14} />} label="Control Balanzas" />}
-                            {canView('CHANGE') && <ProductivitySubTab active={prodTab === 'CHANGE'} onClick={() => setProdTab('CHANGE')} icon={<Bot size={14} />} label="Cambio Producto" />}
-                            {canView('STOCK') && <ProductivitySubTab active={prodTab === 'STOCK'} onClick={() => setProdTab('STOCK')} icon={<PlusCircle size={14} />} label="Insumos" />}
-                            {canView('DESPACHOS') && <ProductivitySubTab active={prodTab === 'DESPACHOS'} onClick={() => setProdTab('DESPACHOS')} icon={<Truck size={14} />} label="Despachos" />}
-                            {canView('GASOIL') && <ProductivitySubTab active={prodTab === 'GASOIL'} onClick={() => setProdTab('GASOIL')} icon={<ShieldCheck size={14} />} label="Combustible" />}
-                            {canView('MANTENIMIENTO') && <ProductivitySubTab active={prodTab === 'MANTENIMIENTO'} onClick={() => setProdTab('MANTENIMIENTO')} icon={<Settings size={14} />} label="Mantenimiento" />}
-                            {canView('LOADING_LANES') && <ProductivitySubTab active={prodTab === 'LOADING_LANES'} onClick={() => setProdTab('LOADING_LANES')} icon={null} label="Calles Carga" />}
                           </div>
                         </div>
                       </div>
@@ -875,8 +945,20 @@ export default function App() {
                         selectedDate={userContext.selectedDate}
                     />
                   )}
-                  {['GASOIL', 'MANTENIMIENTO'].includes(prodTab) && (
-                    <PlaceholderView title={`Módulo: ${prodTab}`} type="PRODUCTIVITY" />
+                  {prodTab === 'GASOIL' && (
+                    <FuelView 
+                        masters={masters} 
+                        currentUser={currentUser}
+                        history={fuelLoads.filter(f => f.shiftId === userContext.selectedShiftId && f.date === userContext.selectedDate)}
+                        allFuelLoads={fuelLoads}
+                        onSave={handleSaveFuelLoad}
+                        onDelete={handleDeleteFuelLoad}
+                        selectedShiftId={userContext.selectedShiftId}
+                        selectedDate={userContext.selectedDate}
+                    />
+                  )}
+                  {prodTab === 'MANTENIMIENTO' && (
+                    <PlaceholderView title="Módulo: MANTENIMIENTO" type="PRODUCTIVITY" />
                   )}
                 </motion.div>
               )}
@@ -922,6 +1004,8 @@ export default function App() {
                       }
                       if (type === 'COMPANIES') setCompanies(data as Company[]);
                       if (type === 'PUNTOS_CARGA') setLoadingPoints(data);
+                      if (type === 'BAG_SUPPLIERS' || type === 'PROVEEDORES_BOLSA') setBagSuppliers(data);
+                      if (type === 'VEHICULOS' || type === 'VEHICULES') setVehicles(data);
 
                       // Sincronización automática en tiempo real con Google Sheets
                       const cleanType = String(type).toUpperCase().trim();
@@ -936,7 +1020,11 @@ export default function App() {
                         USERS: "USUARIOSV2",
                         COMPANIES: "EMPRESASV2",
                         PUNTOS_CARGA: "PUNTOS_CARGAV2",
-                        LOADING_POINTS: "PUNTOS_CARGAV2"
+                        LOADING_POINTS: "PUNTOS_CARGAV2",
+                        BAG_SUPPLIERS: "PROVEEDORES_BOLSAV2",
+                        PROVEEDORES_BOLSA: "PROVEEDORES_BOLSAV2",
+                        VEHICULOS: "VEHICULOSV2",
+                        VEHICLES: "VEHICULOSV2"
                       };
                       const suffix = tabSuffixMapping[cleanType];
                       

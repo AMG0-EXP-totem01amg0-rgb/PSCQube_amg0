@@ -201,7 +201,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
                   <span className="text-[8px] font-black text-text-muted uppercase">Interno</span>
                </div>
                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-danger" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-zinc-500" />
                   <span className="text-[8px] font-black text-text-muted uppercase">Externo</span>
                </div>
             </div>

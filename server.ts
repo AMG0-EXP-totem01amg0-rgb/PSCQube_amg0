@@ -289,6 +289,57 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
       email: "email"
     }
   },
+  PROVEEDORES_BOLSAV2: {
+    sheetHeaders: ["id", "nombre", "direccion", "telefono", "email"],
+    clientToSheet: {
+      id: "id",
+      nombre: "nombre",
+      direccion: "direccion",
+      telefono: "telefono",
+      email: "email"
+    },
+    sheetToClient: {
+      id: "id",
+      nombre: "nombre",
+      direccion: "direccion",
+      telefono: "telefono",
+      email: "email"
+    }
+  },
+  VEHICULOSV2: {
+    sheetHeaders: ["id", "marca", "identificación", "tipo", "carga_maxima"],
+    clientToSheet: {
+      id: "id",
+      marca: "marca",
+      identificación: "identificación",
+      tipo: "tipo",
+      carga_maxima: "carga_maxima"
+    },
+    sheetToClient: {
+      id: "id",
+      marca: "marca",
+      identificación: "identificación",
+      tipo: "tipo",
+      carga_maxima: "carga_maxima"
+    }
+  },
+  CARGA_COMBUSTIBLEV2: {
+    sheetHeaders: ["id", "unidad_movil", "id_operario", "descripcion_operario", "litros_combustible"],
+    clientToSheet: {
+      id: "id",
+      unidad_movil: "unidad_movil",
+      id_operario: "id_operario",
+      descripcion_operario: "descripcion_operario",
+      litros_combustible: "litros_combustible"
+    },
+    sheetToClient: {
+      id: "id",
+      unidad_movil: "unidad_movil",
+      id_operario: "id_operario",
+      descripcion_operario: "descripcion_operario",
+      litros_combustible: "litros_combustible"
+    }
+  },
   USUARIOSV2: {
     sheetHeaders: ["dni", "nombre", "usuariosap", "email", "email2", "puesto", "perfil", "permisos"],
     clientToSheet: {
@@ -985,6 +1036,9 @@ const PREDEFINED_HEADERS: Record<string, string[]> = {
   CAPACIDADESV2: ["id", "ensacadora_id", "peletizadora_id", "material_id", "bdp"],
   USUARIOSV2: ["dni", "nombre", "usuariosap", "email", "email2", "puesto", "perfil", "permisos"],
   EMPRESASV2: ["id", "nombre", "dirección", "cuit", "telefono", "email"],
+  PROVEEDORES_BOLSAV2: ["id", "nombre", "direccion", "telefono", "email"],
+  VEHICULOSV2: ["id", "marca", "identificación", "tipo", "carga_maxima"],
+  CARGA_COMBUSTIBLEV2: ["id", "unidad_movil", "id_operario", "descripcion_operario", "litros_combustible"],
   PUNTOS_CARGAV2: ["id", "nombre", "tipo"],
   DESPACHOSV2: [
     "id", "fecha", "turno_id", "descripcion_turno", "material_id", "descripcion_material", "toneladas", "usuario_id", "usuario_nombre"
@@ -1061,11 +1115,36 @@ async function callWithRetry<T>(fn: () => Promise<T>, retries = 5, delay = 1000)
   }
 }
 
+// Thread-safe and rate-limit proof promise cache for sheet names
+let sheetNamesPromise: Promise<string[]> | null = null;
+let lastSheetNamesFetch = 0;
+const SHEET_NAMES_CACHE_TTL = 300000; // 5 minutes cache
+
+async function getSheetNames(sheets: any, spreadsheetId: string): Promise<string[]> {
+  const now = Date.now();
+  if (sheetNamesPromise && (now - lastSheetNamesFetch < SHEET_NAMES_CACHE_TTL)) {
+    return sheetNamesPromise;
+  }
+  
+  lastSheetNamesFetch = now;
+  sheetNamesPromise = (async () => {
+    try {
+      const response: any = await callWithRetry(() => sheets.spreadsheets.get({ spreadsheetId }));
+      return response.data.sheets?.map((s: any) => s.properties?.title) || [];
+    } catch (err) {
+      sheetNamesPromise = null;
+      lastSheetNamesFetch = 0;
+      throw err;
+    }
+  })();
+  
+  return sheetNamesPromise;
+}
+
 // Ensure sheet exists; if not, create it
 async function ensureSheetExists(sheets: any, spreadsheetId: string, tableName: string): Promise<boolean> {
   try {
-    const response: any = await callWithRetry(() => sheets.spreadsheets.get({ spreadsheetId }));
-    const sheetNames = response.data.sheets?.map((s: any) => s.properties?.title) || [];
+    const sheetNames = await getSheetNames(sheets, spreadsheetId);
     
     if (sheetNames.includes(tableName)) {
       return true;
@@ -1086,6 +1165,10 @@ async function ensureSheetExists(sheets: any, spreadsheetId: string, tableName: 
         ],
       },
     }));
+    
+    // Clear cache to force a refresh on the next fetch
+    sheetNamesPromise = null;
+    lastSheetNamesFetch = 0;
     return true;
   } catch (error) {
     console.error(`Error ensuring sheet existence for ${tableName}:`, error);
@@ -2034,22 +2117,90 @@ async function readTableData(sheets: any, spreadsheetId: string, table: string):
     return cached.data;
   }
 
-  console.log(`[Database log: READ] Querying table '${table}' from row 2 downward.`);
-  await ensureHeadersAndColumns(sheets, spreadsheetId, table);
+  console.log(`[Database log: READ] Querying table '${table}' from row 1 downward to load data and audit headers concurrently.`);
+  await ensureSheetExists(sheets, spreadsheetId, table);
 
   try {
+    let rows: any[] = [];
+    let headers: string[] = [];
+
+    const schema = TABLE_SCHEMAS[upperTable];
+    const expectedHeaders = schema ? schema.sheetHeaders : (PREDEFINED_HEADERS[upperTable] || []);
+
     const response: any = await callWithRetry(() => sheets.spreadsheets.values.get({
       spreadsheetId,
       range: `${table}!A1:ZZ50000`,
     }));
 
-    const rows = response.data.values;
+    rows = response.data.values || [];
+
+    if (!verifiedTables.has(upperTable)) {
+      const existingHeaders = rows && rows[0] ? rows[0].map((h: any) => String(h || "").trim()) : [];
+      let needsHeadersFix = false;
+      let finalHeaders = existingHeaders;
+
+      if (upperTable === "PRODUCCIONV2" && existingHeaders.some(h => h.toLowerCase() === "novedades_boquillas")) {
+        needsHeadersFix = true;
+        finalHeaders = existingHeaders.filter(h => h.toLowerCase() !== "novedades_boquillas");
+      }
+
+      if (finalHeaders.length === 0 || finalHeaders.every(h => h === "")) {
+        console.log(`[readTableData/audit] Table ${table} header is empty. Writing default headers:`, expectedHeaders);
+        await callWithRetry(() => sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: `${table}!A1`,
+          valueInputOption: "RAW",
+          requestBody: {
+            values: [expectedHeaders],
+          },
+        }));
+        verifiedTables.add(upperTable);
+        readCache[upperTable] = { timestamp: Date.now(), data: [] };
+        return [];
+      }
+
+      const missingHeaders = expectedHeaders.filter(h => !finalHeaders.includes(h));
+      if (missingHeaders.length > 0 || needsHeadersFix) {
+        console.log(`[readTableData/audit] Table ${table} needs header repair or has missing columns. Repairing...`);
+        const updatedHeaders = [...finalHeaders, ...missingHeaders];
+        
+        if (needsHeadersFix) {
+          await callWithRetry(() => sheets.spreadsheets.values.clear({
+            spreadsheetId,
+            range: `${table}!A1:ZZ1`,
+          }));
+        }
+
+        await callWithRetry(() => sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: `${table}!A1`,
+          valueInputOption: "RAW",
+          requestBody: {
+            values: [updatedHeaders],
+          },
+        }));
+        verifiedTables.add(upperTable);
+        
+        // Re-read once to align with the newly updated headers
+        const response2: any = await callWithRetry(() => sheets.spreadsheets.values.get({
+          spreadsheetId,
+          range: `${table}!A1:ZZ50000`,
+        }));
+        rows = response2.data.values || [];
+        headers = rows && rows[0] ? rows[0] : updatedHeaders;
+      } else {
+        verifiedTables.add(upperTable);
+        headers = existingHeaders;
+      }
+    } else {
+      headers = rows && rows[0] ? rows[0] : expectedHeaders;
+    }
+
     if (!rows || rows.length < 1) {
       readCache[upperTable] = { timestamp: Date.now(), data: [] };
       return [];
     }
 
-    const headers = rows[0];
     const dataRows = rows.slice(1);
 
     const list = dataRows.map((row) => {

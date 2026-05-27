@@ -90,13 +90,16 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
 
   const handleOpenAdd = () => {
     setEditingItem(null);
+    const defaultBagProvider = masters.bagSuppliers && masters.bagSuppliers.length > 0
+      ? masters.bagSuppliers[0].nombre
+      : '';
     setFormData({ 
       baggerId: '', 
       materialId: '', 
       bags: '',
       tons: '',
       availableNozzlesShift: '',
-      bagProvider: '',
+      bagProvider: defaultBagProvider,
       discardedBagsBagger: '0',
       notNozzledBags: '0',
       discardedBagsVentocheck: '0',
@@ -109,13 +112,14 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
 
   const handleOpenEdit = (item: ProductionReport) => {
     setEditingItem(item);
+    const defaultBagProvider = item.bagProvider || (masters.bagSuppliers && masters.bagSuppliers.length > 0 ? masters.bagSuppliers[0].nombre : '');
     setFormData({ 
       baggerId: item.baggerId, 
       materialId: item.materialId, 
       bags: item.bagsProduced?.toString() || '',
       tons: item.tonsProduced.toString(),
       availableNozzlesShift: item.availableNozzlesShift?.toString() || '',
-      bagProvider: item.bagProvider || '',
+      bagProvider: defaultBagProvider,
       discardedBagsBagger: item.discardedBagsBagger?.toString() || '0',
       notNozzledBags: item.notNozzledBags?.toString() || '0',
       discardedBagsVentocheck: item.discardedBagsVentocheck?.toString() || '0',
@@ -496,11 +500,11 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                     onChange={e => setFormData({...formData, availableNozzlesShift: (e.target as HTMLInputElement).value})} 
                     placeholder="Ej: 4"
                   />
-                  <GlassInput 
+                  <GlassSelect 
                     label="Proveedor de Bolsa" 
+                    options={(masters.bagSuppliers || []).map((p: any) => ({ label: p.nombre, value: p.nombre }))}
                     value={formData.bagProvider} 
-                    onChange={e => setFormData({...formData, bagProvider: e.target.value})} 
-                    placeholder="Ej: Mondi"
+                    onChange={e => setFormData({...formData, bagProvider: (e.target as HTMLSelectElement).value})} 
                   />
                  </div>
               </div>

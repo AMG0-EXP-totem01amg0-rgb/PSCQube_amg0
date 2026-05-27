@@ -277,6 +277,32 @@ export interface DispatchEntry {
   timestamp: string;
 }
 
+export interface BagSupplier {
+  id: string;
+  nombre: string;
+  direccion: string;
+  telefono: string;
+  email: string;
+}
+
+export interface Vehicle {
+  id: string;
+  marca: string;
+  identificación: string;
+  tipo: string;
+  carga_maxima: string;
+}
+
+export interface FuelLoad {
+  id: string;
+  unidad_movil: string;
+  id_operario: string;
+  descripcion_operario: string;
+  litros_combustible: number;
+  date: string;
+  shiftId: string;
+}
+
 export interface MasterData {
   palletizers: Machine[];
   baggers: Machine[];
@@ -288,4 +314,6 @@ export interface MasterData {
   users: AppUser[];
   companies: Company[];
   loadingPoints: LoadingPoint[];
+  bagSuppliers: BagSupplier[];
+  vehicles: Vehicle[];
 }

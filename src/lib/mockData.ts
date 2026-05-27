@@ -22,6 +22,8 @@ export const SYSTEM_VIEWS: { id: string; label: string; section: 'PRODUCTIVITY' 
   { id: 'USUARIOS', label: 'Maestro Usuarios', section: 'ADMIN' },
   { id: 'EMPRESAS', label: 'Maestro Empresas', section: 'ADMIN' },
   { id: 'PUNTOS_CARGA', label: 'Puntos de Carga', section: 'ADMIN' },
+  { id: 'PROVEEDORES_BOLSA', label: 'Proveedores Bolsa', section: 'ADMIN' },
+  { id: 'VEHICULOS', label: 'Vehículos', section: 'ADMIN' },
 ];
 
 export const USERS: AppUser[] = [
@@ -159,3 +161,14 @@ export const LOADING_POINTS: any[] = [
 ];
 
 export const LANE_STATUSES: any[] = [];
+
+export const BAG_SUPPLIERS: any[] = [
+  { id: 'PS1', nombre: 'Klabin Argentina', direccion: 'Ruta 9 Km 100, Campana', telefono: '03489-440000', email: 'contacto@klabin.com.ar' },
+  { id: 'PS2', nombre: 'Smurfit Kappa', direccion: 'Av. Libertador 450, Bernal', telefono: '011-4229-3000', email: 'ventas@smurfitkappa.com.ar' }
+];
+
+export const VEHICLES: any[] = [
+  { id: 'V1', marca: 'Toyota', identificación: 'AE-101', tipo: 'Autoelevador', carga_maxima: '2500 kg' },
+  { id: 'V2', marca: 'Ford', identificación: 'F-150', tipo: 'Camioneta', carga_maxima: '1000 kg' },
+  { id: 'V3', marca: 'Iveco', identificación: 'T-200', tipo: 'Camión', carga_maxima: '15000 kg' }
+];
