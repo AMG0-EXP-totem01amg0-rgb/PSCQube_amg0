@@ -2337,6 +2337,40 @@ async function enrichParosOnRead(sheets: any, spreadsheetId: string, list: any[]
   }
 }
 
+// Helper to format Google Sheets API errors with actionable diagnostic hints
+function handleSheetsError(error: any, table: string, action: string, res: any) {
+  const errMsg = error.message || error.toString();
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || "";
+  console.error(`Error performing '${action}' on sheet '${table}':`, error);
+  
+  if (error.status === 403 || errMsg.includes("permission") || errMsg.includes("403") || errMsg.includes("caller does not have permission") || errMsg.includes("unauthorized")) {
+    const hint = `Error de permisos (403 Forbidden) al intentar ESCRITURA. La cuenta de servicio '${email}' no tiene permisos suficientes para modificar este documento. Por favor, abre tu planilla de Google Sheets, haz clic en el botón 'Compartir' (Share) en la esquina superior derecha, agrega o busca el correo '${email}' y cámbiale su permiso de 'Lector' (Viewer) a 'Editor'. Guarda los cambios e intenta nuevamente.`;
+    return res.status(403).json({
+      success: false,
+      error: errMsg,
+      hint,
+      code: "PERMISSION_DENIED"
+    });
+  }
+
+  if (errMsg.includes("not found") || errMsg.includes("404") || errMsg.includes("Requested entity was not found")) {
+    const hint = "No se encuentra el Documento de Google Sheets. El GOOGLE_SHEET_ID ingresado no existe en tu cuenta o es incorrecto.";
+    return res.status(404).json({
+      success: false,
+      error: errMsg,
+      hint,
+      code: "NOT_FOUND"
+    });
+  }
+  
+  return res.status(500).json({
+    success: false,
+    error: errMsg,
+    hint: "Error interno del servidor al interactuar con Google Sheets.",
+    code: "SERVER_ERROR"
+  });
+}
+
 // GET Endpoint to read table
 app.get("/api/sheets", async (req, res) => {
   const table = req.query.table as string;
@@ -2349,8 +2383,7 @@ app.get("/api/sheets", async (req, res) => {
     const list = await readTableData(sheets, spreadsheetId, table);
     return res.json({ success: true, data: list });
   } catch (error: any) {
-    console.error(`Error reading sheet ${table}:`, error);
-    return res.status(500).json({ success: false, error: error.message || error.toString() });
+    return handleSheetsError(error, table, "read", res);
   }
 });
 
@@ -2371,8 +2404,7 @@ app.post("/api/sheets", async (req, res) => {
         const list = await readTableData(sheets, spreadsheetId, table);
         return res.json({ success: true, data: list });
       } catch (error: any) {
-        console.error(`Error reading sheet via POST ${table}:`, error);
-        return res.status(500).json({ success: false, error: error.message || error.toString() });
+        return handleSheetsError(error, table, "read", res);
       }
     }
 
@@ -2388,8 +2420,7 @@ app.post("/api/sheets", async (req, res) => {
         }
         return res.json({ success: true, count: data.length });
       } catch (error: any) {
-        console.error(`Error in reconciled write action for ${table}:`, error);
-        return res.status(500).json({ success: false, error: error.message || error.toString() });
+        return handleSheetsError(error, table, "write", res);
       }
     }
 
@@ -2406,8 +2437,7 @@ app.post("/api/sheets", async (req, res) => {
         }
         return res.json({ success: true, message: "Registro guardado con éxito" });
       } catch (error: any) {
-        console.error(`Error in create action for ${table}:`, error);
-        return res.status(500).json({ success: false, error: error.message || error.toString() });
+        return handleSheetsError(error, table, "create", res);
       }
     }
 
@@ -2424,8 +2454,7 @@ app.post("/api/sheets", async (req, res) => {
         }
         return res.json({ success: true, message: "Registro actualizado con éxito" });
       } catch (error: any) {
-        console.error(`Error in update action for ${table}:`, error);
-        return res.status(500).json({ success: false, error: error.message || error.toString() });
+        return handleSheetsError(error, table, "update", res);
       }
     }
 
@@ -2442,15 +2471,13 @@ app.post("/api/sheets", async (req, res) => {
         }
         return res.json({ success: true, message: isDeleted ? "Registro eliminado con éxito" : "Registro no encontrado para eliminar" });
       } catch (error: any) {
-        console.error(`Error in delete action for ${table}:`, error);
-        return res.status(500).json({ success: false, error: error.message || error.toString() });
+        return handleSheetsError(error, table, "delete", res);
       }
     }
 
     return res.status(400).json({ success: false, error: `Acción inválida: ${action}` });
   } catch (error: any) {
-    console.error(`Error in sheets action for ${table}:`, error);
-    return res.status(500).json({ success: false, error: error.message || error.toString() });
+    return handleSheetsError(error, table, action || "unknown", res);
   }
 });
 
