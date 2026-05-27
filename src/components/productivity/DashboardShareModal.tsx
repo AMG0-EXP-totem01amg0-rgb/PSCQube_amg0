@@ -445,8 +445,8 @@ export default function DashboardShareModal({
                                 <div className="grid grid-cols-1 gap-1">
                                   {activeNozzles.map((nozzle, nidx) => (
                                     <div key={nidx} className="bg-gray-50 border border-gray-200 px-2 py-1 rounded flex justify-between items-center text-[9px]">
-                                      <span className="font-bold text-gray-700 uppercase truncate max-w-[70px]">{nozzle.baggerName}</span>
-                                      <span className="font-mono font-extrabold text-amber-600">{nozzle.nozzles}</span>
+                                      <span className="font-bold text-gray-700 uppercase truncate flex-1 mr-2">{nozzle.baggerName}</span>
+                                      <span className="font-mono font-extrabold text-amber-600 shrink-0">{nozzle.nozzles}</span>
                                     </div>
                                   ))}
                                 </div>
@@ -459,16 +459,24 @@ export default function DashboardShareModal({
                             <div className="col-span-1">
                               <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-wider block mb-2">Paros / Alarmas de Operación</span>
                               {topStops.length > 0 ? (
-                                <div className="space-y-1">
-                                  {topStops.slice(0, 3).map((stop, sidx) => {
+                                <div className="space-y-2">
+                                  {topStops.slice(0, 4).map((stop, sidx) => {
                                     const causeText = stop.causeText || masters.causes.find((c: any) => c.id === stop.causeId)?.text || 'Error registrado';
                                     return (
-                                      <div key={sidx} className="flex justify-between items-start text-[9px] font-semibold text-gray-800 leading-tight">
-                                        <div className="truncate max-w-[85px]">
-                                          <p className="truncate block font-bold text-gray-900 uppercase">{causeText}</p>
-                                          <span className="text-[7px] text-transparent tracking-tighter block font-mono bg-clip-text bg-gradient-to-r from-red-600 to-gray-500 uppercase">HAC: {stop.hacName || 'Genérico'}</span>
+                                      <div key={sidx} className="flex justify-between items-start text-[9px] font-semibold text-gray-800 leading-tight border-b border-gray-100/50 pb-1.5 last:border-none last:pb-0">
+                                        <div className="flex-1 min-w-0 pr-2">
+                                          <p className="font-bold text-red-700 uppercase leading-snug break-words">
+                                            {causeText}
+                                          </p>
+                                          <span className="text-[7px] text-gray-500 font-mono block mt-0.5 font-semibold">
+                                            HAC: {stop.hacName || 'Genérico'}
+                                          </span>
                                         </div>
-                                        <span className="font-mono text-red-600 font-bold shrink-0">{stop.durationMinutes}m</span>
+                                        <div className="shrink-0 text-right">
+                                          <span className="font-mono text-red-700 font-black bg-red-50 border border-red-200 px-1.5 py-0.5 rounded text-[8px] block inline-block">
+                                            {stop.durationMinutes}m
+                                          </span>
+                                        </div>
                                       </div>
                                     );
                                   })}
