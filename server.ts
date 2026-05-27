@@ -2,12 +2,564 @@ import express from "express";
 import path from "path";
 import { google } from "googleapis";
 import dotenv from "dotenv";
+import { createClient } from "@supabase/supabase-js";
 
 // Load environment variables in development
 dotenv.config();
 
 const app = express();
 const PORT = 3000;
+
+// Supabase lazy client initialization
+let supabaseClient: any = null;
+
+function getSupabaseClient() {
+  if (!supabaseClient) {
+    let supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (supabaseUrl && supabaseKey) {
+      // Auto-sanitize the URL to prevent /rest/v1/ invalid path errors
+      supabaseUrl = supabaseUrl.trim().replace(/\/+$/, ""); // Remove trailing slashes
+      if (supabaseUrl.toLowerCase().endsWith("/rest/v1")) {
+        supabaseUrl = supabaseUrl.slice(0, -8);
+      }
+      supabaseUrl = supabaseUrl.trim().replace(/\/+$/, ""); // Remove trailing slashes again
+
+      if (supabaseUrl.includes("/dashboard") || supabaseUrl.includes("/project/")) {
+        console.error(`
+🚨 [Supabase Configuration Error] 🚨
+Your SUPABASE_URL is configured with the Dashboard/Studio URL: "${supabaseUrl}".
+This is why you are receiving HTML elements instead of API responses.
+Please update SUPABASE_URL to your Project API URL, which looks like: https://xxxx.supabase.co
+--------------------------------------------------`);
+        return null;
+      }
+      console.log(`[Supabase v2] Auto-initializing client for sanitized URL: ${supabaseUrl}`);
+      supabaseClient = createClient(supabaseUrl, supabaseKey);
+    } else {
+      console.warn(`[Supabase v2] Missing SUPABASE_URL or SUPABASE_KEY. Supabase operations will be skipped.`);
+    }
+  }
+  return supabaseClient;
+}
+
+// Convert a column name to lowercase, alphanumeric, with accents stripped and spaces/symbols transformed to underscores
+function sanitizeColumnName(col: string): string {
+  // convert camelCase to snake_case first (e.g., durationHours -> duration_hours)
+  const withUnder = col.replace(/([a-z0-9])([A-Z])/g, "$1_$2");
+  return withUnder
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // remove accents
+    .replace(/[^a-z0-9_]/g, "_")    // replace spaces, ?, symbols with _
+    .replace(/__+/g, "_")           // deduplicate underscores
+    .replace(/^_+|_+$/g, "");       // trim leading/trailing underscores
+}
+
+function formatSupabaseError(err: any): string {
+  if (!err) return "unknown error";
+  if (typeof err === "object") {
+    const parts: string[] = [];
+    if (err.message) parts.push(`Message: "${err.message}"`);
+    if (err.code) parts.push(`Code: "${err.code}"`);
+    if (err.details) parts.push(`Details: "${err.details}"`);
+    if (err.hint) parts.push(`Hint: "${err.hint}"`);
+    if (parts.length === 0) {
+      try {
+        return JSON.stringify(err);
+      } catch (e) {
+        return String(err);
+      }
+    }
+    return parts.join(", ");
+  }
+  return String(err);
+}
+
+// Table aliases to gracefully fallback to simple/plural/singular names if the versioned tables are missing in Supabase
+const TABLE_ALIASES: Record<string, string[]> = {
+  "carga_combustiblev2": ["carga_combustible", "carga_combustibles", "cargas_combustibles", "cargas_combustible"],
+  "turnosv2": ["turnos", "turno"],
+  "usuariosv2": ["usuarios", "usuario"],
+  "cambio_productov2": ["cambio_producto", "cambios_producto", "cambio_productos", "cambios_productos"],
+  "parosv2": ["paros", "paro"],
+  "produccionv2": ["produccion", "producciones"],
+  "punto_cargav2": ["punto_carga", "puntos_carga", "puntos_cargav2"],
+  "puntos_cargav2": ["puntos_carga", "punto_carga"],
+  "empresasv2": ["empresas", "empresa"],
+  "proveedores_bolsav2": ["proveedores_bolsa", "proveedor_bolsa"],
+  "vehiculosv2": ["vehiculos", "vehiculo"],
+  "capacidadesv2": ["capacidades", "capacidad"]
+};
+
+function mapItemForSupabase(tableName: string, item: any): Record<string, any> {
+  const upperTable = tableName.toUpperCase();
+  const schema = TABLE_SCHEMAS[upperTable];
+  const mapped: Record<string, any> = {};
+
+  if (!item) return mapped;
+
+  // For PAROSV2, we must preserve exact quoted column keys from the database schema (e.g., "causa sap", "tipo paro")
+  if (schema && upperTable === "PAROSV2") {
+    const allowedColumns = new Set<string>(schema.sheetHeaders);
+    const tempPayload: Record<string, any> = {};
+
+    // 1. Copy original keys that map directly
+    for (const [key, val] of Object.entries(item)) {
+      if (val !== undefined && val !== null) {
+        if (allowedColumns.has(key)) {
+          tempPayload[key] = typeof val === "object" ? JSON.stringify(val) : val;
+        }
+      }
+    }
+
+    // 2. Process schema mappings to find any omitted properties by clientKey or sheet header
+    for (const [header, clientKey] of Object.entries(schema.sheetToClient)) {
+      let val = item[clientKey];
+      if (val === undefined) {
+        val = item[header];
+      }
+      if (val !== undefined && val !== null) {
+        const processedVal = typeof val === "object" ? JSON.stringify(val) : val;
+        tempPayload[header] = processedVal;
+      }
+    }
+
+    // 3. Keep only columns that present in the strictly allowed database set
+    const strictMapped: Record<string, any> = {};
+    for (const col of allowedColumns) {
+      if (tempPayload[col] !== undefined) {
+        strictMapped[col] = tempPayload[col];
+      }
+    }
+    return strictMapped;
+  }
+
+  // If a schema exists to enforce database alignment, strictly construct the payload
+  // containing only sanitized, valid database columns.
+  if (schema) {
+    const allowedColumns = new Set<string>();
+    for (const header of schema.sheetHeaders) {
+      allowedColumns.add(sanitizeColumnName(header));
+    }
+
+    const tempPayload: Record<string, any> = {};
+
+    // 1. Copy original keys that map directly to the allowed sanitized columns
+    for (const [key, val] of Object.entries(item)) {
+      if (val !== undefined && val !== null) {
+        const cleanKey = sanitizeColumnName(key);
+        if (allowedColumns.has(cleanKey)) {
+          tempPayload[cleanKey] = typeof val === "object" ? JSON.stringify(val) : val;
+        }
+      }
+    }
+
+    // 2. Process schema mappings to find any omitted properties by clientKey or sheet header
+    for (const [header, clientKey] of Object.entries(schema.sheetToClient)) {
+      const cleanCol = sanitizeColumnName(header);
+      
+      let val = item[clientKey];
+      if (val === undefined) {
+        val = item[header];
+      }
+      if (val === undefined) {
+        val = item[cleanCol];
+      }
+
+      if (val !== undefined && val !== null) {
+        const processedVal = typeof val === "object" ? JSON.stringify(val) : val;
+        tempPayload[cleanCol] = processedVal;
+      }
+    }
+
+    // 3. Keep only columns that present in the strictly allowed database set
+    const strictMapped: Record<string, any> = {};
+    for (const col of allowedColumns) {
+      if (tempPayload[col] !== undefined) {
+        strictMapped[col] = tempPayload[col];
+      }
+    }
+    return strictMapped;
+  }
+
+  // If no schema exists, fall back to best-effort key sanitization of original item attributes
+  for (const [key, val] of Object.entries(item)) {
+    if (val !== undefined && val !== null) {
+      const cleanKey = sanitizeColumnName(key);
+      mapped[cleanKey] = typeof val === "object" ? JSON.stringify(val) : val;
+    }
+  }
+
+  return mapped;
+}
+
+function mapSupabaseRowToClient(tableName: string, dbRow: any): any {
+  if (!dbRow) return {};
+  const upperTable = tableName.toUpperCase();
+  const schema = TABLE_SCHEMAS[upperTable];
+  const clientObj: any = {};
+
+  const processValue = (val: any) => {
+    if (typeof val === "string" && (val.trim().startsWith("[") || val.trim().startsWith("{"))) {
+      try {
+        return JSON.parse(val);
+      } catch (e) {
+        return val;
+      }
+    }
+    return val;
+  };
+
+  // 1. Iterate over the schema to prioritize mapping to clientKeys (camelCase keys)
+  if (schema) {
+    for (const [header, clientKey] of Object.entries(schema.sheetToClient)) {
+      const cleanHeader = sanitizeColumnName(header);
+      
+      // Look up in dbRow with priority:
+      // a) clientKey (camelCase)
+      // b) header (Sheets literal name)
+      // c) cleanHeader (sanitized snake_case)
+      let val = dbRow[clientKey];
+      if (val === undefined) {
+        val = dbRow[header];
+      }
+      if (val === undefined) {
+        val = dbRow[cleanHeader];
+      }
+
+      if (val !== undefined && val !== null) {
+        clientObj[clientKey] = processValue(val);
+      }
+    }
+  }
+
+  // 2. Plus copy any other keys that are in the database row but weren't identified by sheetToClient
+  for (const [key, val] of Object.entries(dbRow)) {
+    if (val !== undefined && val !== null) {
+      const existsInSchema = schema && Object.values(schema.sheetToClient).includes(key);
+      if (!existsInSchema && clientObj[key] === undefined) {
+        clientObj[key] = processValue(val);
+      }
+    }
+  }
+
+  // Special validations (from parseRowToClientObject)
+  if (upperTable === "PAROS_BOQUILLASV2") {
+    if (clientObj.isAllShift !== undefined) {
+      clientObj.isAllShift = (clientObj.isAllShift === true || clientObj.isAllShift === "true" || clientObj.isAllShift === "SI" || clientObj.isAllShift === "TRUE" || clientObj.isAllShift === 1 || clientObj.isAllShift === "yes");
+    }
+    if (clientObj.nozzleNumber !== undefined) {
+      clientObj.nozzleNumber = Number(clientObj.nozzleNumber) || 0;
+    }
+  }
+
+  if (upperTable === "CONTROL_FECHADORV2") {
+    const numericFields = ["inkStock", "solventStock", "headsStock"];
+    numericFields.forEach(f => {
+      if (clientObj[f] !== undefined) clientObj[f] = Number(clientObj[f]) || 0;
+    });
+  }
+
+  if (upperTable === "CONTROL_BALANZAV2") {
+    const numericFields = ["weight1", "weight2", "weight3", "patternWeight", "average", "bias", "range"];
+    numericFields.forEach(f => {
+      if (clientObj[f] !== undefined) clientObj[f] = Number(clientObj[f]) || 0;
+    });
+  }
+
+  if (upperTable === "CAMBIO_PRODUCTOV2") {
+    const booleanFields = [
+      "siloValveClosed", "circuitEmptied", "machineCleaned", "hopperEmptied", "siloChanged",
+      "setupChanged", "packagingChanged", "twoBigBagsPalletized", "colorSampling", "sampleSentToLab",
+      "productReleased"
+    ];
+    booleanFields.forEach(f => {
+      if (clientObj[f] !== undefined) {
+        const val = clientObj[f];
+        clientObj[f] = (val === true || val === "true" || val === "SI" || val === "TRUE" || val === 1 || val === "CUMPLIDO");
+      }
+    });
+
+    const numericFields = ["calcinationLoss", "incorporatedAir", "ckPercentageByDrx"];
+    numericFields.forEach(f => {
+      if (clientObj[f] !== undefined && clientObj[f] !== "") {
+        clientObj[f] = Number(clientObj[f]) || 0;
+      }
+    });
+  }
+
+  if (upperTable === "INVENTARIO_FISICOV2") {
+    const numericFields = ["quantity", "weightTn"];
+    numericFields.forEach(f => {
+      if (clientObj[f] !== undefined) clientObj[f] = Number(clientObj[f]) || 0;
+    });
+  }
+
+  if (upperTable === "ESTADO_CALLESV2") {
+    if (clientObj.isEnabled !== undefined) {
+      const val = clientObj.isEnabled;
+      clientObj.isEnabled = (val === true || val === "true" || val === "SI" || val === "SÍ" || val === "Habilitada" || val === "Habilitado" || val === "TRUE" || val === 1);
+    }
+  }
+
+  return clientObj;
+}
+
+async function readFromSupabase(tableName: string): Promise<any[] | null> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
+
+  const table = tableName.toLowerCase();
+  const tablesToTry = [table, ...(TABLE_ALIASES[table] || [])];
+  if (table.endsWith("v2") && !tablesToTry.includes(table.slice(0, -2))) {
+    tablesToTry.push(table.slice(0, -2));
+  }
+
+  for (const targetTable of tablesToTry) {
+    try {
+      const { data, error } = await supabase.from(targetTable).select("*");
+      if (error) {
+        let errStr = (error.message || "").toLowerCase();
+        let errCode = error.code || "";
+        const isTableMissing = errCode === "42P01" || errStr.includes("does not exist") || errStr.includes("no existe") || errStr.includes("not found") || errStr.includes("invalid path");
+        
+        if (isTableMissing) {
+          console.log(`[Supabase Read] Table '${targetTable}' does not exist in database yet (expected fallback).`);
+          continue;
+        }
+        throw error;
+      }
+
+      if (data) {
+        console.log(`[Supabase Read] Successfully loaded ${data.length} records from table '${targetTable}'.`);
+        const mappedList = data.map((dbRow: any) => {
+          return mapSupabaseRowToClient(tableName, dbRow);
+        });
+        return mappedList;
+      }
+    } catch (err: any) {
+      const errMsg = formatSupabaseError(err);
+      console.warn(`[Supabase Read Trial Notice] Trial for safety table fallback '${targetTable}': ${errMsg}`);
+    }
+  }
+
+  return null;
+}
+
+function extractColumnFromError(message: string): string | null {
+  if (!message) return null;
+  // Match column "xyz" or «xyz» or 'xyz' in error messages
+  const match = message.match(/column\s+["'«]([^"'»]+)["'»]/i) 
+             || message.match(/["'«]([^"'»]+)["'»]\s+column/i)
+             || message.match(/columna\s+["'«]([^"'»]+)["'»]/i)
+             || message.match(/["'«]([^"'»]+)["'»]\s+does\s+not\s+exist/i);
+  return match ? match[1] : null;
+}
+
+async function writeToSupabase(tableName: string, action: 'insert' | 'update' | 'upsert', idKey: string, idVal: any, rawData: any): Promise<any> {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    console.log(`[Supabase Write] Skipped: credentials not set.`);
+    return null;
+  }
+
+  const table = tableName.toLowerCase();
+  let payload = mapItemForSupabase(tableName, rawData);
+
+  // If we are doing an update/upsert, ensure ID is set both raw and sanitized
+  if (idVal !== undefined && idVal !== null) {
+    payload[idKey] = idVal;
+    
+    const cleanIdKey = sanitizeColumnName(idKey);
+    if (cleanIdKey && cleanIdKey !== idKey) {
+      payload[cleanIdKey] = idVal;
+    }
+  }
+
+  let currentTable = table;
+  let attempt = 0;
+  const maxAttempts = 25;
+  let aliasIndex = 0;
+
+  while (attempt < maxAttempts) {
+    attempt++;
+    try {
+      let query;
+      if (action === 'insert') {
+        query = supabase.from(currentTable).insert([payload]);
+      } else if (action === 'update') {
+        const cleanIdVal = typeof idVal === 'string' ? idVal.trim() : idVal;
+        
+        // We will perform the query using the supplied idKey first
+        query = supabase.from(currentTable).update(payload).eq(idKey, cleanIdVal);
+      } else {
+        query = supabase.from(currentTable).upsert([payload], { onConflict: idKey });
+      }
+
+      const { data, error } = await query;
+
+      if (!error) {
+        console.log(`[Supabase Write] Successfully completed ${action} in ${currentTable} after ${attempt} attempts.`);
+        return data;
+      }
+
+      // If we got an error, analyze it
+      let errStr = error.message || "";
+      if (errStr.includes("<!DOCTYPE") || errStr.includes("<html")) {
+        console.error(`🚨 [Supabase Error] Received an HTML response page instead of JSON API response. This occurs when SUPABASE_URL is configured to the browser's Studio dashboard webpage instead of the REST API Endpoint URL.`);
+        break; // Stop retrying on HTML responses to avoid spamming
+      }
+
+      console.warn(`[Supabase Error Attempt ${attempt}] table ${currentTable}: ${formatSupabaseError(error)}`);
+
+      // Code 42P01 is "undefined_table" (table does not exist)
+      if (error.code === '42P01' || errStr.toLowerCase().includes('does not exist') || errStr.toLowerCase().includes('no existe') || errStr.toLowerCase().includes('not found')) {
+        const aliases = TABLE_ALIASES[table] || [];
+        if (aliasIndex < aliases.length) {
+          const nextTable = aliases[aliasIndex];
+          aliasIndex++;
+          console.log(`[Supabase Table Fallback] Table '${currentTable}' does not exist. Retrying with alias '${nextTable}'...`);
+          currentTable = nextTable;
+          continue; // retry writing to correct active DB table
+        } else if (currentTable.endsWith('v2')) {
+          const fallback = currentTable.slice(0, -2);
+          console.log(`[Supabase Table Fallback] Last-resort table fallback. Retrying with non-v2 name '${fallback}'...`);
+          currentTable = fallback;
+          continue; // retry writing to correct active DB table
+        }
+      }
+
+      // Code 42703 is "undefined_column", PGRST204 is PostgREST schema cache error
+      if (
+        error.code === '42703' || 
+        error.code === 'PGRST204' || 
+        errStr.includes('column') || 
+        errStr.includes('schema cache')
+      ) {
+        const missingCol = extractColumnFromError(error.message);
+        if (missingCol && payload[missingCol] !== undefined) {
+          console.log(`[Supabase Self-Heal] Column '${missingCol}' does not exist in table '${currentTable}'. Removing and retrying...`);
+          delete payload[missingCol];
+          continue; // retry writing without the non-existent column
+        }
+        
+        // Search if the error specifies other column names in quotes (both single and double quotes)
+        const matchAnyQuote = error.message.match(/['"“]([^'"”]+)['"”]/g);
+        if (matchAnyQuote) {
+          let removedAny = false;
+          for (const quoted of matchAnyQuote) {
+            const col = quoted.replace(/['"“]/g, '');
+            if (payload[col] !== undefined && col !== idKey) {
+              console.log(`[Supabase Self-Heal] Removing quoted column '${col}' from payload.`);
+              delete payload[col];
+              removedAny = true;
+            }
+          }
+          if (removedAny) continue;
+        }
+      }
+
+      // Code 22P02 is "invalid_text_representation" (type mismatch, e.g. numeric column with "7 tn" text)
+      if (error.code === '22P02') {
+        const errStrLower = errStr.toLowerCase();
+        let invalidStr: string | null = null;
+        
+        // Extract any text inside quotes from the error message
+        const matchVal = errStr.match(/['"“]([^"'”]+)['"”]/);
+        if (matchVal) {
+          invalidStr = matchVal[1];
+        }
+
+        console.log(`[Supabase Self-Heal] 22P02 handling. Extracted invalidStr: '${invalidStr}'. Current payload:`, JSON.stringify(payload));
+
+        if (invalidStr) {
+          let fixedAny = false;
+          const searchStr = invalidStr.toLowerCase().trim();
+          for (const key of Object.keys(payload)) {
+            const valStr = String(payload[key]).toLowerCase().trim();
+            if (valStr === searchStr || valStr.includes(searchStr) || searchStr.includes(valStr)) {
+              if (errStrLower.includes('numeric') || errStrLower.includes('integer') || errStrLower.includes('double') || errStrLower.includes('real')) {
+                // Clean non-numeric characters except digits, dots, and minus signs
+                const numericPart = String(payload[key]).replace(/[^\d.,-]/g, '').replace(/,/g, '.');
+                const parsedNum = parseFloat(numericPart);
+                if (!isNaN(parsedNum)) {
+                  console.log(`[Supabase Self-Heal] Fixed invalid numeric column '${key}' from '${payload[key]}' to ${parsedNum}.`);
+                  payload[key] = parsedNum;
+                } else {
+                  console.log(`[Supabase Self-Heal] Cannot parse '${payload[key]}' as number. Setting column '${key}' to null.`);
+                  payload[key] = null;
+                }
+                fixedAny = true;
+              } else {
+                console.log(`[Supabase Self-Heal] Nullifying invalid value '${payload[key]}' for column '${key}'.`);
+                payload[key] = null;
+                fixedAny = true;
+              }
+            }
+          }
+          if (fixedAny) {
+            console.log(`[Supabase Self-Heal] Payload key(s) corrected. Retrying write...`);
+            continue; // retry writing with fixed payload!
+          }
+        }
+      }
+
+      // If we have some other write failure, log it but don't hold back the whole App if we want resilient fallback
+      throw error;
+
+    } catch (err: any) {
+      console.error(`[Supabase Write Failure] table ${currentTable} failed completely: ${formatSupabaseError(err)}`);
+      // If we exceed max attempts, we continue to prevent blocking Google Sheets backup write
+      break;
+    }
+  }
+}
+
+async function deleteFromSupabase(tableName: string, idKey: string, idVal: any): Promise<any> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
+
+  const table = tableName.toLowerCase();
+  const cleanIdVal = typeof idVal === 'string' ? idVal.trim() : idVal;
+  
+  const tablesToTry = [table, ...(TABLE_ALIASES[table] || [])];
+  if (table.endsWith("v2") && !tablesToTry.includes(table.slice(0, -2))) {
+    tablesToTry.push(table.slice(0, -2));
+  }
+
+  for (const targetTable of tablesToTry) {
+    try {
+      // Attempt delete by standard idKey
+      const { data, error } = await supabase.from(targetTable).delete().eq(idKey, cleanIdVal);
+      if (!error) {
+        return data;
+      }
+
+      let errStr = (error.message || "").toLowerCase();
+      const isTableMissing = error.code === "42P01" || errStr.includes("does not exist") || errStr.includes("no existe") || errStr.includes("not found");
+
+      if (isTableMissing) {
+        console.log(`[Supabase Delete Warning] Table '${targetTable}' does not exist. trying next table in alias list...`);
+        continue; // Try the next table in the fallback list
+      }
+
+      // If there is another error, try by sanitized close id key as well
+      const cleanIdKey = sanitizeColumnName(idKey);
+      if (cleanIdKey !== idKey) {
+        const rx = await supabase.from(targetTable).delete().eq(cleanIdKey, cleanIdVal);
+        if (!rx.error) return rx.data;
+      }
+
+      throw error;
+    } catch (err) {
+      console.warn(`[Supabase Delete Trial Warning] Trial for '${targetTable}' failed: ${formatSupabaseError(err)}`);
+    }
+  }
+
+  console.error(`[Supabase Delete Failure] All delete trials for table ${table} failed.`);
+  return null;
+}
 
 // Set up JSON body parser with generous limit
 app.use(express.json({ limit: "50mb" }));
@@ -1622,6 +2174,29 @@ async function insertRecord(sheets: any, spreadsheetId: string, tableName: strin
   // Clean item key mapping or enrichment
   await enrichDataIfNeeded(sheets, spreadsheetId, tableName, [item]);
 
+  // Write to Supabase first as requested by the user flow
+  const { clientKey } = getIdColumnAndKey(tableName);
+  const idValue = item[clientKey];
+  
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    try {
+      await writeToSupabase(tableName, "insert", clientKey, idValue, item);
+      if (upperTable === "PRODUCCIONV2") {
+        await syncProductionNozzles(sheets, spreadsheetId, item);
+      }
+      console.log(`[Database log: CREATE via Supabase] Table '${tableName}' written directly to Supabase. Skipping Google Sheets write.`);
+      delete readCache[upperTable];
+      if (upperTable === "PRODUCCIONV2") {
+        delete readCache["PAROS_BOQUILLASV2"];
+      }
+      return; // Bypasses Google Sheets write completely!
+    } catch (supaErr) {
+      console.error(`[Supabase Insert Record Error] table ${tableName}: ${formatSupabaseError(supaErr)}`);
+      console.warn(`[Supabase Error Fallback] Retrying write in Google Sheets...`);
+    }
+  }
+
   // Ensure and get correct column headers ordering for the sheet
   const headers = await ensureHeadersAndColumns(sheets, spreadsheetId, tableName);
 
@@ -1674,6 +2249,28 @@ async function updateRecord(sheets: any, spreadsheetId: string, tableName: strin
   const schema = TABLE_SCHEMAS[upperTable];
 
   await enrichDataIfNeeded(sheets, spreadsheetId, tableName, [item]);
+
+  // Write to Supabase first as requested by the user flow
+  const { clientKey } = getIdColumnAndKey(tableName);
+  
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    try {
+      await writeToSupabase(tableName, "update", clientKey, targetId, item);
+      if (upperTable === "PRODUCCIONV2") {
+        await syncProductionNozzles(sheets, spreadsheetId, item);
+      }
+      console.log(`[Database log: UPDATE via Supabase] Table '${tableName}' updated directly in Supabase. Skipping Google Sheets write.`);
+      delete readCache[upperTable];
+      if (upperTable === "PRODUCCIONV2") {
+        delete readCache["PAROS_BOQUILLASV2"];
+      }
+      return; // Bypasses Google Sheets write completely!
+    } catch (supaErr) {
+      console.error(`[Supabase Update Record Error] table ${tableName}: ${formatSupabaseError(supaErr)}`);
+      console.warn(`[Supabase Error Fallback] Retrying update in Google Sheets...`);
+    }
+  }
 
   delete readCache[upperTable];
   if (upperTable === "PRODUCCIONV2") {
@@ -1800,7 +2397,28 @@ async function deleteRecord(sheets: any, spreadsheetId: string, tableName: strin
     delete readCache["PRODUCCIONV2"];
   }
 
-  const { sheetCol } = getIdColumnAndKey(tableName);
+  const { sheetCol, clientKey } = getIdColumnAndKey(tableName);
+
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    try {
+      await deleteFromSupabase(tableName, clientKey, targetId);
+      if (upperTable === "PRODUCCIONV2") {
+        await deleteNozzlesForProduction(sheets, spreadsheetId, targetId);
+      }
+      console.log(`[Database log: DELETE via Supabase] Table '${tableName}' deleted directly in Supabase. Skipping Google Sheets write.`);
+      delete readCache[upperTable];
+      if (upperTable === "PRODUCCIONV2") {
+        delete readCache["PAROS_BOQUILLASV2"];
+      } else if (upperTable === "PAROS_BOQUILLASV2") {
+        delete readCache["PRODUCCIONV2"];
+      }
+      return true; // Bypasses Google Sheets write completely!
+    } catch (supaErr) {
+      console.error(`[Supabase Delete Record Error] table ${tableName}: ${formatSupabaseError(supaErr)}`);
+      console.warn(`[Supabase Error Fallback] Retrying delete in Google Sheets...`);
+    }
+  }
 
   if (upperTable === "PRODUCCIONV2") {
     await deleteNozzlesForProduction(sheets, spreadsheetId, targetId);
@@ -1918,8 +2536,11 @@ async function reconcileTableData(sheets: any, spreadsheetId: string, tableName:
     delete readCache["PAROS_BOQUILLASV2"];
   }
 
-  // Ensure headers exist as reference first
-  await ensureHeadersAndColumns(sheets, spreadsheetId, tableName);
+  // Ensure headers exist as reference first (only if using Google Sheets)
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    await ensureHeadersAndColumns(sheets, spreadsheetId, tableName);
+  }
 
   const dbData = await readTableData(sheets, spreadsheetId, tableName);
   const { clientKey } = getIdColumnAndKey(tableName);
@@ -1975,6 +2596,52 @@ async function reconcileTableData(sheets: any, spreadsheetId: string, tableName:
 }
 
 // API Routes
+// GET Endpoint to test Supabase connection and check table columns
+app.get("/api/supabase-test", async (req, res) => {
+  try {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      return res.status(500).json({
+        success: false,
+        error: "Supabase client is not initialized. Check your SUPABASE_URL and SUPABASE_KEY / SUPABASE_SERVICE_ROLE_KEY env variables."
+      });
+    }
+
+    const testTables = ["turnosv2", "usuariosv2", "cambio_productov2", "parosv2", "produccionv2"];
+    const results: Record<string, any> = {};
+
+    for (const table of testTables) {
+      try {
+        const { data, error } = await supabase.from(table).select("*").limit(1);
+        results[table] = {
+          success: !error,
+          rowCount: data ? data.length : 0,
+          columns: data && data.length > 0 ? Object.keys(data[0]) : [],
+          error: error || null
+        };
+      } catch (err: any) {
+        results[table] = {
+          success: false,
+          error: err.message || err.toString()
+        };
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: "Supabase connection and structure diagnostics.",
+      supabaseUrl: process.env.SUPABASE_URL,
+      hasKey: !!(process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY),
+      results
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: error.message || error.toString()
+    });
+  }
+});
+
 app.get("/api/sheets/status", async (req, res) => {
   try {
     let email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -2119,7 +2786,30 @@ async function readTableData(sheets: any, spreadsheetId: string, table: string):
     return cached.data;
   }
 
-  console.log(`[Database log: READ] Querying table '${table}' from row 1 downward to load data and audit headers concurrently.`);
+  // 1. Try to fetch from Supabase first
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    try {
+      const dbList = await readFromSupabase(table);
+      if (dbList !== null) {
+        // Enrich data as required (e.g., nozzles reporting or shift data)
+        if (upperTable === "PRODUCCIONV2") {
+          await enrichProductionReportsWithNozzleNews(sheets, spreadsheetId, dbList);
+        }
+        if (upperTable === "PAROSV2") {
+          await enrichParosOnRead(sheets, spreadsheetId, dbList);
+        }
+
+        readCache[upperTable] = { timestamp: Date.now(), data: dbList };
+        return dbList;
+      }
+    } catch (supaErr) {
+      console.error(`[Supabase Read Failback to Sheets] table ${table} read failed, trying Sheets: ${formatSupabaseError(supaErr)}`);
+    }
+  }
+
+  // 2. Fallback to Google Sheets
+  console.log(`[Database log: READ via Sheets] Querying table '${table}' from row 1 downward to load data.`);
   await ensureSheetExists(sheets, spreadsheetId, table);
 
   try {
@@ -2378,6 +3068,19 @@ app.get("/api/sheets", async (req, res) => {
     return res.status(400).json({ success: false, error: "Falta el parámetro 'table'" });
   }
 
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    try {
+      const dbList = await readFromSupabase(table);
+      if (dbList !== null) {
+        return res.json({ success: true, data: dbList });
+      }
+    } catch (supaErr: any) {
+      console.error(`[Supabase GET direct fail] Table ${table}: ${formatSupabaseError(supaErr)}`);
+      return res.status(500).json({ success: false, error: supaErr.message || supaErr.toString() });
+    }
+  }
+
   try {
     const { sheets, spreadsheetId } = getSheetsClient();
     const list = await readTableData(sheets, spreadsheetId, table);
@@ -2393,6 +3096,69 @@ app.post("/api/sheets", async (req, res) => {
 
   if (!table) {
     return res.status(400).json({ success: false, error: "Falta el parámetro 'table'" });
+  }
+
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    try {
+      const { clientKey } = getIdColumnAndKey(table);
+
+      // Handle READ action via POST
+      if (action === "read") {
+        const list = await readFromSupabase(table);
+        if (list !== null) {
+          return res.json({ success: true, data: list });
+        }
+      }
+
+      // Handle WRITE action (reintegrate/mass update)
+      if (action === "write") {
+        if (!data) {
+          return res.status(400).json({ success: false, error: "Faltan los datos para la acción write" });
+        }
+        for (const item of data) {
+          const idValue = item[clientKey];
+          await writeToSupabase(table, "upsert", clientKey, idValue, item);
+        }
+        return res.json({ success: true, count: data.length });
+      }
+
+      // Handle CREATE action
+      if (action === "create") {
+        const { item } = req.body;
+        if (!item) {
+          return res.status(400).json({ success: false, error: "Falta el parámetro 'item' para crear" });
+        }
+        const idValue = item[clientKey];
+        await writeToSupabase(table, "insert", clientKey, idValue, item);
+        return res.json({ success: true, message: "Registro guardado en Supabase con éxito" });
+      }
+
+      // Handle UPDATE action
+      if (action === "update") {
+        const { id, item } = req.body;
+        if (id === undefined || !item) {
+          return res.status(400).json({ success: false, error: "Faltan 'id' o 'item' para actualizar" });
+        }
+        await writeToSupabase(table, "update", clientKey, id, item);
+        return res.json({ success: true, message: "Registro actualizado en Supabase con éxito" });
+      }
+
+      // Handle DELETE action
+      if (action === "delete") {
+        const { id } = req.body;
+        if (id === undefined) {
+          return res.status(400).json({ success: false, error: "Falta el parámetro 'id' para eliminar" });
+        }
+        await deleteFromSupabase(table, clientKey, id);
+        return res.json({ success: true, message: "Registro eliminado de Supabase con éxito" });
+      }
+
+      return res.status(400).json({ success: false, error: `Acción inválida: ${action}` });
+    } catch (supaErr: any) {
+      console.error(`[Supabase POST direct fail] Action ${action} on ${table}: ${formatSupabaseError(supaErr)}`);
+      return res.status(500).json({ success: false, error: supaErr.message || supaErr.toString() });
+    }
   }
 
   try {
