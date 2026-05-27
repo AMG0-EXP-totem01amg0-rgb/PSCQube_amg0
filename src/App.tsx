@@ -209,92 +209,106 @@ export default function App() {
       setSyncMessage('Estableciendo conexión con base de datos...');
       const status = await getBackendSheetsStatus();
       
-      setSyncMessage('Sincronizando información...');
-      // Parallel fetching of master & transactional data
-      const [
-        resStops,
-        resProduction,
-        resDater,
-        resScale,
-        resStock,
-        resChange,
-        resDespachos,
-        resLoadingLanes,
-        // Masters
-        resShifts,
-        resPalletizers,
-        resBaggers,
-        resHacs,
-        resCauses,
-        resMaterials,
-        resCapacities,
-        resUsers,
-        resCompanies,
-        resLoadingPoints,
-        resBagSuppliers,
-        resVehicles,
-        resFuelLoads
-      ] = await Promise.all([
-        fetchTableFromSheets("PAROSV2"),
-        fetchTableFromSheets("PRODUCCIONV2"),
-        fetchTableFromSheets("CONTROL_FECHADORV2"),
-        fetchTableFromSheets("CONTROL_BALANZAV2"),
-        fetchTableFromSheets("INVENTARIO_FISICOV2"),
-        fetchTableFromSheets("CAMBIO_PRODUCTOV2"),
-        fetchTableFromSheets("DESPACHOSV2"),
-        fetchTableFromSheets("ESTADO_CALLESV2"),
-        // Masters
-        fetchTableFromSheets("TURNOSV2"),
-        fetchTableFromSheets("PALETIZADORAV2"),
-        fetchTableFromSheets("ENSACADORAV2"),
-        fetchTableFromSheets("HACSV2"),
-        fetchTableFromSheets("CAUSASV2"),
-        fetchTableFromSheets("MATERIALESV2"),
-        fetchTableFromSheets("CAPACIDADESV2"),
-        fetchTableFromSheets("USUARIOSV2"),
-        fetchTableFromSheets("EMPRESASV2"),
-        fetchTableFromSheets("PUNTOS_CARGAV2"),
-        fetchTableFromSheets("PROVEEDORES_BOLSAV2"),
-        fetchTableFromSheets("VEHICULOSV2"),
-        fetchTableFromSheets("CARGA_COMBUSTIBLEV2")
-      ]);
-
-      setSyncMessage('Preparando sistema...');
-
-      if (resStops.success && resStops.data) setStops(resStops.data);
-      if (resProduction.success && resProduction.data) setProductionReports(resProduction.data);
-      if (resDater.success && resDater.data) setDaterControls(resDater.data);
-      if (resScale.success && resScale.data) setScaleControls(resScale.data);
-      if (resStock.success && resStock.data) setInventoryEntries(resStock.data);
-      if (resChange.success && resChange.data) setProductChanges(resChange.data);
-      if (resDespachos.success && resDespachos.data) setDispatchEntries(resDespachos.data);
-      if (resLoadingLanes.success && resLoadingLanes.data) setLaneStatuses(resLoadingLanes.data);
-      
-      // Set Masters if present
-      if (resShifts.success && resShifts.data) setShifts(resShifts.data);
-      if (resPalletizers.success && resPalletizers.data) setPalletizers(resPalletizers.data);
-      if (resBaggers.success && resBaggers.data) setBaggers(resBaggers.data);
-      if (resHacs.success && resHacs.data) setHacs(resHacs.data);
-      if (resCauses.success && resCauses.data) setCauses(resCauses.data);
-      if (resMaterials.success && resMaterials.data) setMaterials(resMaterials.data);
-      if (resCapacities.success && resCapacities.data) setCapacities(resCapacities.data);
-      if (resUsers.success && resUsers.data) setUsers(resUsers.data);
-      if (resCompanies.success && resCompanies.data) setCompanies(resCompanies.data);
-      if (resLoadingPoints.success && resLoadingPoints.data) setLoadingPoints(resLoadingPoints.data);
-      if (resBagSuppliers.success && resBagSuppliers.data) setBagSuppliers(resBagSuppliers.data);
-      if (resVehicles.success && resVehicles.data) setVehicles(resVehicles.data);
-      if (resFuelLoads.success && resFuelLoads.data) setFuelLoads(resFuelLoads.data);
-
       if (status.configured) {
+        setSyncMessage('Sincronizando información...');
+        // Parallel fetching of master & transactional data
+        const [
+          resStops,
+          resProduction,
+          resDater,
+          resScale,
+          resStock,
+          resChange,
+          resDespachos,
+          resLoadingLanes,
+          // Masters
+          resShifts,
+          resPalletizers,
+          resBaggers,
+          resHacs,
+          resCauses,
+          resMaterials,
+          resCapacities,
+          resUsers,
+          resCompanies,
+          resLoadingPoints,
+          resBagSuppliers,
+          resVehicles,
+          resFuelLoads
+        ] = await Promise.all([
+          fetchTableFromSheets("PAROSV2"),
+          fetchTableFromSheets("PRODUCCIONV2"),
+          fetchTableFromSheets("CONTROL_FECHADORV2"),
+          fetchTableFromSheets("CONTROL_BALANZAV2"),
+          fetchTableFromSheets("INVENTARIO_FISICOV2"),
+          fetchTableFromSheets("CAMBIO_PRODUCTOV2"),
+          fetchTableFromSheets("DESPACHOSV2"),
+          fetchTableFromSheets("ESTADO_CALLESV2"),
+          // Masters
+          fetchTableFromSheets("TURNOSV2"),
+          fetchTableFromSheets("PALETIZADORAV2"),
+          fetchTableFromSheets("ENSACADORAV2"),
+          fetchTableFromSheets("HACSV2"),
+          fetchTableFromSheets("CAUSASV2"),
+          fetchTableFromSheets("MATERIALESV2"),
+          fetchTableFromSheets("CAPACIDADESV2"),
+          fetchTableFromSheets("USUARIOSV2"),
+          fetchTableFromSheets("EMPRESASV2"),
+          fetchTableFromSheets("PUNTOS_CARGAV2"),
+          fetchTableFromSheets("PROVEEDORES_BOLSAV2"),
+          fetchTableFromSheets("VEHICULOSV2"),
+          fetchTableFromSheets("CARGA_COMBUSTIBLEV2")
+        ]);
+
+        setSyncMessage('Preparando sistema...');
+
+        if (resStops.success && resStops.data) setStops(resStops.data);
+        if (resProduction.success && resProduction.data) setProductionReports(resProduction.data);
+        if (resDater.success && resDater.data) setDaterControls(resDater.data);
+        if (resScale.success && resScale.data) setScaleControls(resScale.data);
+        if (resStock.success && resStock.data) setInventoryEntries(resStock.data);
+        if (resChange.success && resChange.data) setProductChanges(resChange.data);
+        if (resDespachos.success && resDespachos.data) setDispatchEntries(resDespachos.data);
+        if (resLoadingLanes.success && resLoadingLanes.data) setLaneStatuses(resLoadingLanes.data);
+        
+        // Set Masters if present
+        if (resShifts.success && resShifts.data) setShifts(resShifts.data);
+        if (resPalletizers.success && resPalletizers.data) setPalletizers(resPalletizers.data);
+        if (resBaggers.success && resBaggers.data) setBaggers(resBaggers.data);
+        if (resHacs.success && resHacs.data) setHacs(resHacs.data);
+        if (resCauses.success && resCauses.data) setCauses(resCauses.data);
+        if (resMaterials.success && resMaterials.data) setMaterials(resMaterials.data);
+        if (resCapacities.success && resCapacities.data) setCapacities(resCapacities.data);
+        if (resUsers.success && resUsers.data) setUsers(resUsers.data);
+        if (resCompanies.success && resCompanies.data) setCompanies(resCompanies.data);
+        if (resLoadingPoints.success && resLoadingPoints.data) setLoadingPoints(resLoadingPoints.data);
+        if (resBagSuppliers.success && resBagSuppliers.data) setBagSuppliers(resBagSuppliers.data);
+        if (resVehicles.success && resVehicles.data) setVehicles(resVehicles.data);
+        if (resFuelLoads.success && resFuelLoads.data) setFuelLoads(resFuelLoads.data);
+
         addToast("Sincronización con base de datos completada exitosamente.", "success");
         console.log("[SheetsConfig] Google Sheets database successfully synced on login.");
       } else {
+        setSyncMessage('Inicializando base de datos local...');
+        // Initialize local states with default mockData lists directly to establish robust offline mode
+        setShifts(SHIFTS);
+        setPalletizers(PALLETIZERS);
+        setBaggers(BAGGERS);
+        setMaterials(MATERIALS);
+        setHacs(HACS);
+        setCauses(CAUSES);
+        setCapacities(CAPACITIES);
+        setUsers(USERS);
+        setCompanies(COMPANIES);
+        setLoadingPoints(LOADING_POINTS);
+        setLaneStatuses(LANE_STATUSES);
+        
         addToast("Ejecutando en memoria local (credenciales no detectadas).", "warning");
         console.log("[SheetsConfig] Google Sheets mode offline. Ready.");
       }
     } catch (err) {
       console.error("[SheetsLoad] Error during on-demand synchronization:", err);
-      addToast("Error al sincronizar con base datos.", "error");
+      addToast("Error al sincronizar con base datos o inicializar offline.", "error");
     } finally {
       setIsSyncing(false);
       setHasEnteredApp(true);
