@@ -66,7 +66,7 @@ export function DataTable<T>({
   return (
     <div className="space-y-4">
       {(title || onAddClick) && (
-        <div className="flex items-center justify-between px-1">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-1">
           <div className="flex items-center gap-3">
              {title && <h4 className="text-[10px] font-bold text-text-muted uppercase tracking-[0.2em]">{title}</h4>}
              {countLabel && (
@@ -78,7 +78,7 @@ export function DataTable<T>({
           {onAddClick && (
             <button 
               onClick={onAddClick}
-              className="group flex items-center gap-2 bg-primary/10 hover:bg-primary text-primary hover:text-white px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border border-primary/20 active:scale-95 shadow-sm"
+              className="group flex items-center justify-center gap-2 bg-primary/10 hover:bg-primary text-primary hover:text-white px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border border-primary/20 active:scale-95 shadow-sm w-full sm:w-auto"
             >
               <PlusCircle size={14} className="group-hover:rotate-90 transition-transform" />
               {addLabel}

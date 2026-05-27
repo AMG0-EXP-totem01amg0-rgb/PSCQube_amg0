@@ -222,17 +222,17 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
       <GlassCard className="p-6 md:p-8 border-primary/20 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-black text-text-main uppercase tracking-[0.1em] leading-tight logo-glow">
+            <h1 className="text-2xl sm:text-3xl font-black text-text-main uppercase tracking-[0.1em] leading-tight logo-glow">
               Dashboard de Operaciones
             </h1>
-            <p className="text-xs text-text-muted uppercase font-black tracking-widest mt-2">
+            <p className="text-[10px] sm:text-xs text-text-muted uppercase font-black tracking-widest mt-2">
               Resumen de <span className="text-primary font-black">{selectedShift?.name || 'Turno'}</span> con la fecha <span className="text-primary font-black">{displayDate}</span>
             </p>
           </div>
-          <div className="shrink-0 flex items-center">
+          <div className="shrink-0 flex items-center w-full md:w-auto">
             <GlassButton
               onClick={() => setIsShareOpen(true)}
-              className="h-12 px-6 text-xs font-black tracking-widest flex items-center gap-2.5 btn-active-highlight shadow-lg uppercase"
+              className="h-12 px-6 text-xs font-black tracking-widest flex items-center justify-center gap-2.5 btn-active-highlight shadow-lg uppercase w-full md:w-auto"
             >
               <Share2 size={14} className="text-text-main" />
               Compartir Resumen
@@ -244,19 +244,19 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
       {/* SECCIÓN 1: RESUMEN DE STOCK E INSUMOS */}
       {hasAnyInventory && (
         <section className="space-y-6">
-          <div className="flex items-center justify-between border-b-2 border-primary/20 pb-4 mb-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b-2 border-primary/20 pb-4 mb-2 gap-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
+              <div className="p-2 bg-primary/10 rounded-lg shrink-0">
                 <Package className="text-primary" size={24} />
               </div>
               <div>
-                <h2 className="text-2xl font-black text-text-main uppercase tracking-[0.15em]">Resumen de Stock e Insumos</h2>
+                <h2 className="text-xl sm:text-2xl font-black text-text-main uppercase tracking-[0.15em] leading-tight">Resumen de Stock e Insumos</h2>
                 <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest mt-1">Conteo Físico + Producción Turno Actual</p>
               </div>
             </div>
             <GlassButton 
               onClick={() => onTabChange('STOCK')}
-              className="h-10 px-6 text-[10px] font-black tracking-widest"
+              className="h-10 px-6 text-[10px] font-black tracking-widest w-full sm:w-auto"
             >
               GESTIONAR INVENTARIO
             </GlassButton>
@@ -339,19 +339,19 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
 
       {/* SECCIÓN 2: PRODUCTIVIDAD */}
       <section className="space-y-6">
-        <div className="flex items-center justify-between border-b-2 border-primary/20 pb-4 mb-2">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b-2 border-primary/20 pb-4 mb-2 gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
+            <div className="p-2 bg-primary/10 rounded-lg shrink-0">
               <Activity className="text-primary" size={24} />
             </div>
             <div>
-              <h2 className="text-2xl font-black text-text-main uppercase tracking-[0.15em]">Productividad</h2>
+              <h2 className="text-xl sm:text-2xl font-black text-text-main uppercase tracking-[0.15em] leading-tight">Productividad</h2>
               <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest mt-1">Rendimiento de Líneas de Producción</p>
             </div>
           </div>
           <GlassButton 
             onClick={() => onTabChange('PRODUCCION')}
-            className="h-10 px-6 text-[10px] font-black tracking-widest"
+            className="h-10 px-6 text-[10px] font-black tracking-widest w-full sm:w-auto"
           >
             VER REPORTES
           </GlassButton>
@@ -442,19 +442,19 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
 
       {/* SECCIÓN 3: CALLES DE CARGA */}
       <section className="space-y-6">
-        <div className="flex items-center justify-between border-b-2 border-primary/20 pb-4 mb-2">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b-2 border-primary/20 pb-4 mb-2 gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
+            <div className="p-2 bg-primary/10 rounded-lg shrink-0">
               <Truck className="text-primary" size={24} />
             </div>
             <div>
-              <h2 className="text-2xl font-black text-text-main uppercase tracking-[0.15em]">Calles de Carga</h2>
+              <h2 className="text-xl sm:text-2xl font-black text-text-main uppercase tracking-[0.15em] leading-tight">Calles de Carga</h2>
               <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest mt-1">Disponibilidad de Despacho en Tiempo Real</p>
             </div>
           </div>
           <GlassButton 
             onClick={() => onTabChange('LOADING_LANES')}
-            className="h-10 px-6 text-[10px] font-black tracking-widest"
+            className="h-10 px-6 text-[10px] font-black tracking-widest w-full sm:w-auto"
           >
             GESTIONAR CALLES
           </GlassButton>

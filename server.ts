@@ -324,9 +324,10 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
     }
   },
   CARGA_COMBUSTIBLEV2: {
-    sheetHeaders: ["id", "unidad_movil", "id_operario", "descripcion_operario", "litros_combustible"],
+    sheetHeaders: ["id", "fecha", "unidad_movil", "id_operario", "descripcion_operario", "litros_combustible"],
     clientToSheet: {
       id: "id",
+      date: "fecha",
       unidad_movil: "unidad_movil",
       id_operario: "id_operario",
       descripcion_operario: "descripcion_operario",
@@ -334,6 +335,7 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
     },
     sheetToClient: {
       id: "id",
+      fecha: "date",
       unidad_movil: "unidad_movil",
       id_operario: "id_operario",
       descripcion_operario: "descripcion_operario",
@@ -1038,7 +1040,7 @@ const PREDEFINED_HEADERS: Record<string, string[]> = {
   EMPRESASV2: ["id", "nombre", "dirección", "cuit", "telefono", "email"],
   PROVEEDORES_BOLSAV2: ["id", "nombre", "direccion", "telefono", "email"],
   VEHICULOSV2: ["id", "marca", "identificación", "tipo", "carga_maxima"],
-  CARGA_COMBUSTIBLEV2: ["id", "unidad_movil", "id_operario", "descripcion_operario", "litros_combustible"],
+  CARGA_COMBUSTIBLEV2: ["id", "fecha", "unidad_movil", "id_operario", "descripcion_operario", "litros_combustible"],
   PUNTOS_CARGAV2: ["id", "nombre", "tipo"],
   DESPACHOSV2: [
     "id", "fecha", "turno_id", "descripcion_turno", "material_id", "descripcion_material", "toneladas", "usuario_id", "usuario_nombre"

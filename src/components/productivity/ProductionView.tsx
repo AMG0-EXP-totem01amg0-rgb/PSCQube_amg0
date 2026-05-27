@@ -462,7 +462,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
               />
               <GlassSelect 
                 label="Material" 
-                options={masters.materials.map((m:any) => ({label: m.name, value: m.id}))} 
+                options={masters.materials.filter((m: any) => !!m.isProductive).map((m: any) => ({label: m.name, value: m.id}))} 
                 value={formData.materialId} 
                 onChange={e => setFormData({...formData, materialId: (e.target as HTMLSelectElement).value})} 
               />
@@ -583,16 +583,16 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
             </div>
           </div>
 
-          <div className="pt-6 border-t border-border flex gap-3">
+          <div className="pt-6 border-t border-border flex flex-col sm:flex-row gap-3">
              <GlassButton 
               variant="secondary" 
-              className="flex-1" 
+              className="w-full sm:flex-1" 
               onClick={() => setIsModalOpen(false)}
             >
               Cancelar
             </GlassButton>
             <GlassButton 
-              className="flex-1"
+              className="w-full sm:flex-1"
               onClick={handleSave}
               disabled={!formData.baggerId || !formData.materialId || !formData.tons}
             >

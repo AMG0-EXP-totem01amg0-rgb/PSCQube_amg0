@@ -963,7 +963,7 @@ export default function App() {
                     <FuelView 
                         masters={masters} 
                         currentUser={currentUser}
-                        history={fuelLoads.filter(f => f.shiftId === userContext.selectedShiftId && f.date === userContext.selectedDate)}
+                        history={fuelLoads.filter(f => (!f.shiftId || f.shiftId === userContext.selectedShiftId) && f.date === userContext.selectedDate)}
                         allFuelLoads={fuelLoads}
                         onSave={handleSaveFuelLoad}
                         onDelete={handleDeleteFuelLoad}

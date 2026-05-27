@@ -222,13 +222,13 @@ export default function LoadingLanesView({ masters, currentUser, history, onSave
                </div>
             </GlassCard>
 
-            <div className="flex justify-center pt-4">
+            <div className="flex justify-center pt-4 w-full">
               <GlassButton 
                 onClick={handleSaveAll}
-                className="h-12 px-12 group"
+                className="h-12 px-6 sm:px-12 group w-full sm:w-auto text-xs sm:text-sm uppercase tracking-wider font-extrabold"
                 disabled={!selectedShiftId}
               >
-                <Save className="mr-2 group-hover:scale-110 transition-transform" size={20} /> Guardar Estado General
+                <Save className="mr-2 group-hover:scale-110 transition-transform shrink-0" size={16} /> Guardar Estado General
               </GlassButton>
             </div>
           </motion.div>

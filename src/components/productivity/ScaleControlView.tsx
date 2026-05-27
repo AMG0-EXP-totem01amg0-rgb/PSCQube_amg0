@@ -152,33 +152,33 @@ export default function ScaleControlView({ masters, currentUser, onSave, onDelet
             <p className="text-xs text-text-muted">Verificación de precisión y exactitud</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-           <div className="flex items-center gap-2 px-3 py-1.5 bg-bg/50 rounded-xl border border-border">
-            <Calendar size={14} className="text-primary" />
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-bg/50 rounded-xl border border-border justify-between sm:justify-start">
             <div className="flex items-center gap-2">
+              <Calendar size={14} className="text-primary shrink-0" />
               <input 
                 type="date" 
                 value={dateFrom} 
                 onChange={e => setDateFrom(e.target.value)}
-                className="bg-transparent border-none text-[10px] p-0 focus:ring-0 uppercase font-bold text-text-main"
+                className="bg-transparent border-none text-[10px] p-0 focus:ring-0 uppercase font-bold text-text-main max-w-[100px] xs:max-w-none"
               />
-              <span className="text-[10px] text-text-muted">A</span>
+              <span className="text-[10px] text-text-muted font-bold">A</span>
               <input 
                 type="date" 
                 value={dateTo} 
                 onChange={e => setDateTo(e.target.value)}
-                className="bg-transparent border-none text-[10px] p-0 focus:ring-0 uppercase font-bold text-text-main"
+                className="bg-transparent border-none text-[10px] p-0 focus:ring-0 uppercase font-bold text-text-main max-w-[100px] xs:max-w-none"
               />
-              {(dateFrom || dateTo) && (
-                <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="p-1 hover:text-danger transition-colors">
-                  <FilterX size={14} />
-                </button>
-              )}
             </div>
+            {(dateFrom || dateTo) && (
+              <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="p-1 hover:text-danger ml-1 shrink-0">
+                <FilterX size={14} />
+               </button>
+            )}
           </div>
           {!isFormOpen && canEdit && (
-            <GlassButton onClick={() => { setEditingId(null); setIsFormOpen(true); }} className="h-10 px-4">
-              <Plus size={18} /> <span className="hidden sm:inline ml-2">Nuevo Control</span>
+            <GlassButton onClick={() => { setEditingId(null); setIsFormOpen(true); }} className="h-10 px-4 w-full sm:w-auto justify-center">
+              <Plus size={18} /> <span className="inline ml-2">Nuevo Control</span>
             </GlassButton>
           )}
         </div>
@@ -257,10 +257,10 @@ export default function ScaleControlView({ masters, currentUser, onSave, onDelet
                       onChange={e => setFormData({...formData, observations: e.target.value})} 
                     />
                   </div>
-                  <div className="flex items-end gap-3">
-                    <GlassButton variant="secondary" onClick={() => setIsFormOpen(false)} className="flex-1 h-10">Cancelar</GlassButton>
-                    <GlassButton type="submit" className="flex-1 h-10">
-                      <Save size={16} /> Guardar
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2">
+                    <GlassButton variant="secondary" type="button" onClick={() => setIsFormOpen(false)} className="w-full sm:flex-1 h-10">Cancelar</GlassButton>
+                    <GlassButton type="submit" className="w-full sm:flex-1 h-10">
+                      <Save size={16} className="shrink-0" /> Guardar
                     </GlassButton>
                   </div>
                 </div>

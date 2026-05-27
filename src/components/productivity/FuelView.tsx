@@ -151,6 +151,12 @@ export default function FuelView({ masters, currentUser, onSave, onDelete, histo
 
   const columns: Column<FuelLoad>[] = [
     {
+      header: "Fecha",
+      accessor: (row) => (
+        <span className="text-sm text-text-main font-mono">{row.date}</span>
+      )
+    },
+    {
       header: "Identificación Vehículo",
       accessor: (row) => (
         <div className="flex items-center gap-2">

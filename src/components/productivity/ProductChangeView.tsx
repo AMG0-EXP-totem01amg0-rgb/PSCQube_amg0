@@ -626,9 +626,9 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
                 </div>
             </div>
 
-            <div className="flex gap-4 pt-4">
-                <GlassButton variant="secondary" className="flex-1 h-12" onClick={() => setIsModalOpen(false)}>Cancelar</GlassButton>
-                <GlassButton className="flex-1 h-12 shadow-xl shadow-primary/20" onClick={handleSave}>
+            <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                <GlassButton variant="secondary" className="w-full sm:flex-1 h-12" onClick={() => setIsModalOpen(false)}>Cancelar</GlassButton>
+                <GlassButton className="w-full sm:flex-1 h-12 shadow-xl shadow-primary/20" onClick={handleSave}>
                    {isLabUser ? "Guardar Análisis" : "Guardar Registro"}
                 </GlassButton>
             </div>
