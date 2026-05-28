@@ -11,6 +11,7 @@ import {
   FileUp,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   User as UserIcon,
   Shield,
   LogIn,
@@ -1908,6 +1909,9 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
     },
   );
 
+  const [productivityExpanded, setProductivityExpanded] = useState(true);
+  const [adminExpanded, setAdminExpanded] = useState(false);
+
   const typeNames: Record<string, { name: string; female?: boolean }> = {
     SHIFTS: { name: "Turno", female: false },
     MACHINES: { name: "Maquina", female: true },
@@ -2502,12 +2506,20 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                         </thead>
                         <tbody className="divide-y divide-border">
                           {/* PRODUCTIVITY SECTION */}
-                          <tr className="bg-primary/5">
+                          <tr 
+                            className="bg-primary/5 cursor-pointer hover:bg-primary/10 transition-colors select-none"
+                            onClick={() => setProductivityExpanded(!productivityExpanded)}
+                          >
                             <td colSpan={2} className="px-4 py-2.5 text-[9px] font-black text-primary tracking-widest uppercase bg-bg/20">
-                              ⚡ Funcionalidades de Productividad
+                              <div className="flex items-center justify-between">
+                                <span className="flex items-center gap-1.5">
+                                  ⚡ Funcionalidades de Productividad
+                                </span>
+                                {productivityExpanded ? <ChevronDown size={14} className="text-primary/70" /> : <ChevronRight size={14} className="text-primary/70" />}
+                              </div>
                             </td>
                           </tr>
-                          {SYSTEM_VIEWS.filter((v) => v.section === "PRODUCTIVITY").map((view) => {
+                          {productivityExpanded && SYSTEM_VIEWS.filter((v) => v.section === "PRODUCTIVITY").map((view) => {
                             const p = formData.permissions.find(
                               (perm: any) => perm.viewId === view.id,
                             ) || { level: "NONE" };
@@ -2576,12 +2588,20 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                           })}
 
                           {/* ADMIN SECTION */}
-                          <tr className="bg-[#005596]/5 dark:bg-primary/5">
+                          <tr 
+                            className="bg-[#005596]/5 dark:bg-primary/5 cursor-pointer hover:bg-[#005596]/10 dark:hover:bg-primary/10 transition-colors select-none"
+                            onClick={() => setAdminExpanded(!adminExpanded)}
+                          >
                             <td colSpan={2} className="px-4 py-2.5 text-[9px] font-black text-[#005596] dark:text-primary tracking-widest uppercase bg-bg/20 border-t border-border">
-                              ⚙️ Catálogos y Maestros del Sistema (Admin)
+                              <div className="flex items-center justify-between">
+                                <span className="flex items-center gap-1.5">
+                                  ⚙️ Catálogos y Maestros del Sistema (Admin)
+                                </span>
+                                {adminExpanded ? <ChevronDown size={14} className="text-[#005596]/70 dark:text-primary/70" /> : <ChevronRight size={14} className="text-[#005596]/70 dark:text-primary/70" />}
+                              </div>
                             </td>
                           </tr>
-                          {SYSTEM_VIEWS.filter((v) => v.section === "ADMIN").map((view) => {
+                          {adminExpanded && SYSTEM_VIEWS.filter((v) => v.section === "ADMIN").map((view) => {
                             const p = formData.permissions.find(
                               (perm: any) => perm.viewId === view.id,
                             ) || { level: "NONE" };
