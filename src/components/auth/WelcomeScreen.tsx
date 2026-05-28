@@ -215,7 +215,7 @@ export default function WelcomeScreen({ onEnter, onLoginSuccess, addToast }: Wel
                     <div className="space-y-2">
                       <h3 className="text-lg font-bold text-text-main tracking-tight uppercase">
                         {authStage === 'authenticating' && "Autenticando con Google"}
-                        {authStage === 'verifying_user' && "Consultando usuariosv2"}
+                        {authStage === 'verifying_user' && "Consultando base de datos"}
                         {authStage === 'authorized' && "Acceso Autorizado"}
                       </h3>
                       <p className="text-sm font-semibold text-primary font-mono tracking-wide animate-pulse">
@@ -242,7 +242,7 @@ export default function WelcomeScreen({ onEnter, onLoginSuccess, addToast }: Wel
 
                     <div className="space-y-2 text-sm text-text-muted font-medium">
                       <p>
-                        Tu identidad se verificó exitosamente en Google, pero tu correo electrónico no tiene permisos registrados en la tabla <span className="font-mono text-primary font-bold">usuariosv2</span>.
+                        Tu identidad se verificó exitosamente en Google, pero tu correo electrónico no tiene permisos en la aplicación.
                       </p>
                       <p className="text-xs bg-surface/50 p-2.5 rounded border border-border italic font-mono text-center">
                         {statusMessage}
