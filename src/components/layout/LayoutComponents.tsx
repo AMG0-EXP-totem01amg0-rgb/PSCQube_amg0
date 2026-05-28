@@ -103,7 +103,7 @@ export function NotificationBellDropdown({
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            className="absolute right-0 mt-3 w-80 sm:w-96 rounded-2xl border border-border bg-surface-elevated p-3 shadow-2xl z-[120]"
+            className="fixed sm:absolute top-16 sm:top-full left-4 right-4 sm:left-auto sm:right-0 mt-2 sm:mt-3 w-auto sm:w-96 rounded-2xl border border-border bg-surface-elevated p-3 shadow-2xl z-[120] max-h-[80vh] sm:max-h-[500px] flex flex-col"
           >
             <div className="flex items-center justify-between border-b border-border pb-2.5 mb-2.5 px-1">
               <div className="flex items-center gap-1.5">
@@ -126,7 +126,7 @@ export function NotificationBellDropdown({
               )}
             </div>
 
-            <div className="max-h-[320px] overflow-y-auto space-y-2 pr-0.5 scrollbar-thin">
+            <div className="max-h-[300px] sm:max-h-[380px] overflow-y-auto space-y-2 pr-0.5 scrollbar-thin flex-1">
               {userNotifications.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center px-4">
                   <div className="w-12 h-12 rounded-full bg-bg/50 border border-border flex items-center justify-center text-text-muted mb-2.5">
@@ -222,6 +222,7 @@ export function Header({
   const dateInputRef = useRef<HTMLInputElement>(null);
   const selected = palletizers.find(p => p.id === selectedId);
   const selectedShift = shifts.find(s => s.id === selectedShiftId);
+  const isLabUser = currentUser?.profile === 'Laboratorio' || currentUser?.position === 'Laboratórista';
 
   const handleDateClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -300,7 +301,7 @@ export function Header({
             </div>
             
             {/* Small indicator of current shift when collapsed */}
-            {isCollapsed && (
+            {isCollapsed && !isLabUser && (
               <div className="sm:hidden px-2 py-0.5 bg-primary/10 rounded-full border border-primary/20">
                 <span className="text-[8px] font-black text-primary uppercase">{selectedShift?.name || 'T1'}</span>
               </div>
@@ -348,75 +349,79 @@ export function Header({
               className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 flex-1 sm:justify-end pb-2 sm:pb-0"
             >
               {/* Shift Selector */}
-              <div className="bg-bg p-1 rounded-full border border-border flex items-center h-10 sm:h-10 shrink-0">
-                {shifts.map(s => {
-                  const isActive = s.id === selectedShiftId;
-                  const shiftLabels: Record<string, string> = { 'T1': 'MAÑ', 'T2': 'TAR', 'T3': 'NOC' };
-                  return (
-                    <button
-                      key={s.id}
-                      onClick={() => onShiftSelect(s.id)}
-                      className={cn(
-                        "flex-1 sm:flex-none px-4 sm:px-3 h-full rounded-full text-[10px] font-black uppercase tracking-widest transition-all",
-                        isActive 
-                          ? "btn-active-highlight" 
-                          : "text-text-muted hover:text-text-main"
-                      )}
-                    >
-                      {shiftLabels[s.name] || s.name}
-                    </button>
-                  );
-                })}
-              </div>
+              {!isLabUser && (
+                <div className="bg-bg p-1 rounded-full border border-border flex items-center h-10 sm:h-10 shrink-0">
+                  {shifts.map(s => {
+                    const isActive = s.id === selectedShiftId;
+                    const shiftLabels: Record<string, string> = { 'T1': 'MAÑ', 'T2': 'TAR', 'T3': 'NOC' };
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => onShiftSelect(s.id)}
+                        className={cn(
+                          "flex-1 sm:flex-none px-4 sm:px-3 h-full rounded-full text-[10px] font-black uppercase tracking-widest transition-all",
+                          isActive 
+                            ? "btn-active-highlight" 
+                            : "text-text-muted hover:text-text-main"
+                        )}
+                      >
+                        {shiftLabels[s.name] || s.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Machine Selector - Fixed Dropdown Context */}
-              <div className="relative shrink-0 sm:shrink-0 sm:min-w-[180px]">
-                <button 
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className={cn(
-                    "h-10 px-4 bg-bg rounded-full flex items-center justify-between gap-3 border border-border transition-all w-full",
-                    isDropdownOpen ? "border-primary shadow-lg ring-2 ring-primary/10" : "hover:border-primary/50"
-                  )}
-                >
-                  <div className="flex items-center gap-2.5 truncate">
-                    <Factory size={14} className="text-text-main shrink-0" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-text-main truncate">
-                      {selected?.name || 'Máquina'}
-                    </span>
-                  </div>
-                  <ChevronDown size={14} className={cn("text-text-muted transition-transform duration-300 shrink-0", isDropdownOpen && "rotate-180")} />
-                </button>
-                
-                {/* Anchored Dropdown (Not Bottom Sheet) */}
-                <AnimatePresence>
-                  {isDropdownOpen && (
-                    <>
-                      <div className="fixed inset-0 z-[60]" onClick={() => setIsDropdownOpen(false)} />
-                      <motion.div 
-                        initial={{ opacity: 0, y: 8, scale: 0.98 }} 
-                        animate={{ opacity: 1, y: 0, scale: 1 }} 
-                        exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                        className="absolute top-full left-0 right-0 mt-2 z-[70] bg-surface-elevated rounded-2xl p-2 shadow-2xl border border-border sm:w-64 max-h-[280px] overflow-y-auto"
-                      >
-                        {palletizers.map(p => (
-                          <button 
-                            key={p.id} 
-                            onClick={() => { onSelect(p.id); setIsDropdownOpen(false); }}
-                            className={cn(
-                              "w-full text-left px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all mb-1", 
-                              p.id === selectedId 
-                                ? "bg-primary text-white shadow-sm" 
-                                : "hover:bg-bg text-text-muted hover:text-text-main"
-                            )}
-                          >
-                            {p.name}
-                          </button>
-                        ))}
-                      </motion.div>
-                    </>
-                  )}
-                </AnimatePresence>
-              </div>
+              {!isLabUser && (
+                <div className="relative shrink-0 sm:shrink-0 sm:min-w-[180px]">
+                  <button 
+                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                    className={cn(
+                      "h-10 px-4 bg-bg rounded-full flex items-center justify-between gap-3 border border-border transition-all w-full",
+                      isDropdownOpen ? "border-primary shadow-lg ring-2 ring-primary/10" : "hover:border-primary/50"
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5 truncate">
+                      <Factory size={14} className="text-text-main shrink-0" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-text-main truncate">
+                        {selected?.name || 'Máquina'}
+                      </span>
+                    </div>
+                    <ChevronDown size={14} className={cn("text-text-muted transition-transform duration-300 shrink-0", isDropdownOpen && "rotate-180")} />
+                  </button>
+                  
+                  {/* Anchored Dropdown (Not Bottom Sheet) */}
+                  <AnimatePresence>
+                    {isDropdownOpen && (
+                      <>
+                        <div className="fixed inset-0 z-[60]" onClick={() => setIsDropdownOpen(false)} />
+                        <motion.div 
+                          initial={{ opacity: 0, y: 8, scale: 0.98 }} 
+                          animate={{ opacity: 1, y: 0, scale: 1 }} 
+                          exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                          className="absolute top-full left-0 right-0 mt-2 z-[70] bg-surface-elevated rounded-2xl p-2 shadow-2xl border border-border sm:w-64 max-h-[280px] overflow-y-auto"
+                        >
+                          {palletizers.map(p => (
+                            <button 
+                              key={p.id} 
+                              onClick={() => { onSelect(p.id); setIsDropdownOpen(false); }}
+                              className={cn(
+                                "w-full text-left px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all mb-1", 
+                                p.id === selectedId 
+                                  ? "bg-primary text-white shadow-sm" 
+                                  : "hover:bg-bg text-text-muted hover:text-text-main"
+                              )}
+                            >
+                              {p.name}
+                            </button>
+                          ))}
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
 
               {/* Notification Bell - Desktop */}
               <div className="hidden sm:block ml-2">
