@@ -19,7 +19,7 @@ export default function WelcomeScreen({ onEnter, onLoginSuccess, addToast }: Wel
   const verifyAndAuthorizeEmail = async (email: string, fullName?: string) => {
     setIsLoggingIn(true);
     setAuthStage('verifying_user');
-    setStatusMessage('Consultando base de datos (usuariosv2)...');
+    setStatusMessage('Consultando base de datos...');
     try {
       // Fetch authorized users list from the backend
       const res = await fetch('/api/sheets?table=USUARIOSV2');
@@ -124,7 +124,7 @@ export default function WelcomeScreen({ onEnter, onLoginSuccess, addToast }: Wel
   const handleGoogleLogin = async () => {
     setIsLoggingIn(true);
     setAuthStage('authenticating');
-    setStatusMessage('Conectando con Supabase...');
+    setStatusMessage('Validando usuario');
     try {
       const supabase = await getSupabaseClient();
       if (!supabase) {
@@ -298,7 +298,7 @@ export default function WelcomeScreen({ onEnter, onLoginSuccess, addToast }: Wel
                         Ingresar con Google
                       </GlassButton>
                       <p className="text-[11px] text-center text-text-muted font-semibold tracking-wide">
-                        Requiere que su email esté registrado por su Super Usuario en <span className="font-mono text-primary font-bold">usuariosv2</span>
+                        Requiere que su email esté registrado <span className="font-mono text-primary font-bold">usuariosv2</span>
                       </p>
                     </div>
                   </>
