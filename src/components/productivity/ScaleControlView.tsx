@@ -161,14 +161,24 @@ export default function ScaleControlView({ masters, currentUser, onSave, onDelet
                 type="date" 
                 value={dateFrom} 
                 onChange={e => setDateFrom(e.target.value)}
-                className="bg-transparent border-none text-[10px] p-0 focus:ring-0 uppercase font-bold text-text-main max-w-[100px] xs:max-w-none"
+                onClick={(e) => {
+                  try {
+                    e.currentTarget.showPicker();
+                  } catch (err) {}
+                }}
+                className="bg-transparent border-none text-[11px] p-0 focus:ring-0 uppercase font-bold text-text-main max-w-[110px] xs:max-w-none cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-80 dark:[&::-webkit-calendar-picker-indicator]:invert"
               />
               <span className="text-[10px] text-text-muted font-bold">A</span>
               <input 
                 type="date" 
                 value={dateTo} 
                 onChange={e => setDateTo(e.target.value)}
-                className="bg-transparent border-none text-[10px] p-0 focus:ring-0 uppercase font-bold text-text-main max-w-[100px] xs:max-w-none"
+                onClick={(e) => {
+                  try {
+                    e.currentTarget.showPicker();
+                  } catch (err) {}
+                }}
+                className="bg-transparent border-none text-[11px] p-0 focus:ring-0 uppercase font-bold text-text-main max-w-[110px] xs:max-w-none cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-80 dark:[&::-webkit-calendar-picker-indicator]:invert"
               />
             </div>
             {(dateFrom || dateTo) && (
