@@ -285,7 +285,7 @@ export default function WelcomeScreen({ onEnter, onLoginSuccess, addToast }: Wel
                         Ingresar
                       </GlassButton>
                       <p className="text-[11px] text-center text-text-muted font-semibold tracking-wide">
-                        Requiere que su email esté registrado <span className="font-mono text-primary font-bold">usuariosv2</span>
+                        Requiere que su email esté registrado </span>
                       </p>
                     </div>
                   </>
