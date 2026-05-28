@@ -143,9 +143,31 @@ export default function App() {
 
   const currentUser = useMemo(() => {
     let found = masters.users.find(u => u.dni === userContext.currentUserDni) || masters.users[0] || DEFAULT_USER;
-    if (found && (found.email?.toLowerCase() === 'joni0627@gmail.com' || found.dni === '20-12345678-9')) {
+    
+    // Auto-normalize permissions array for safety to prevent client crashes from empty/missing/string properties
+    let normalized = { ...found };
+    let perms = normalized.permissions || (normalized as any).permisos;
+    if (typeof perms === 'string' && perms.trim() !== '') {
+      try {
+        perms = JSON.parse(perms);
+      } catch {
+        perms = [];
+      }
+    }
+    if (!Array.isArray(perms) || perms.length === 0) {
+      const level = normalized.profile === 'Administrador' ? 'EDIT' : 'VIEW';
+      perms = SYSTEM_VIEWS.map(v => ({
+        viewId: v.id,
+        label: v.label,
+        section: v.section,
+        level: level
+      }));
+    }
+    normalized.permissions = perms;
+
+    if (normalized && (normalized.email?.toLowerCase() === 'joni0627@gmail.com' || normalized.dni === '20-12345678-9')) {
       return {
-        ...found,
+        ...normalized,
         profile: 'Administrador' as const,
         permissions: SYSTEM_VIEWS.map(v => ({
           viewId: v.id,
@@ -155,7 +177,7 @@ export default function App() {
         }))
       };
     }
-    return found;
+    return normalized;
   }, [masters.users, userContext.currentUserDni, DEFAULT_USER]);
 
   const canView = (viewId: string) => {
@@ -369,8 +391,32 @@ export default function App() {
         if (resMaterials.success && resMaterials.data) setMaterials(resMaterials.data);
         if (resCapacities.success && resCapacities.data) setCapacities(resCapacities.data);
         if (resUsers.success && resUsers.data) {
-          setUsers(resUsers.data);
-          finalUsers = resUsers.data;
+          // Normalize user permissions lists right on fetch to heal any data in Google Sheets / Supabase
+          const normalized = (resUsers.data as any[]).map(u => {
+            let perms = u.permissions || u.permisos;
+            if (typeof perms === 'string' && perms.trim() !== '') {
+              try {
+                perms = JSON.parse(perms);
+              } catch {
+                perms = [];
+              }
+            }
+            if (!Array.isArray(perms) || perms.length === 0) {
+              const level = u.profile === 'Administrador' ? 'EDIT' : 'VIEW';
+              perms = SYSTEM_VIEWS.map(v => ({
+                viewId: v.id,
+                label: v.label,
+                section: v.section,
+                level: level
+              }));
+            }
+            return {
+              ...u,
+              permissions: perms
+            };
+          });
+          setUsers(normalized);
+          finalUsers = normalized;
         }
         if (resCompanies.success && resCompanies.data) setCompanies(resCompanies.data);
         if (resLoadingPoints.success && resLoadingPoints.data) setLoadingPoints(resLoadingPoints.data);
@@ -1193,19 +1239,27 @@ export default function App() {
                       if (type === 'CAPACITIES') setCapacities(data);
                       if (type === 'USERS') {
                         const cleaned = (data as any[]).map(u => {
-                          if (!u.permissions || !Array.isArray(u.permissions)) {
-                            const level = u.profile === 'Administrador' ? 'EDIT' : 'VIEW';
-                            return {
-                              ...u,
-                              permissions: SYSTEM_VIEWS.map(v => ({
-                                viewId: v.id,
-                                label: v.label,
-                                section: v.section,
-                                level: level
-                              }))
-                            };
+                          let perms = u.permissions || u.permisos;
+                          if (typeof perms === 'string' && perms.trim() !== '') {
+                            try {
+                              perms = JSON.parse(perms);
+                            } catch {
+                              perms = [];
+                            }
                           }
-                          return u;
+                          if (!Array.isArray(perms) || perms.length === 0) {
+                            const level = u.profile === 'Administrador' ? 'EDIT' : 'VIEW';
+                            perms = SYSTEM_VIEWS.map(v => ({
+                              viewId: v.id,
+                              label: v.label,
+                              section: v.section,
+                              level: level
+                            }));
+                          }
+                          return {
+                            ...u,
+                            permissions: perms
+                          };
                         });
                         setUsers(cleaned);
                         targetData = cleaned;

@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import { GlassCard, GlassButton } from '../ui/GlassUI';
 import { getSupabaseClient } from '../../lib/supabaseClient';
+import { SYSTEM_VIEWS } from '../../lib/mockData';
 
 interface WelcomeScreenProps {
   onEnter: () => void;
@@ -53,7 +54,26 @@ export default function WelcomeScreen({ onEnter, onLoginSuccess, addToast }: Wel
           if (matchedUserObj.usuariosap && !matchedUserObj.sapUser) matchedUserObj.sapUser = matchedUserObj.usuariosap;
           if (matchedUserObj.puesto && !matchedUserObj.position) matchedUserObj.position = matchedUserObj.puesto;
           if (matchedUserObj.perfil && !matchedUserObj.profile) matchedUserObj.profile = matchedUserObj.perfil;
-          if (matchedUserObj.permisos && !matchedUserObj.permissions) matchedUserObj.permissions = matchedUserObj.permisos;
+          
+          // Enforce robust array of permissions on login success to prevent client crashes
+          let perms = matchedUserObj.permissions || matchedUserObj.permisos;
+          if (typeof perms === 'string' && perms.trim() !== '') {
+            try {
+              perms = JSON.parse(perms);
+            } catch {
+              perms = [];
+            }
+          }
+          if (!Array.isArray(perms) || perms.length === 0) {
+            const level = (matchedUserObj.profile || matchedUserObj.perfil) === 'Administrador' ? 'EDIT' : 'VIEW';
+            perms = SYSTEM_VIEWS.map((v: any) => ({
+              viewId: v.id,
+              label: v.label,
+              section: v.section,
+              level: level
+            }));
+          }
+          matchedUserObj.permissions = perms;
 
           addToast(`Sesión iniciada con éxito como ${matchedUserObj.name || email}`, 'success');
           setTimeout(() => {
@@ -87,6 +107,13 @@ export default function WelcomeScreen({ onEnter, onLoginSuccess, addToast }: Wel
     let subscription: any = null;
 
     async function checkAuth() {
+      // If we already have an active saved session running on the main App component, bypass duplicate check
+      const savedDni = sessionStorage.getItem('pscqube_user_dni');
+      if (savedDni) {
+        console.log("[WelcomeScreen] Bypassing auto-login check because savedDni is already active");
+        return;
+      }
+
       const supabase = await getSupabaseClient();
       if (!supabase) return;
 
