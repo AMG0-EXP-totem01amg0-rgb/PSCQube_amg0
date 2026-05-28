@@ -48,6 +48,69 @@ export interface FetchResult {
   error?: string;
 }
 
+const CACHE_PREFIX = "app_table_cache_v2_";
+
+/**
+ * Reads cached data for a given table from sessionStorage.
+ */
+function getCachedData(tableName: string): any[] | null {
+  try {
+    const key = CACHE_PREFIX + tableName.toUpperCase();
+    const item = sessionStorage.getItem(key);
+    if (item) {
+      return JSON.parse(item);
+    }
+  } catch (err) {
+    console.warn("[Client Cache Read Error]", err);
+  }
+  return null;
+}
+
+/**
+ * Saves table data into sessionStorage.
+ */
+function setCachedData(tableName: string, data: any[]): void {
+  try {
+    const key = CACHE_PREFIX + tableName.toUpperCase();
+    sessionStorage.setItem(key, JSON.stringify(data));
+  } catch (err) {
+    console.warn("[Client Cache Write Error]", err);
+  }
+}
+
+/**
+ * Clears cached data from sessionStorage for a specific table or all.
+ */
+export function clearClientCache(tableName?: string): void {
+  try {
+    if (tableName) {
+      const sheetName = tableName.toUpperCase();
+      const keysToClear = [sheetName, sheetName.endsWith('V2') ? sheetName : `${sheetName}V2`];
+      keysToClear.forEach(k => {
+        sessionStorage.removeItem(CACHE_PREFIX + k);
+      });
+
+      // Special dependency invalidation: PAROSV2, PRODUCCIONV2 and PAROS_BOQUILLASV2 are closely linked on calculations
+      if (sheetName.includes("PARO") || sheetName.includes("PRODUC") || sheetName.includes("BOQUILLA")) {
+        sessionStorage.removeItem(CACHE_PREFIX + "PAROSV2");
+        sessionStorage.removeItem(CACHE_PREFIX + "PRODUCCIONV2");
+        sessionStorage.removeItem(CACHE_PREFIX + "PAROS_BOQUILLASV2");
+      }
+    } else {
+      // Clear all related prefix keys
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && key.startsWith(CACHE_PREFIX)) {
+          sessionStorage.removeItem(key);
+          i--; // offset index shift
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[Client Cache Clear Error]", err);
+  }
+}
+
 /**
  * Sync Table Data
  * Sends local data to Google Sheets via secure Express endpoint.
@@ -58,6 +121,9 @@ export async function syncTableToSheets(tableName: string, data: any[]): Promise
   if (!sheetName.endsWith('V2')) {
     sheetName = `${sheetName}V2`;
   }
+
+  // Invalidate cache immediately on change
+  clearClientCache(sheetName);
 
   try {
     const response = await fetch('/api/sheets', {
@@ -88,10 +154,19 @@ export async function syncTableToSheets(tableName: string, data: any[]): Promise
 /**
  * Fetch Table Data from Google Sheets
  */
-export async function fetchTableFromSheets(tableName: string): Promise<FetchResult> {
+export async function fetchTableFromSheets(tableName: string, forceBypass = false): Promise<FetchResult> {
   let sheetName = tableName.toUpperCase();
   if (!sheetName.endsWith('V2')) {
     sheetName = `${sheetName}V2`;
+  }
+
+  // Optimize: Try loading from browser / explorer sessionStorage cache first
+  if (!forceBypass) {
+    const cached = getCachedData(sheetName);
+    if (cached) {
+      console.log(`[Client Cache Hit] Loaded table ${sheetName} from sessionStorage`);
+      return { success: true, data: cached };
+    }
   }
 
   try {
@@ -105,6 +180,8 @@ export async function fetchTableFromSheets(tableName: string): Promise<FetchResu
 
     const result = await response.json();
     if (result.success && Array.isArray(result.data)) {
+      // Warm browser cache
+      setCachedData(sheetName, result.data);
       return { success: true, data: result.data };
     }
     return { success: false, error: result.error || "Formato de respuesta inválido" };
@@ -122,6 +199,9 @@ export async function createRecordInSheets(tableName: string, item: any): Promis
   if (!sheetName.endsWith('V2')) {
     sheetName = `${sheetName}V2`;
   }
+
+  // Invalidate cache immediately on change
+  clearClientCache(sheetName);
 
   try {
     const response = await fetch('/api/sheets', {
@@ -158,6 +238,9 @@ export async function updateRecordInSheets(tableName: string, id: string, item: 
     sheetName = `${sheetName}V2`;
   }
 
+  // Invalidate cache immediately on change
+  clearClientCache(sheetName);
+
   try {
     const response = await fetch('/api/sheets', {
       method: 'POST',
@@ -193,6 +276,9 @@ export async function deleteRecordInSheets(tableName: string, id: string): Promi
   if (!sheetName.endsWith('V2')) {
     sheetName = `${sheetName}V2`;
   }
+
+  // Invalidate cache immediately on change
+  clearClientCache(sheetName);
 
   try {
     const response = await fetch('/api/sheets', {

@@ -602,6 +602,7 @@ async function deleteFromSupabase(tableName: string, idKey: string, idVal: any):
     tablesToTry.push(table.slice(0, -2));
   }
 
+  let lastError: any = null;
   for (const targetTable of tablesToTry) {
     try {
       // Attempt delete by standard dbIdCol first
@@ -634,11 +635,12 @@ async function deleteFromSupabase(tableName: string, idKey: string, idVal: any):
       throw error;
     } catch (err) {
       console.warn(`[Supabase Delete Trial Warning] Trial for '${targetTable}' failed: ${formatSupabaseError(err)}`);
+      lastError = err;
     }
   }
 
   console.error(`[Supabase Delete Failure] All delete trials for table ${table} failed.`);
-  return null;
+  throw lastError || new Error(`Todas las pruebas de eliminación en Supabase para la tabla ${table} fallaron.`);
 }
 
 // Set up JSON body parser with generous limit
@@ -3114,21 +3116,18 @@ app.get("/api/sheets", async (req, res) => {
     return res.status(400).json({ success: false, error: "Falta el parámetro 'table'" });
   }
 
-  const supabase = getSupabaseClient();
-  if (supabase) {
-    try {
-      const dbList = await readFromSupabase(table);
-      if (dbList !== null) {
-        return res.json({ success: true, data: dbList });
-      }
-    } catch (supaErr: any) {
-      console.error(`[Supabase GET direct fail] Table ${table}: ${formatSupabaseError(supaErr)}`);
-      return res.status(500).json({ success: false, error: supaErr.message || supaErr.toString() });
-    }
+  // Safely attempt to initialize Google Sheets client details (making them optional if Supabase is active)
+  let sheets: any = null;
+  let spreadsheetId: string = "";
+  try {
+    const sheetsClient = getSheetsClient();
+    sheets = sheetsClient.sheets;
+    spreadsheetId = sheetsClient.spreadsheetId;
+  } catch (err) {
+    console.log("[Optional Google Sheets Connection Skipped in GET]", err instanceof Error ? err.message : err);
   }
 
   try {
-    const { sheets, spreadsheetId } = getSheetsClient();
     const list = await readTableData(sheets, spreadsheetId, table);
     return res.json({ success: true, data: list });
   } catch (error: any) {
