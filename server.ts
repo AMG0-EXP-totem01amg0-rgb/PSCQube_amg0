@@ -56,6 +56,11 @@ function sanitizeColumnName(col: string): string {
     .replace(/^_+|_+$/g, "");       // trim leading/trailing underscores
 }
 
+function safeMatch(idA: any, idB: any): boolean {
+  if (idA === undefined || idA === null || idB === undefined || idB === null) return false;
+  return String(idA).trim() === String(idB).trim();
+}
+
 function formatSupabaseError(err: any): string {
   if (!err) return "unknown error";
   if (typeof err === "object") {
@@ -108,6 +113,47 @@ function sanitizeValue(val: any): any {
   return val;
 }
 
+const BOOLEAN_COLUMNS = new Set([
+  "es_punto_de_muestreo",
+  "es_fechador",
+  "es_balanza",
+  "es_pallet",
+  "es_productivo",
+  "es_insumo",
+  "es_bigbag",
+  "todo_el_turno",
+  "purga",
+  "valvula_silo_cerrada",
+  "circuito_vaciado",
+  "maquina_limpia",
+  "tolva_vaciada",
+  "silo_cambiado",
+  "fechador_actualizado",
+  "envase_correcto",
+  "dos_big_bags_pal",
+  "muestreo_color",
+  "muestra_enviada_lab",
+  "producto_liberado",
+  "habilitada"
+]);
+
+function toBoolean(val: any): boolean {
+  if (val === undefined || val === null) return false;
+  if (typeof val === 'boolean') return val;
+  const str = String(val).toLowerCase().trim();
+  return str === 'si' || str === 'sí' || str === 'yes' || str === 'true' || str === '1' || str === 't' || str === 's';
+}
+
+function getProcessedValue(colName: string, originalKey: string, val: any): any {
+  const cleanCol = sanitizeColumnName(colName);
+  const cleanOrig = sanitizeColumnName(originalKey);
+  if (BOOLEAN_COLUMNS.has(cleanCol) || BOOLEAN_COLUMNS.has(cleanOrig) || colName.endsWith('?') || originalKey.endsWith('?')) {
+    return toBoolean(val);
+  }
+  const sanitized = sanitizeValue(val);
+  return typeof sanitized === "object" ? JSON.stringify(sanitized) : sanitized;
+}
+
 function mapItemForSupabase(tableName: string, item: any): Record<string, any> {
   const upperTable = tableName.toUpperCase();
   const schema = TABLE_SCHEMAS[upperTable];
@@ -124,8 +170,7 @@ function mapItemForSupabase(tableName: string, item: any): Record<string, any> {
     for (const [key, val] of Object.entries(item)) {
       if (val !== undefined && val !== null) {
         if (allowedColumns.has(key)) {
-          const sanitized = sanitizeValue(val);
-          tempPayload[key] = typeof sanitized === "object" ? JSON.stringify(sanitized) : sanitized;
+          tempPayload[key] = getProcessedValue(key, key, val);
         }
       }
     }
@@ -137,9 +182,7 @@ function mapItemForSupabase(tableName: string, item: any): Record<string, any> {
         val = item[header];
       }
       if (val !== undefined && val !== null) {
-        const sanitized = sanitizeValue(val);
-        const processedVal = typeof sanitized === "object" ? JSON.stringify(sanitized) : sanitized;
-        tempPayload[header] = processedVal;
+        tempPayload[header] = getProcessedValue(header, clientKey, val);
       }
     }
 
@@ -168,8 +211,7 @@ function mapItemForSupabase(tableName: string, item: any): Record<string, any> {
       if (val !== undefined && val !== null) {
         const cleanKey = sanitizeColumnName(key);
         if (allowedColumns.has(cleanKey)) {
-          const sanitized = sanitizeValue(val);
-          tempPayload[cleanKey] = typeof sanitized === "object" ? JSON.stringify(sanitized) : sanitized;
+          tempPayload[cleanKey] = getProcessedValue(cleanKey, key, val);
         }
       }
     }
@@ -187,9 +229,7 @@ function mapItemForSupabase(tableName: string, item: any): Record<string, any> {
       }
 
       if (val !== undefined && val !== null) {
-        const sanitized = sanitizeValue(val);
-        const processedVal = typeof sanitized === "object" ? JSON.stringify(sanitized) : sanitized;
-        tempPayload[cleanCol] = processedVal;
+        tempPayload[cleanCol] = getProcessedValue(cleanCol, clientKey, val);
       }
     }
 
@@ -207,8 +247,7 @@ function mapItemForSupabase(tableName: string, item: any): Record<string, any> {
   for (const [key, val] of Object.entries(item)) {
     if (val !== undefined && val !== null) {
       const cleanKey = sanitizeColumnName(key);
-      const sanitized = sanitizeValue(val);
-      mapped[cleanKey] = typeof sanitized === "object" ? JSON.stringify(sanitized) : sanitized;
+      mapped[cleanKey] = getProcessedValue(cleanKey, key, val);
     }
   }
 
@@ -1886,47 +1925,30 @@ function areRecordsEqual(recordA: any, recordB: any, schemaHeaders: string[], sc
 async function enrichProductionRecords(sheets: any, spreadsheetId: string, data: any[]) {
   if (!data || data.length === 0) return;
   try {
-    const [turnsRes, palRes, bagRes, matRes, hacRes, parosRes, causasRes, capacitiesRes] = await Promise.all([
-      callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "TURNOSV2!A1:Z5000" })).catch(() => null),
-      callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "PALETIZADORAV2!A1:Z5000" })).catch(() => null),
-      callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "ENSACADORAV2!A1:Z5000" })).catch(() => null),
-      callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "MATERIALESV2!A1:Z5000" })).catch(() => null),
-      callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "HACSV2!A1:Z5000" })).catch(() => null),
-      callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "PAROSV2!A1:Z50000" })).catch(() => null),
-      callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "CAUSASV2!A1:Z5000" })).catch(() => null),
-      callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "CAPACIDADESV2!A1:Z5000" })).catch(() => null),
+    const [dbShifts, dbPalletizers, dbBaggers, dbMaterials, dbHacs, dbParos, dbCauses, dbCapacities] = await Promise.all([
+      readTableData(sheets, spreadsheetId, "TURNOSV2").catch(() => []),
+      readTableData(sheets, spreadsheetId, "PALETIZADORAV2").catch(() => []),
+      readTableData(sheets, spreadsheetId, "ENSACADORAV2").catch(() => []),
+      readTableData(sheets, spreadsheetId, "MATERIALESV2").catch(() => []),
+      readTableData(sheets, spreadsheetId, "HACSV2").catch(() => []),
+      readTableData(sheets, spreadsheetId, "PAROSV2").catch(() => []),
+      readTableData(sheets, spreadsheetId, "CAUSASV2").catch(() => []),
+      readTableData(sheets, spreadsheetId, "CAPACIDADESV2").catch(() => []),
     ]);
 
-    const parseRows = (res: any, tableName: string) => {
-      if (!res || !res.data || !res.data.values || res.data.values.length < 2) return [];
-      const headers = res.data.values[0];
-      const rows = res.data.values.slice(1);
-      return rows.map((r: any) => parseRowToClientObject(headers, r, tableName)).filter((x: any) => x !== null);
-    };
-
-    const dbShifts = parseRows(turnsRes, "TURNOSV2");
-    const dbPalletizers = parseRows(palRes, "PALETIZADORAV2");
-    const dbBaggers = parseRows(bagRes, "ENSACADORAV2");
-    const dbMaterials = parseRows(matRes, "MATERIALESV2");
-    const dbHacs = parseRows(hacRes, "HACSV2");
-    const dbParos = parseRows(parosRes, "PAROSV2");
-    const dbCauses = parseRows(causasRes, "CAUSASV2");
-    const dbCapacities = parseRows(capacitiesRes, "CAPACIDADESV2");
-    await enrichParosOnRead(sheets, spreadsheetId, dbParos);
-
     data.forEach((item: any) => {
-      const shift = dbShifts.find((s: any) => s.id === item.shiftId);
+      const shift = dbShifts.find((s: any) => s && safeMatch(s.id, item.shiftId));
       item.shiftDescription = shift ? shift.name : "";
 
-      const pal = dbPalletizers.find((p: any) => p.id === item.palletizerId);
-      const hacPal = dbHacs.find((h: any) => h.id === pal?.hacId);
+      const pal = dbPalletizers.find((p: any) => p && safeMatch(p.id, item.palletizerId));
+      const hacPal = dbHacs.find((h: any) => h && safeMatch(h.id, pal?.hacId));
       item.palletizerHac = hacPal ? hacPal.hac : (pal?.hacId || "");
 
-      const bag = dbBaggers.find((b: any) => b.id === item.baggerId);
-      const hacBag = dbHacs.find((h: any) => h.id === bag?.hacId);
+      const bag = dbBaggers.find((b: any) => b && safeMatch(b.id, item.baggerId));
+      const hacBag = dbHacs.find((h: any) => h && safeMatch(h.id, bag?.hacId));
       item.baggerHac = hacBag ? hacBag.hac : (bag?.hacId || "");
 
-      const mat = dbMaterials.find((m: any) => m.id === item.materialId);
+      const mat = dbMaterials.find((m: any) => m && safeMatch(m.id, item.materialId));
       item.materialDescription = mat ? mat.name : "";
 
       const shiftDurationHours = shift ? Number(shift.durationHours || 8) : 8;
@@ -2042,28 +2064,18 @@ async function autoRecalculateProductionMetrics(sheets: any, spreadsheetId: stri
 async function enrichInventarioFisico(sheets: any, spreadsheetId: string, data: any[]) {
   if (!data || data.length === 0) return;
   try {
-    const [turnsRes, matRes] = await Promise.all([
-      callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "TURNOSV2!A1:Z5000" })).catch(() => null),
-      callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "MATERIALESV2!A1:Z5000" })).catch(() => null)
+    const [dbShifts, dbMaterials] = await Promise.all([
+      readTableData(sheets, spreadsheetId, "TURNOSV2").catch(() => []),
+      readTableData(sheets, spreadsheetId, "MATERIALESV2").catch(() => [])
     ]);
-
-    const parseRows = (res: any, tableName: string) => {
-      if (!res || !res.data || !res.data.values || res.data.values.length < 2) return [];
-      const headers = res.data.values[0];
-      const rows = res.data.values.slice(1);
-      return rows.map((r: any) => parseRowToClientObject(headers, r, tableName)).filter((x: any) => x !== null);
-    };
-
-    const dbShifts = parseRows(turnsRes, "TURNOSV2");
-    const dbMaterials = parseRows(matRes, "MATERIALESV2");
 
     data.forEach((item: any) => {
       if (item.shiftId) {
-        const shift = dbShifts.find((s: any) => s.id === item.shiftId);
+        const shift = dbShifts.find((s: any) => s && safeMatch(s.id, item.shiftId));
         item.shiftDescription = shift ? shift.name : "";
       }
       if (item.materialId) {
-        const mat = dbMaterials.find((m: any) => m.id === item.materialId);
+        const mat = dbMaterials.find((m: any) => m && safeMatch(m.id, item.materialId));
         item.materialDescription = mat ? mat.name : "";
       }
     });
@@ -2075,28 +2087,18 @@ async function enrichInventarioFisico(sheets: any, spreadsheetId: string, data: 
 async function enrichEstadoCalles(sheets: any, spreadsheetId: string, data: any[]) {
   if (!data || data.length === 0) return;
   try {
-    const [turnsRes, lanesRes] = await Promise.all([
-      callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "TURNOSV2!A1:Z5000" })).catch(() => null),
-      callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "PUNTOS_CARGAV2!A1:Z5000" })).catch(() => null)
+    const [dbShifts, dbLanes] = await Promise.all([
+      readTableData(sheets, spreadsheetId, "TURNOSV2").catch(() => []),
+      readTableData(sheets, spreadsheetId, "PUNTOS_CARGAV2").catch(() => [])
     ]);
-
-    const parseRows = (res: any, tableName: string) => {
-      if (!res || !res.data || !res.data.values || res.data.values.length < 2) return [];
-      const headers = res.data.values[0];
-      const rows = res.data.values.slice(1);
-      return rows.map((r: any) => parseRowToClientObject(headers, r, tableName)).filter((x: any) => x !== null);
-    };
-
-    const dbShifts = parseRows(turnsRes, "TURNOSV2");
-    const dbLanes = parseRows(lanesRes, "PUNTOS_CARGAV2");
 
     data.forEach((item: any) => {
       if (item.shiftId) {
-        const shift = dbShifts.find((s: any) => s.id === item.shiftId);
+        const shift = dbShifts.find((s: any) => s && safeMatch(s.id, item.shiftId));
         item.shiftDescription = shift ? shift.name : "";
       }
       if (item.loadingPointId) {
-        const lane = dbLanes.find((l: any) => l.id === item.loadingPointId);
+        const lane = dbLanes.find((l: any) => l && safeMatch(l.id, item.loadingPointId));
         item.loadingPointDescription = lane ? lane.name : "";
       }
     });
@@ -2108,28 +2110,18 @@ async function enrichEstadoCalles(sheets: any, spreadsheetId: string, data: any[
 async function enrichDespachos(sheets: any, spreadsheetId: string, data: any[]) {
   if (!data || data.length === 0) return;
   try {
-    const [turnsRes, matRes] = await Promise.all([
-      callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "TURNOSV2!A1:Z5000" })).catch(() => null),
-      callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "MATERIALESV2!A1:Z5000" })).catch(() => null)
+    const [dbShifts, dbMaterials] = await Promise.all([
+      readTableData(sheets, spreadsheetId, "TURNOSV2").catch(() => []),
+      readTableData(sheets, spreadsheetId, "MATERIALESV2").catch(() => [])
     ]);
-
-    const parseRows = (res: any, tableName: string) => {
-      if (!res || !res.data || !res.data.values || res.data.values.length < 2) return [];
-      const headers = res.data.values[0];
-      const rows = res.data.values.slice(1);
-      return rows.map((r: any) => parseRowToClientObject(headers, r, tableName)).filter((x: any) => x !== null);
-    };
-
-    const dbShifts = parseRows(turnsRes, "TURNOSV2");
-    const dbMaterials = parseRows(matRes, "MATERIALESV2");
 
     data.forEach((item: any) => {
       if (item.shiftId) {
-        const shift = dbShifts.find((s: any) => s.id === item.shiftId);
+        const shift = dbShifts.find((s: any) => s && safeMatch(s.id, item.shiftId));
         item.shiftDescription = shift ? shift.name : "";
       }
       if (item.materialId) {
-        const mat = dbMaterials.find((m: any) => m.id === item.materialId);
+        const mat = dbMaterials.find((m: any) => m && safeMatch(m.id, item.materialId));
         item.materialDescription = mat ? mat.name : "";
       }
     });
@@ -2141,40 +2133,27 @@ async function enrichDespachos(sheets: any, spreadsheetId: string, data: any[]) 
 async function enrichParos(sheets: any, spreadsheetId: string, data: any[]) {
   if (!data || data.length === 0) return;
   try {
-    const [turnsRes, palRes, bagRes, hacRes, matRes] = await Promise.all([
-      callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "TURNOSV2!A1:Z5000" })).catch(() => null),
-      callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "PALETIZADORAV2!A1:Z5000" })).catch(() => null),
-      callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "ENSACADORAV2!A1:Z5000" })).catch(() => null),
-      callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "HACSV2!A1:Z5000" })).catch(() => null),
-      callWithRetry(() => sheets.spreadsheets.values.get({ spreadsheetId, range: "MATERIALESV2!A1:Z5000" })).catch(() => null)
+    const [dbShifts, dbPalletizers, dbBaggers, dbHacs, dbMaterials] = await Promise.all([
+      readTableData(sheets, spreadsheetId, "TURNOSV2").catch(() => []),
+      readTableData(sheets, spreadsheetId, "PALETIZADORAV2").catch(() => []),
+      readTableData(sheets, spreadsheetId, "ENSACADORAV2").catch(() => []),
+      readTableData(sheets, spreadsheetId, "HACSV2").catch(() => []),
+      readTableData(sheets, spreadsheetId, "MATERIALESV2").catch(() => [])
     ]);
-
-    const parseRows = (res: any, tableName: string) => {
-      if (!res || !res.data || !res.data.values || res.data.values.length < 2) return [];
-      const headers = res.data.values[0];
-      const rows = res.data.values.slice(1);
-      return rows.map((r: any) => parseRowToClientObject(headers, r, tableName)).filter((x: any) => x !== null);
-    };
-
-    const dbShifts = parseRows(turnsRes, "TURNOSV2");
-    const dbPalletizers = parseRows(palRes, "PALETIZADORAV2");
-    const dbBaggers = parseRows(bagRes, "ENSACADORAV2");
-    const dbHacs = parseRows(hacRes, "HACSV2");
-    const dbMaterials = parseRows(matRes, "MATERIALESV2");
 
     data.forEach((item: any) => {
       if (item.shiftId) {
-        const shift = dbShifts.find((s: any) => s.id === item.shiftId);
+        const shift = dbShifts.find((s: any) => s && safeMatch(s.id, item.shiftId));
         item.shiftName = shift ? shift.name : "";
       }
       if (item.machineId) {
-        const pal = dbPalletizers.find((p: any) => p.id === item.machineId) || dbBaggers.find((b: any) => b.id === item.machineId);
-        const hacPal = dbHacs.find((h: any) => h.id === pal?.hacId || h.hac === pal?.hacId);
+        const pal = dbPalletizers.find((p: any) => p && safeMatch(p.id, item.machineId)) || dbBaggers.find((b: any) => b && safeMatch(b.id, item.machineId));
+        const hacPal = dbHacs.find((h: any) => h && (safeMatch(h.id, pal?.hacId) || safeMatch(h.hac, pal?.hacId)));
         // If there is no HAC related to this machine, use the machine's ID so we can map it back perfectly on read
         item.machineHacText = item.machineHacText || (hacPal ? hacPal.hac : (pal?.id || item.machineId));
       }
       if (item.materialId) {
-        const mat = dbMaterials.find((m: any) => m.id === item.materialId);
+        const mat = dbMaterials.find((m: any) => m && safeMatch(m.id, item.materialId));
         item.materialDescription = mat ? mat.name : "";
       }
       item.finishDate = item.date;
@@ -3218,7 +3197,7 @@ app.post("/api/sheets", async (req, res) => {
           return res.status(400).json({ success: false, error: "Faltan los datos para la acción write" });
         }
         await reconcileTableData(sheets, spreadsheetId, table, data);
-        if (table === "PAROSV2") {
+        if (table === "PAROSV2" || table === "PRODUCCIONV2") {
           await autoRecalculateProductionMetrics(sheets, spreadsheetId);
         }
         return res.json({ success: true, count: data.length });
@@ -3235,7 +3214,7 @@ app.post("/api/sheets", async (req, res) => {
           return res.status(400).json({ success: false, error: "Falta el parámetro 'item' para crear" });
         }
         await insertRecord(sheets, spreadsheetId, table, item);
-        if (table === "PAROSV2") {
+        if (table === "PAROSV2" || table === "PRODUCCIONV2") {
           await autoRecalculateProductionMetrics(sheets, spreadsheetId);
         }
         return res.json({ success: true, message: "Registro guardado con éxito" });
@@ -3252,7 +3231,7 @@ app.post("/api/sheets", async (req, res) => {
           return res.status(400).json({ success: false, error: "Faltan 'id' o 'item' para actualizar" });
         }
         await updateRecord(sheets, spreadsheetId, table, id, item);
-        if (table === "PAROSV2") {
+        if (table === "PAROSV2" || table === "PRODUCCIONV2") {
           await autoRecalculateProductionMetrics(sheets, spreadsheetId);
         }
         return res.json({ success: true, message: "Registro actualizado con éxito" });
@@ -3269,7 +3248,7 @@ app.post("/api/sheets", async (req, res) => {
           return res.status(400).json({ success: false, error: "Falta el parámetro 'id' para eliminar" });
         }
         const isDeleted = await deleteRecord(sheets, spreadsheetId, table, id);
-        if (table === "PAROSV2" && isDeleted) {
+        if ((table === "PAROSV2" || table === "PRODUCCIONV2") && isDeleted) {
           await autoRecalculateProductionMetrics(sheets, spreadsheetId);
         }
         return res.json({ success: true, message: isDeleted ? "Registro eliminado con éxito" : "Registro no encontrado para eliminar" });
