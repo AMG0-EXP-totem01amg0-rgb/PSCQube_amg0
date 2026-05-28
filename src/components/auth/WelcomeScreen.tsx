@@ -15,12 +15,19 @@ export default function WelcomeScreen({ onEnter, onLoginSuccess, addToast }: Wel
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [authStage, setAuthStage] = useState<null | 'authenticating' | 'verifying_user' | 'authorized' | 'unauthorized' | 'error'>(null);
   const [statusMessage, setStatusMessage] = useState<string>('');
+  const verifyingRef = React.useRef(false);
 
   // General verification of Google Email against authorized users (USUARIOSV2)
   const verifyAndAuthorizeEmail = async (email: string, fullName?: string) => {
+    if (verifyingRef.current) {
+      console.log("[WelcomeScreen] Already verifying or authorized, skipping duplicate call for", email);
+      return;
+    }
+    verifyingRef.current = true;
     setIsLoggingIn(true);
     setAuthStage('verifying_user');
     setStatusMessage('Consultando base de datos...');
+    let isSuccess = false;
     try {
       // Fetch authorized users list from the backend
       const res = await fetch('/api/sheets?table=USUARIOSV2');
@@ -46,6 +53,7 @@ export default function WelcomeScreen({ onEnter, onLoginSuccess, addToast }: Wel
         }
 
         if (matched) {
+          isSuccess = true;
           setAuthStage('authorized');
           setStatusMessage('¡Ingreso autorizado con éxito!');
           // Authenticated! Map client properties
@@ -99,6 +107,9 @@ export default function WelcomeScreen({ onEnter, onLoginSuccess, addToast }: Wel
       addToast(err.message || "Error al verificar autorización de correo.", "error");
     } finally {
       setIsLoggingIn(false);
+      if (!isSuccess) {
+        verifyingRef.current = false;
+      }
     }
   };
 
