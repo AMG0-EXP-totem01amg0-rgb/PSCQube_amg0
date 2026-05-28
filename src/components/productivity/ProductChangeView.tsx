@@ -71,6 +71,7 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
   const isAdmin = currentUser.profile === 'Administrador';
 
   const canEdit = useMemo(() => {
+    if (currentUser?.profile === 'Administrador') return true;
     const perm = currentUser?.permissions?.find(p => p.viewId === 'CHANGE');
     return perm ? perm.level === 'EDIT' : false;
   }, [currentUser]);

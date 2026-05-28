@@ -25,6 +25,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
   const [isNozzleModalOpen, setIsNozzleModalOpen] = useState(false);
 
   const canEdit = useMemo(() => {
+    if (currentUser?.profile === 'Administrador') return true;
     const perm = currentUser?.permissions?.find(p => p.viewId === 'PRODUCCION');
     return perm ? perm.level === 'EDIT' : false;
   }, [currentUser]);

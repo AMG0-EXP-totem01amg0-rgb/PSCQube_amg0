@@ -26,6 +26,7 @@ export default function FuelView({ masters, currentUser, onSave, onDelete, histo
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const canEdit = useMemo(() => {
+    if (currentUser?.profile === 'Administrador') return true;
     const perm = currentUser?.permissions?.find(p => p.viewId === 'GASOIL');
     return perm ? perm.level === 'EDIT' : false;
   }, [currentUser]);

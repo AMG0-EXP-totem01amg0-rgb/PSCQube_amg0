@@ -23,6 +23,7 @@ export default function InventoryView({ masters, currentUser, onSave, onDelete, 
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const canEdit = useMemo(() => {
+    if (currentUser?.profile === 'Administrador') return true;
     const perm = currentUser?.permissions?.find(p => p.viewId === 'STOCK');
     return perm ? perm.level === 'EDIT' : false;
   }, [currentUser]);
