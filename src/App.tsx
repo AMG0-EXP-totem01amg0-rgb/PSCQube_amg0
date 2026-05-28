@@ -27,6 +27,7 @@ import FuelView from './components/productivity/FuelView';
 import AdminView from './components/admin/AdminView';
 import PlaceholderView from './components/PlaceholderView';
 import WelcomeScreen from './components/auth/WelcomeScreen';
+import { getSupabaseClient } from './lib/supabaseClient';
 
 // Lib & Types
 import { cn } from './lib/utils';
@@ -286,13 +287,15 @@ export default function App() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState('Sincronizando información...');
 
-  const handleSyncOnEnter = async () => {
+  const handleSyncOnEnter = async (targetDni?: string) => {
     setIsSyncing(true);
     setSyncMessage('Iniciando sincronización...');
     try {
       setSyncMessage('Estableciendo conexión con base de datos...');
       const status = await getBackendSheetsStatus();
       
+      let finalUsers: AppUser[] = [];
+
       if (status.configured) {
         setSyncMessage('Sincronizando información...');
         // Parallel fetching of master & transactional data
@@ -363,7 +366,10 @@ export default function App() {
         if (resCauses.success && resCauses.data) setCauses(resCauses.data);
         if (resMaterials.success && resMaterials.data) setMaterials(resMaterials.data);
         if (resCapacities.success && resCapacities.data) setCapacities(resCapacities.data);
-        if (resUsers.success && resUsers.data) setUsers(resUsers.data);
+        if (resUsers.success && resUsers.data) {
+          setUsers(resUsers.data);
+          finalUsers = resUsers.data;
+        }
         if (resCompanies.success && resCompanies.data) setCompanies(resCompanies.data);
         if (resLoadingPoints.success && resLoadingPoints.data) setLoadingPoints(resLoadingPoints.data);
         if (resBagSuppliers.success && resBagSuppliers.data) setBagSuppliers(resBagSuppliers.data);
@@ -383,12 +389,19 @@ export default function App() {
         setCauses(CAUSES);
         setCapacities(CAPACITIES);
         setUsers(USERS);
+        finalUsers = USERS;
         setCompanies(COMPANIES);
         setLoadingPoints(LOADING_POINTS);
         setLaneStatuses(LANE_STATUSES);
         
         addToast("Ejecutando en memoria local (credenciales no detectadas).", "warning");
         console.log("[SheetsConfig] Google Sheets mode offline. Ready.");
+      }
+
+      // Check for saved user session or target login
+      const activeDni = targetDni || sessionStorage.getItem('pscqube_user_dni') || (finalUsers[0] ? finalUsers[0].dni : '');
+      if (activeDni) {
+        setUserContext(prev => ({ ...prev, currentUserDni: activeDni }));
       }
     } catch (err) {
       console.error("[SheetsLoad] Error during on-demand synchronization:", err);
@@ -398,6 +411,14 @@ export default function App() {
       setHasEnteredApp(true);
     }
   };
+
+  // Automatically restore active user session elements on start
+  useEffect(() => {
+    const savedDni = sessionStorage.getItem('pscqube_user_dni');
+    if (savedDni) {
+      handleSyncOnEnter(savedDni);
+    }
+  }, []);
 
   // --- Centralized, Synchronized & Toast-Enabled handlers ---
   
@@ -852,7 +873,16 @@ export default function App() {
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.5 }}
           >
-            <WelcomeScreen onEnter={handleSyncOnEnter} />
+            <WelcomeScreen 
+              onEnter={()  => handleSyncOnEnter()} 
+              onLoginSuccess={(user, email) => {
+                sessionStorage.setItem('pscqube_user_dni', user.dni);
+                sessionStorage.setItem('pscqube_user', JSON.stringify(user));
+                sessionStorage.setItem('pscqube_google_email', email);
+                handleSyncOnEnter(user.dni);
+              }}
+              addToast={addToast}
+            />
           </motion.div>
         ) : (
         <motion.div 
@@ -880,6 +910,18 @@ export default function App() {
             onNavigateToChange={() => {
               setActiveSection('PRODUCTIVITY');
               setProdTab('CHANGE');
+            }}
+            onLogout={async () => {
+              try {
+                const supabase = await getSupabaseClient();
+                if (supabase) {
+                  await supabase.auth.signOut();
+                }
+              } catch (e) {
+                console.warn("[Logout Supabase SignOut Warning]", e);
+              }
+              sessionStorage.clear();
+              window.location.reload();
             }}
           />
 

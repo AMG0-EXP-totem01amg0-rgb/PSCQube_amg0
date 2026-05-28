@@ -26,6 +26,7 @@ interface HeaderProps {
   onMarkAsRead: (id: string) => void;
   onMarkAllAsRead: (ids: string[]) => void;
   onNavigateToChange: () => void;
+  onLogout?: () => void;
 }
 
 interface NotificationBellDropdownProps {
@@ -215,7 +216,8 @@ export function Header({
   readNotificationKeys,
   onMarkAsRead,
   onMarkAllAsRead,
-  onNavigateToChange
+  onNavigateToChange,
+  onLogout
 }: HeaderProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -332,6 +334,17 @@ export function Header({
               {isDark ? <Sun size={14} className="text-yellow-400" /> : <Moon size={14} className="text-primary" />}
             </button>
 
+            {/* Logout Button - Mobile */}
+            {onLogout && (
+              <button 
+                onClick={onLogout}
+                title="Cerrar sesión"
+                className="sm:hidden p-1.5 rounded-full hover:bg-red-500/15 hover:text-red-500 text-text-muted transition-colors"
+              >
+                <LogOut size={14} />
+              </button>
+            )}
+
             {/* EXPAND/COLLAPSE TOGGLE (Mobile only) - Strictly Manual */}
             <button 
               onClick={() => setIsCollapsed(!isCollapsed)}
@@ -441,6 +454,17 @@ export function Header({
               >
                 {isDark ? <Sun size={18} className="text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]" /> : <Moon size={18} className="text-primary drop-shadow-[0_0_8px_rgba(59,130,246,0.3)]" />}
               </button>
+
+              {/* Logout Button - Desktop */}
+              {onLogout && (
+                <button 
+                  onClick={onLogout}
+                  title="Cerrar sesión"
+                  className="hidden sm:flex p-2 rounded-full hover:bg-red-500/10 hover:text-red-500 text-text-muted transition-colors shrink-0 ml-1"
+                >
+                  <LogOut size={18} />
+                </button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
