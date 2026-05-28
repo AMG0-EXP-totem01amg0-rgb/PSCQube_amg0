@@ -270,32 +270,19 @@ export default function WelcomeScreen({ onEnter, onLoginSuccess, addToast }: Wel
                       <p className="text-sm text-text-muted font-medium italic">Inicia sesión de forma segura para acceder.</p>
                     </div>
 
-                    <div className="space-y-4" id="access-actions">
-                      <GlassButton 
-                        onClick={onEnter} 
-                        disabled={isLoggingIn}
-                        className="w-full h-14 text-base font-bold group bg-primary hover:bg-primary-hover border-none text-white shadow-lg hover:shadow-primary/20 transition-all active:scale-[0.98] disabled:opacity-50"
-                      >
-                        Ingresar Directo
-                        <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
-                      </GlassButton>
-
-                      <div className="relative py-4 flex items-center gap-4">
-                        <div className="h-[1px] flex-1 bg-border/80" />
-                        <span className="text-[10px] font-black text-text-muted uppercase tracking-widest opacity-60">o bien</span>
-                        <div className="h-[1px] flex-1 bg-border/80" />
-                      </div>
-
+                    <div className="space-y-6 animate-fade-in" id="access-actions">
                       <GlassButton 
                         onClick={handleGoogleLogin}
                         disabled={isLoggingIn}
-                        variant="secondary"
-                        className="w-full h-14 text-base group border border-border hover:border-primary/50 transition-all flex items-center justify-center gap-3 bg-[#111827]/30 hover:bg-[#111827]/70 font-semibold text-text-main shadow-md active:scale-[0.98] disabled:opacity-50"
+                        className="w-full h-15 text-base font-bold group bg-primary hover:bg-primary-hover border-none text-white shadow-lg hover:shadow-primary/20 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-3"
                       >
-                        <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
-                          <path fill="#ea4335" d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.114-5.136 4.114A5.52 5.52 0 0 1 8.4 13a5.52 5.52 0 0 1 5.59-5.514c2.25 0 4.172 1.258 5.176 3.1l3.57-2.77C20.67 4.19 16.7 2 12 2C6.48 2 2 6.48 2 12s4.48 10 10 10c5.3 0 9.81-3.81 10-9H12.24z" />
+                        <svg className="w-5 h-5 shrink-0 fill-current bg-white rounded-full p-0.5" viewBox="0 0 24 24">
+                          <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v3.92h6.61c-.29 1.5-1.14 2.78-2.4 3.63v3.02h3.88c2.27-2.09 3.58-5.17 3.58-8.5z"/>
+                          <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.02c-1.08.72-2.45 1.16-4.05 1.16-3.11 0-5.74-2.11-6.68-4.96H1.21v3.11C3.18 21.88 7.39 24 12 24z"/>
+                          <path fill="#FBBC05" d="M5.32 14.27c-.24-.72-.38-1.49-.38-2.27s.14-1.55.38-2.27V6.62H1.21C.44 8.16 0 9.88 0 11.72s.44 3.56 1.21 5.1l4.11-3.11z"/>
+                          <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.93 1.19 15.24 0 12 0 7.39 0 3.18 2.12 1.21 5.62l4.11 3.11c.94-2.85 3.57-4.98 6.68-4.98z"/>
                         </svg>
-                        Ingresar con Google
+                        Ingresar
                       </GlassButton>
                       <p className="text-[11px] text-center text-text-muted font-semibold tracking-wide">
                         Requiere que su email esté registrado <span className="font-mono text-primary font-bold">usuariosv2</span>
