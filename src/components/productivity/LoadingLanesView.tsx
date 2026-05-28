@@ -21,6 +21,12 @@ export default function LoadingLanesView({ masters, currentUser, history, onSave
   const [showToast, setShowToast] = useState(false);
   const [selectedLanes, setSelectedLanes] = useState<Record<string, Partial<LaneShiftStatus>>>({});
 
+  const canEdit = React.useMemo(() => {
+    if (currentUser?.profile === 'Administrador') return true;
+    const perm = currentUser?.permissions?.find(p => p.viewId === 'LOADING_LANES');
+    return perm ? perm.level === 'EDIT' : false;
+  }, [currentUser]);
+
   // Fix: Sync status when history, shift or date changes
   useEffect(() => {
     const initialState = masters.loadingPoints.reduce((acc, lp) => {
@@ -38,6 +44,7 @@ export default function LoadingLanesView({ masters, currentUser, history, onSave
   }, [history, masters.loadingPoints, selectedShiftId, selectedDate]);
 
   const handleToggle = (lpId: string) => {
+    if (!canEdit) return;
     setSelectedLanes(prev => {
       const lane = prev[lpId];
       if (!lane) return prev;
@@ -58,6 +65,7 @@ export default function LoadingLanesView({ masters, currentUser, history, onSave
   };
 
   const handleMaterialToggle = (lpId: string, materialId: string) => {
+    if (!canEdit) return;
     setSelectedLanes(prev => {
         const lane = prev[lpId] || { loadingPointId: lpId, isEnabled: true, materialIds: [], observation: '' };
         const currentIds = lane.materialIds || [];
@@ -72,6 +80,7 @@ export default function LoadingLanesView({ masters, currentUser, history, onSave
   };
 
   const handleSaveAll = () => {
+    if (!canEdit) return;
     if (!selectedShiftId) return;
 
     const statuses: LaneShiftStatus[] = [];
@@ -158,10 +167,9 @@ export default function LoadingLanesView({ masters, currentUser, history, onSave
                            </td>
                            <td className="px-6 py-4">
                              <div className="flex items-center gap-3">
-                               <label className="relative inline-flex items-center cursor-pointer">
+                               <label className={cn("relative inline-flex items-center", canEdit ? "cursor-pointer" : "cursor-not-allowed opacity-60")}>
                                   <input 
-                                      type="checkbox" 
-                                      checked={lane.isEnabled}
+                                      type="checkbox" disabled={!canEdit} checked={lane.isEnabled}
                                       onChange={() => handleToggle(lp.id)}
                                       className="sr-only peer" 
                                   />
@@ -181,6 +189,7 @@ export default function LoadingLanesView({ masters, currentUser, history, onSave
                                   {productiveMaterials.map(m => (
                                     <button
                                       key={m.id}
+                                      disabled={!canEdit}
                                       onClick={() => handleMaterialToggle(lp.id, m.id)}
                                       className={cn(
                                         "px-2 py-1 rounded text-[9px] font-bold border transition-all",
@@ -197,6 +206,7 @@ export default function LoadingLanesView({ masters, currentUser, history, onSave
                                 <div className="flex gap-2">
                                   <textarea
                                     value={lane.observation || ''}
+                                    disabled={!canEdit}
                                     onChange={(e) => {
                                       const val = e.target.value;
                                       setSelectedLanes(prev => {
@@ -208,8 +218,8 @@ export default function LoadingLanesView({ masters, currentUser, history, onSave
                                         };
                                       });
                                     }}
-                                    placeholder="Motivo de deshabilitación..."
-                                    className="w-full h-10 bg-bg-input border border-border rounded-lg p-2 text-[11px] text-text-main outline-none focus:border-red-500/50 transition-all resize-none"
+                                    placeholder={canEdit ? "Motivo de deshabilitación..." : "Registro No Habilitado (Sin motivo)"}
+                                    className="w-full h-10 bg-bg-input border border-border rounded-lg p-2 text-[11px] text-text-main outline-none focus:border-red-500/50 transition-all resize-none disabled:opacity-60 disabled:cursor-not-allowed"
                                   />
                                 </div>
                               )}
@@ -222,15 +232,17 @@ export default function LoadingLanesView({ masters, currentUser, history, onSave
                </div>
             </GlassCard>
 
-            <div className="flex justify-center pt-4 w-full">
-              <GlassButton 
-                onClick={handleSaveAll}
-                className="h-12 px-6 sm:px-12 group w-full sm:w-auto text-xs sm:text-sm uppercase tracking-wider font-extrabold"
-                disabled={!selectedShiftId}
-              >
-                <Save className="mr-2 group-hover:scale-110 transition-transform shrink-0" size={16} /> Guardar Estado General
-              </GlassButton>
-            </div>
+            {canEdit && (
+              <div className="flex justify-center pt-4 w-full">
+                <GlassButton 
+                  onClick={handleSaveAll}
+                  className="h-12 px-6 sm:px-12 group w-full sm:w-auto text-xs sm:text-sm uppercase tracking-wider font-extrabold"
+                  disabled={!selectedShiftId}
+                >
+                  <Save className="mr-2 group-hover:scale-110 transition-transform shrink-0" size={16} /> Guardar Estado General
+                </GlassButton>
+              </div>
+            )}
           </motion.div>
         ) : (
           <motion.div 
@@ -272,12 +284,14 @@ export default function LoadingLanesView({ masters, currentUser, history, onSave
                         </div>
                       </div>
 
-                      <button 
-                        onClick={() => onDelete(status.id)}
-                        className="p-2 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {canEdit && (
+                        <button 
+                          onClick={() => onDelete(status.id)}
+                          className="p-2 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   );
                 })

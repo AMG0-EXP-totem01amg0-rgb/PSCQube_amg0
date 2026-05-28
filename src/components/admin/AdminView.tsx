@@ -843,55 +843,61 @@ export default function AdminView({
           </div>
         </div>
 
-        <div className="relative group overflow-hidden">
-          {/* Carousel Arrows - Only visible on desktop hover */}
-          <div className="absolute inset-y-0 left-0 items-center pl-1 z-20 hidden md:flex opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              onClick={() => {
-                if (scrollRef.current) {
-                  scrollRef.current.scrollBy({
-                    left: -150,
-                    behavior: "smooth",
-                  });
-                }
-              }}
-              className="w-6 h-6 rounded-full bg-surface shadow-md border border-border flex items-center justify-center text-text-muted hover:text-primary transition-colors"
-            >
-              <ChevronLeft size={14} />
-            </button>
-          </div>
+        {/* Grouped Categories for Maestros */}
+        <div className="bg-surface/50 p-4 rounded-3xl border border-border shadow-lg">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            {/* Category 1: Operaciones */}
+            <div className="bg-bg/20 p-3.5 rounded-2xl border border-border/40 flex flex-col">
+              <span className="text-[9px] font-black tracking-widest text-[#005596] dark:text-primary uppercase px-1 mb-2 pb-1 border-b border-border/10">Catálogos Operaciones</span>
+              <div className="flex flex-col gap-1.5">
+                {sectionsList.filter(s => ["MACHINES", "BAGGERS", "MATERIALS", "HACS"].includes(s.key)).map(sec => 
+                  isVisible(sec.key) ? (
+                    <AdminSubTab
+                      key={sec.key}
+                      active={activeTab === sec.key}
+                      onClick={() => onTabChange(sec.key)}
+                      label={sec.label}
+                    />
+                  ) : null
+                )}
+              </div>
+            </div>
 
-          <div className="absolute inset-y-0 right-0 items-center pr-1 z-20 hidden md:flex opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              onClick={() => {
-                if (scrollRef.current) {
-                  scrollRef.current.scrollBy({ left: 150, behavior: "smooth" });
-                }
-              }}
-              className="w-6 h-6 rounded-full bg-surface shadow-md border border-border flex items-center justify-center text-text-muted hover:text-primary transition-colors"
-            >
-              <ChevronRight size={14} />
-            </button>
-          </div>
+            {/* Category 2: Recursos y Logística */}
+            <div className="bg-bg/20 p-3.5 rounded-2xl border border-border/40 flex flex-col">
+              <span className="text-[9px] font-black tracking-widest text-[#005596] dark:text-primary uppercase px-1 mb-2 pb-1 border-b border-border/10">Catálogos Logística</span>
+              <div className="flex flex-col gap-1.5">
+                {sectionsList.filter(s => ["COMPANIES", "PROVEEDORES_BOLSA", "PUNTOS_CARGA", "VEHICULOS"].includes(s.key)).map(sec => 
+                  isVisible(sec.key) ? (
+                    <AdminSubTab
+                      key={sec.key}
+                      active={activeTab === sec.key}
+                      onClick={() => onTabChange(sec.key)}
+                      label={sec.label}
+                    />
+                  ) : null
+                )}
+              </div>
+            </div>
 
-          {/* Carousel edge masks */}
-          <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-bg to-transparent z-10 pointer-events-none" />
-          <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-bg to-transparent z-10 pointer-events-none" />
+            {/* Category 3: Sistema */}
+            <div className="bg-bg/20 p-3.5 rounded-2xl border border-border/40 flex flex-col">
+              <span className="text-[9px] font-black tracking-widest text-[#005596] dark:text-primary uppercase px-1 mb-2 pb-1 border-b border-border/10">Estructura & Sistema</span>
+              <div className="flex flex-col gap-1.5">
+                {sectionsList.filter(s => ["CAPACITIES", "CAUSES", "SHIFTS", "USERS", "SHEETS"].includes(s.key)).map(sec => 
+                  isVisible(sec.key) ? (
+                    <AdminSubTab
+                      key={sec.key}
+                      active={activeTab === sec.key}
+                      onClick={() => onTabChange(sec.key)}
+                      label={sec.label}
+                    />
+                  ) : null
+                )}
+              </div>
+            </div>
 
-          <div
-            ref={scrollRef}
-            className="flex bg-bg-input/50 p-1.5 rounded-2xl border border-border overflow-x-auto gap-1 no-scrollbar select-none min-w-0 shadow-sm scroll-smooth px-6"
-          >
-            {sectionsList.map((sec) =>
-              isVisible(sec.key) ? (
-                <AdminSubTab
-                  key={sec.key}
-                  active={activeTab === sec.key}
-                  onClick={() => onTabChange(sec.key)}
-                  label={sec.label}
-                />
-              ) : null
-            )}
           </div>
         </div>
       </div>

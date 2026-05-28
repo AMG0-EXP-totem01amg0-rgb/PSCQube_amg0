@@ -21,6 +21,12 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
   const [searchTerm, setSearchTerm] = useState('');
   const [showToast, setShowToast] = useState(false);
   
+  const canEdit = useMemo(() => {
+    if (currentUser?.profile === 'Administrador') return true;
+    const perm = currentUser?.permissions?.find(p => p.viewId === 'DESPACHOS');
+    return perm ? perm.level === 'EDIT' : false;
+  }, [currentUser]);
+
   // Weights for the form
   const [weights, setWeights] = useState<Record<string, string>>({});
   const [isEditingId, setIsEditingId] = useState<string | null>(null);
@@ -126,10 +132,11 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
                         <div className="flex items-center gap-2">
                            <GlassInput
                              type="number"
-                             placeholder="0.0"
+                             placeholder={canEdit ? "0.0" : "N/R"}
                              value={weights[m.id] || ''}
+                             disabled={!canEdit}
                              onChange={(e) => setWeights({ ...weights, [m.id]: e.target.value })}
-                             className="text-right font-mono"
+                             className="text-right font-mono disabled:opacity-60 disabled:cursor-not-allowed"
                            />
                            <span className="text-[10px] font-black text-text-muted">TN</span>
                         </div>
@@ -138,16 +145,18 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
                 ))}
               </div>
 
-              <div className="mt-10 flex justify-center border-t border-white/5 pt-8">
-                <GlassButton 
-                  onClick={handleSaveAll}
-                  disabled={(Object.values(weights) as string[]).every(w => !w || parseFloat(w) <= 0)}
-                  className="h-14 px-12 group"
-                >
-                  <Save className="mr-2 group-hover:scale-110 transition-transform" />
-                  GURADAR REGISTROS
-                </GlassButton>
-              </div>
+              {canEdit && (
+                <div className="mt-10 flex justify-center border-t border-white/5 pt-8">
+                  <GlassButton 
+                    onClick={handleSaveAll}
+                    disabled={(Object.values(weights) as string[]).every(w => !w || parseFloat(w) <= 0)}
+                    className="h-14 px-12 group"
+                  >
+                    <Save className="mr-2 group-hover:scale-110 transition-transform" />
+                    GURADAR REGISTROS
+                  </GlassButton>
+                </div>
+              )}
             </GlassCard>
           </motion.div>
         ) : (
