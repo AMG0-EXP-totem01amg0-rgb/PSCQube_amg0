@@ -1066,7 +1066,7 @@ export default function App() {
                     <ProductChangeView 
                         masters={masters} 
                         currentUser={currentUser}
-                        history={productChanges.filter(c => c.shiftId === userContext.selectedShiftId && c.date === userContext.selectedDate)}
+                        history={productChanges}
                         onSave={handleSaveProductChange}
                         onDelete={handleDeleteProductChange}
                         selectedShiftId={userContext.selectedShiftId}

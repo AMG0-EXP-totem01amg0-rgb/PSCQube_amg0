@@ -280,26 +280,22 @@ export function Header({
                 PSCQube
               </h1>
                {!isCollapsed && (
-                <div className="mt-0.5 relative group">
-                  <button 
-                    type="button"
-                    onClick={handleDateClick}
-                    className="flex items-center gap-1.5 px-1.5 py-0.5 rounded transition-all hover:bg-primary/5 active:bg-primary/10 border-none outline-none group"
-                  >
-                    <Calendar size={10} className="text-text-main group-hover:text-primary transition-colors" />
-                    <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider group-hover:text-primary whitespace-nowrap">{displayDate}</span>
-                  </button>
-                  {/* Hidden Input for Calendar Triggering */}
-                  <input 
-                    ref={dateInputRef}
-                    type="date" 
-                    value={selectedDate}
-                    onChange={(e) => onDateChange(e.target.value)}
-                    className="absolute opacity-0 pointer-events-none -z-10"
-                    aria-hidden="true"
-                    tabIndex={-1}
-                  />
-                </div>
+                 <div className="mt-0.5 relative group cursor-pointer">
+                   <div 
+                     className="flex items-center gap-1.5 px-1.5 py-0.5 rounded transition-all hover:bg-primary/5 active:bg-primary/10 border-none outline-none group"
+                   >
+                     <Calendar size={10} className="text-text-main group-hover:text-primary transition-colors" />
+                     <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider group-hover:text-primary whitespace-nowrap">{displayDate}</span>
+                   </div>
+                   {/* Overlay Input for robust Native Calendar Triggering across all devices (including iOS Safari) */}
+                   <input 
+                     type="date" 
+                     value={selectedDate}
+                     onChange={(e) => onDateChange(e.target.value)}
+                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                     aria-label="Seleccionar fecha"
+                   />
+                 </div>
               )}
             </div>
             

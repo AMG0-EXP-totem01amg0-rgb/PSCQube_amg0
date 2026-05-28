@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { RefreshCcw, Plus, Trash2, FileText, CheckCircle2, AlertCircle, Clock, FlaskConical, ChevronRight, Download, Info } from 'lucide-react';
+import { RefreshCcw, Plus, Trash2, FileText, CheckCircle2, AlertCircle, Clock, FlaskConical, ChevronRight, Download, Info, Calendar, FilterX } from 'lucide-react';
 import { MasterData, ProductChange, AppUser, Company } from '../../types';
 import { DataTable, Column, TableActions } from '../ui/DataTable';
 import { GlassCard, GlassButton, GlassInput, GlassSelect, ConfirmModal, Modal } from '../ui/GlassUI';
 import { cn } from '../../lib/utils';
-import { format } from 'date-fns';
+import { format, isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -23,6 +23,48 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ProductChange | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Date range for filtered view
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+
+  const filteredHistory = useMemo(() => {
+    return history.filter(item => {
+      // Always show pending items, regardless of date filters
+      if (item.approvalStatus === 'PENDIENTE') {
+        return true;
+      }
+
+      // Filter by shift if applicable
+      if (selectedShiftId && item.shiftId !== selectedShiftId) {
+        return false;
+      }
+
+      // Filter by date range or single date
+      if (dateFrom && dateTo) {
+        try {
+          const start = startOfDay(parseISO(dateFrom));
+          const end = endOfDay(parseISO(dateTo));
+          const itemDate = parseISO(item.date);
+          return isWithinInterval(itemDate, { start, end });
+        } catch (e) {
+          return true;
+        }
+      } else {
+        return item.date === selectedDate;
+      }
+    });
+  }, [history, dateFrom, dateTo, selectedShiftId, selectedDate]);
+
+  const prioritizedHistory = useMemo(() => {
+    return [...filteredHistory].sort((a, b) => {
+      // Prioritize pending items
+      if (a.approvalStatus === 'PENDIENTE' && b.approvalStatus !== 'PENDIENTE') return -1;
+      if (a.approvalStatus !== 'PENDIENTE' && b.approvalStatus === 'PENDIENTE') return 1;
+      // Secondary sort: descending by date
+      return b.date.localeCompare(a.date);
+    });
+  }, [filteredHistory]);
 
   const isLabUser = currentUser.profile === 'Laboratorio' || currentUser.position === 'Laboratórista';
   const isMaquinista = currentUser.profile === 'Operario' || currentUser.position === 'Operario Maquinista';
@@ -397,12 +439,38 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
           </div>
         </div>
         
-        {canEdit && (
-            <GlassButton onClick={handleOpenAdd} className="h-11 px-6 shadow-xl shadow-primary/20">
-            <Plus size={20} className="mr-2" />
-            Notificar Cambio
-            </GlassButton>
-        )}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto shrink-0">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-bg/50 rounded-xl border border-border justify-between sm:justify-start">
+            <div className="flex items-center gap-2">
+              <Calendar size={14} className="text-primary shrink-0" />
+              <input 
+                type="date" 
+                value={dateFrom} 
+                onChange={e => setDateFrom(e.target.value)}
+                className="bg-transparent border-none text-[10px] p-0 focus:ring-0 uppercase font-bold text-text-main max-w-[100px] xs:max-w-none"
+              />
+              <span className="text-[10px] text-text-muted font-bold">A</span>
+              <input 
+                type="date" 
+                value={dateTo} 
+                onChange={e => setDateTo(e.target.value)}
+                className="bg-transparent border-none text-[10px] p-0 focus:ring-0 uppercase font-bold text-text-main max-w-[100px] xs:max-w-none"
+              />
+            </div>
+            {(dateFrom || dateTo) && (
+              <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="p-1 hover:text-danger ml-1 shrink-0">
+                <FilterX size={14} />
+              </button>
+            )}
+          </div>
+
+          {canEdit && (
+              <GlassButton onClick={handleOpenAdd} className="h-11 px-6 shadow-xl shadow-primary/20 w-full sm:w-auto justify-center">
+              <Plus size={20} className="mr-2" />
+              Notificar Cambio
+              </GlassButton>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6">
@@ -411,7 +479,7 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
             title="Historial de Cambios" 
             countLabel="registros" 
             columns={columns} 
-            data={history} 
+            data={prioritizedHistory} 
             keyExtractor={r => r.id}
           />
         </GlassCard>
