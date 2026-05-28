@@ -47,13 +47,17 @@ Please update SUPABASE_URL to your Project API URL, which looks like: https://xx
 function sanitizeColumnName(col: string): string {
   // convert camelCase to snake_case first (e.g., durationHours -> duration_hours)
   const withUnder = col.replace(/([a-z0-9])([A-Z])/g, "$1_$2");
-  return withUnder
+  const result = withUnder
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "") // remove accents
     .replace(/[^a-z0-9_]/g, "_")    // replace spaces, ?, symbols with _
     .replace(/__+/g, "_")           // deduplicate underscores
     .replace(/^_+|_+$/g, "");       // trim leading/trailing underscores
+  if (result === "rendimineto") {
+    return "rendimiento";
+  }
+  return result;
 }
 
 function safeMatch(idA: any, idB: any): boolean {
@@ -1937,19 +1941,35 @@ async function enrichProductionRecords(sheets: any, spreadsheetId: string, data:
     ]);
 
     data.forEach((item: any) => {
-      const shift = dbShifts.find((s: any) => s && safeMatch(s.id, item.shiftId));
-      item.shiftDescription = shift ? shift.name : "";
+      const shiftId = item.shiftId || item.turno_id;
+      const shift = dbShifts.find((s: any) => s && (safeMatch(s.id, shiftId) || safeMatch(s.id, item.shiftId)));
+      const shiftName = shift ? (shift.name || shift.nombre || "") : "";
+      item.shiftDescription = shiftName;
+      item["descripción_turno"] = shiftName;
+      item["descripcion_turno"] = shiftName;
 
-      const pal = dbPalletizers.find((p: any) => p && safeMatch(p.id, item.palletizerId));
-      const hacPal = dbHacs.find((h: any) => h && safeMatch(h.id, pal?.hacId));
-      item.palletizerHac = hacPal ? hacPal.hac : (pal?.hacId || "");
+      const palId = item.palletizerId || item.palletizadora_id;
+      const pal = dbPalletizers.find((p: any) => p && safeMatch(p.id, palId));
+      const palHacId = pal ? (pal.hacId || pal.hac_id) : "";
+      const hacPal = dbHacs.find((h: any) => h && (safeMatch(h.id, palHacId) || safeMatch(h.hac, palHacId)));
+      const palHacVal = hacPal ? (hacPal.hac || "") : (palHacId || "");
+      item.palletizerHac = palHacVal;
+      item["hac_paletizadora"] = palHacVal;
 
-      const bag = dbBaggers.find((b: any) => b && safeMatch(b.id, item.baggerId));
-      const hacBag = dbHacs.find((h: any) => h && safeMatch(h.id, bag?.hacId));
-      item.baggerHac = hacBag ? hacBag.hac : (bag?.hacId || "");
+      const bagId = item.baggerId || item.ensacadora_id;
+      const bag = dbBaggers.find((b: any) => b && safeMatch(b.id, bagId));
+      const bagHacId = bag ? (bag.hacId || bag.hac_id) : "";
+      const hacBag = dbHacs.find((h: any) => h && (safeMatch(h.id, bagHacId) || safeMatch(h.hac, bagHacId)));
+      const bagHacVal = hacBag ? (hacBag.hac || "") : (bagHacId || "");
+      item.baggerHac = bagHacVal;
+      item["hac_ensacadora"] = bagHacVal;
 
-      const mat = dbMaterials.find((m: any) => m && safeMatch(m.id, item.materialId));
-      item.materialDescription = mat ? mat.name : "";
+      const matId = item.materialId || item.material_id;
+      const mat = dbMaterials.find((m: any) => m && safeMatch(m.id, matId));
+      const matName = mat ? (mat.nombre || mat.name || "") : "";
+      item.materialDescription = matName;
+      item["decripcion_material"] = matName;
+      item["descripcion_material"] = matName;
 
       const shiftDurationHours = shift ? Number(shift.durationHours || 8) : 8;
 
@@ -2142,25 +2162,35 @@ async function enrichParos(sheets: any, spreadsheetId: string, data: any[]) {
     ]);
 
     data.forEach((item: any) => {
-      if (item.shiftId) {
-        const shift = dbShifts.find((s: any) => s && safeMatch(s.id, item.shiftId));
-        item.shiftName = shift ? shift.name : "";
-      }
+      const shiftId = item.shiftId || item.turno_id;
+      const shift = dbShifts.find((s: any) => s && (safeMatch(s.id, shiftId) || safeMatch(s.id, item.shiftId)));
+      const shiftName = shift ? (shift.name || shift.nombre || "") : "";
+      item.shiftName = shiftName;
+      item["turno"] = shiftName;
+
       if (item.machineId) {
         const pal = dbPalletizers.find((p: any) => p && safeMatch(p.id, item.machineId)) || dbBaggers.find((b: any) => b && safeMatch(b.id, item.machineId));
         const hacPal = dbHacs.find((h: any) => h && (safeMatch(h.id, pal?.hacId) || safeMatch(h.hac, pal?.hacId)));
         // If there is no HAC related to this machine, use the machine's ID so we can map it back perfectly on read
         item.machineHacText = item.machineHacText || (hacPal ? hacPal.hac : (pal?.id || item.machineId));
+        item["máquina afectada"] = item.machineHacText;
       }
-      if (item.materialId) {
-        const mat = dbMaterials.find((m: any) => m && safeMatch(m.id, item.materialId));
-        item.materialDescription = mat ? mat.name : "";
-      }
+
+      const matId = item.materialId || item.material_id;
+      const mat = dbMaterials.find((m: any) => m && safeMatch(m.id, matId));
+      const matName = mat ? (mat.nombre || mat.name || "") : "";
+      item.materialDescription = matName;
+      item["material"] = matName;
+
       item.finishDate = item.date;
       item.center = "AMG0";
       item.startTime = formatTimeHHMMSS(item.startTime);
       item.endTime = formatTimeHHMMSS(item.endTime);
-      item.durationTime = calculateDurationTime(item.startTime, item.endTime);
+      
+      const duration = calculateDurationTime(item.startTime, item.endTime);
+      item.durationTime = duration;
+      item["duración"] = duration;
+      item["duracion"] = duration;
     });
   } catch (err) {
     console.error("Error enriching paros:", err);
@@ -3114,72 +3144,18 @@ app.post("/api/sheets", async (req, res) => {
     return res.status(400).json({ success: false, error: "Falta el parámetro 'table'" });
   }
 
-  const supabase = getSupabaseClient();
-  if (supabase) {
-    try {
-      const { clientKey } = getIdColumnAndKey(table);
-
-      // Handle READ action via POST
-      if (action === "read") {
-        const list = await readFromSupabase(table);
-        if (list !== null) {
-          return res.json({ success: true, data: list });
-        }
-      }
-
-      // Handle WRITE action (reintegrate/mass update)
-      if (action === "write") {
-        if (!data) {
-          return res.status(400).json({ success: false, error: "Faltan los datos para la acción write" });
-        }
-        for (const item of data) {
-          const idValue = item[clientKey];
-          await writeToSupabase(table, "upsert", clientKey, idValue, item);
-        }
-        return res.json({ success: true, count: data.length });
-      }
-
-      // Handle CREATE action
-      if (action === "create") {
-        const { item } = req.body;
-        if (!item) {
-          return res.status(400).json({ success: false, error: "Falta el parámetro 'item' para crear" });
-        }
-        const idValue = item[clientKey];
-        await writeToSupabase(table, "insert", clientKey, idValue, item);
-        return res.json({ success: true, message: "Registro guardado en Supabase con éxito" });
-      }
-
-      // Handle UPDATE action
-      if (action === "update") {
-        const { id, item } = req.body;
-        if (id === undefined || !item) {
-          return res.status(400).json({ success: false, error: "Faltan 'id' o 'item' para actualizar" });
-        }
-        await writeToSupabase(table, "update", clientKey, id, item);
-        return res.json({ success: true, message: "Registro actualizado en Supabase con éxito" });
-      }
-
-      // Handle DELETE action
-      if (action === "delete") {
-        const { id } = req.body;
-        if (id === undefined) {
-          return res.status(400).json({ success: false, error: "Falta el parámetro 'id' para eliminar" });
-        }
-        await deleteFromSupabase(table, clientKey, id);
-        return res.json({ success: true, message: "Registro eliminado de Supabase con éxito" });
-      }
-
-      return res.status(400).json({ success: false, error: `Acción inválida: ${action}` });
-    } catch (supaErr: any) {
-      console.error(`[Supabase POST direct fail] Action ${action} on ${table}: ${formatSupabaseError(supaErr)}`);
-      return res.status(500).json({ success: false, error: supaErr.message || supaErr.toString() });
-    }
+  // Safely attempt to initialize Google Sheets client details (making them optional if Supabase is active)
+  let sheets: any = null;
+  let spreadsheetId: string = "";
+  try {
+    const sheetsClient = getSheetsClient();
+    sheets = sheetsClient.sheets;
+    spreadsheetId = sheetsClient.spreadsheetId;
+  } catch (err) {
+    console.log("[Optional Google Sheets Connection Skipped]", err instanceof Error ? err.message : err);
   }
 
   try {
-    const { sheets, spreadsheetId } = getSheetsClient();
-
     // Handle READ action via POST
     if (action === "read") {
       try {
