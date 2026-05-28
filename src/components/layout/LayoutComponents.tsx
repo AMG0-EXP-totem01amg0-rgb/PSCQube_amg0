@@ -26,7 +26,6 @@ interface HeaderProps {
   onMarkAsRead: (id: string) => void;
   onMarkAllAsRead: (ids: string[]) => void;
   onNavigateToChange: () => void;
-  onLogout?: () => void;
 }
 
 interface NotificationBellDropdownProps {
@@ -216,8 +215,7 @@ export function Header({
   readNotificationKeys,
   onMarkAsRead,
   onMarkAllAsRead,
-  onNavigateToChange,
-  onLogout
+  onNavigateToChange
 }: HeaderProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -334,17 +332,6 @@ export function Header({
               {isDark ? <Sun size={14} className="text-yellow-400" /> : <Moon size={14} className="text-primary" />}
             </button>
 
-            {/* Logout Button - Mobile */}
-            {onLogout && (
-              <button 
-                onClick={onLogout}
-                title="Cerrar sesión"
-                className="sm:hidden p-1.5 rounded-full hover:bg-red-500/15 hover:text-red-500 text-text-muted transition-colors"
-              >
-                <LogOut size={14} />
-              </button>
-            )}
-
             {/* EXPAND/COLLAPSE TOGGLE (Mobile only) - Strictly Manual */}
             <button 
               onClick={() => setIsCollapsed(!isCollapsed)}
@@ -454,17 +441,6 @@ export function Header({
               >
                 {isDark ? <Sun size={18} className="text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]" /> : <Moon size={18} className="text-primary drop-shadow-[0_0_8px_rgba(59,130,246,0.3)]" />}
               </button>
-
-              {/* Logout Button - Desktop */}
-              {onLogout && (
-                <button 
-                  onClick={onLogout}
-                  title="Cerrar sesión"
-                  className="hidden sm:flex p-2 rounded-full hover:bg-red-500/10 hover:text-red-500 text-text-muted transition-colors shrink-0 ml-1"
-                >
-                  <LogOut size={18} />
-                </button>
-              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -473,7 +449,17 @@ export function Header({
   );
 }
 
-export function BottomNav({ activeSection, onSectionChange }: { activeSection: string; onSectionChange: (s: any) => void }) {
+export function BottomNav({ 
+  activeSection, 
+  onSectionChange,
+  currentUser,
+  onLogout
+}: { 
+  activeSection: string; 
+  onSectionChange: (s: any) => void;
+  currentUser: AppUser;
+  onLogout: () => void;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
@@ -490,11 +476,8 @@ export function BottomNav({ activeSection, onSectionChange }: { activeSection: s
     setIsOpen(false);
   };
 
-  const handleLogout = () => {
-    // Future structure for Clerk signOut()
-    console.log('Cerrando sesión...');
-    window.location.reload(); // Temporary simulated logout
-  };
+  const userName = currentUser?.name || 'Operador';
+  const userEmail = currentUser?.email || currentUser?.email2 || 'Sin correo';
 
   return (
     <>
@@ -575,8 +558,8 @@ export function BottomNav({ activeSection, onSectionChange }: { activeSection: s
                           <UserIcon size={18} />
                         </div>
                         <div className="flex flex-col items-start min-w-0 flex-1">
-                          <span className="text-[10px] font-bold text-text-main truncate w-full text-left uppercase tracking-tight leading-none mb-0.5">Operador Holcim</span>
-                          <span className="text-[8px] font-medium text-text-muted truncate w-full text-left opacity-70">joni0627@gmail.com</span>
+                          <span className="text-[10px] font-bold text-text-main truncate w-full text-left uppercase tracking-tight leading-none mb-0.5">{userName}</span>
+                          <span className="text-[8px] font-medium text-text-muted truncate w-full text-left opacity-70">{userEmail}</span>
                         </div>
                         <ChevronDown size={12} className="text-text-muted group-hover:text-primary transition-colors shrink-0" />
                       </motion.button>
@@ -596,7 +579,11 @@ export function BottomNav({ activeSection, onSectionChange }: { activeSection: s
                           Volver al Menú
                         </button>
                         <button 
-                          onClick={handleLogout}
+                          onClick={() => {
+                            setIsOpen(false);
+                            setIsUserMenuOpen(false);
+                            onLogout();
+                          }}
                           className="w-full h-10 px-4 flex items-center gap-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-all text-[9px] font-black uppercase tracking-[0.2em] group"
                         >
                           <LogOut size={14} className="group-hover:translate-x-1 transition-transform" />

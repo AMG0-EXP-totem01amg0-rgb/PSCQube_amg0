@@ -14,6 +14,7 @@ import {
 
 // Modules
 import { Header, BottomNav } from './components/layout/LayoutComponents';
+import { ConfirmModal } from './components/ui/GlassUI';
 import DashboardView from './components/productivity/DashboardView';
 import StopsView from './components/productivity/StopsView';
 import ProductionView from './components/productivity/ProductionView';
@@ -57,6 +58,7 @@ export default function App() {
   const [prodTab, setProdTab] = useState<ProductivityTab>('DASHBOARD');
   const [adminTab, setAdminTab] = useState('SHIFTS');
   const [hasEnteredApp, setHasEnteredApp] = useState(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const subNavRef = useRef<HTMLDivElement>(null);
 
   const [isDark, setIsDark] = useState(true);
@@ -911,18 +913,6 @@ export default function App() {
               setActiveSection('PRODUCTIVITY');
               setProdTab('CHANGE');
             }}
-            onLogout={async () => {
-              try {
-                const supabase = await getSupabaseClient();
-                if (supabase) {
-                  await supabase.auth.signOut();
-                }
-              } catch (e) {
-                console.warn("[Logout Supabase SignOut Warning]", e);
-              }
-              sessionStorage.clear();
-              window.location.reload();
-            }}
           />
 
           <main className="p-4 md:p-8 max-w-7xl mx-auto pt-4 md:pt-8">
@@ -1203,10 +1193,37 @@ export default function App() {
             </AnimatePresence>
           </main>
 
-          <BottomNav activeSection={activeSection} onSectionChange={setActiveSection} />
+          <BottomNav 
+            activeSection={activeSection} 
+            onSectionChange={setActiveSection} 
+            currentUser={currentUser}
+            onLogout={() => setIsLogoutConfirmOpen(true)}
+          />
           
           {/* Toast Notification Container */}
           <ToastContainer toasts={toasts} onClose={id => setToasts(prev => prev.filter(t => t.id !== id))} />
+
+          {/* Confirmar Cierre de Sesión Modal */}
+          <ConfirmModal
+            isOpen={isLogoutConfirmOpen}
+            onClose={() => setIsLogoutConfirmOpen(false)}
+            onConfirm={async () => {
+              try {
+                const supabase = await getSupabaseClient();
+                if (supabase) {
+                  await supabase.auth.signOut();
+                }
+              } catch (e) {
+                console.warn("[Logout Supabase SignOut Warning]", e);
+              }
+              sessionStorage.clear();
+              window.location.reload();
+            }}
+            title="Cerrar Sesión"
+            message="¿Está seguro de que desea cerrar su sesión y salir de la aplicación?"
+            confirmLabel="Cerrar Sesión"
+            cancelLabel="Cancelar"
+          />
         </motion.div>
       )}
     </AnimatePresence>
