@@ -422,6 +422,75 @@ export default function App() {
     }
   }, []);
 
+  // Keep refs for background comparison without closure stale-state issue
+  const productChangesRef = useRef<ProductChange[]>(productChanges);
+  useEffect(() => {
+    productChangesRef.current = productChanges;
+  }, [productChanges]);
+
+  // Background synchronized polling for real-time collaboration across multiple devices
+  useEffect(() => {
+    if (!hasEnteredApp) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const [resChanges, resStops, resProd] = await Promise.all([
+          fetchTableFromSheets("CAMBIO_PRODUCTOV2", true),
+          fetchTableFromSheets("PAROSV2", true),
+          fetchTableFromSheets("PRODUCCIONV2", true)
+        ]);
+
+        if (resChanges.success && resChanges.data) {
+          const fetchedChanges = resChanges.data as ProductChange[];
+          const currentLocal = productChangesRef.current;
+          const localMap = new Map<string, ProductChange>(currentLocal.map(pc => [pc.id, pc]));
+
+          fetchedChanges.forEach((pc: ProductChange) => {
+            const oldPc = localMap.get(pc.id);
+            if (oldPc) {
+              // If status transitioned from PENDIENTE to APROBADO or RECHAZADO
+              if (oldPc.approvalStatus === 'PENDIENTE' && pc.approvalStatus !== 'PENDIENTE') {
+                const prevMat = masters.materials.find(m => m.id === pc.previousMaterialId)?.name || 'Desconocido';
+                const newMat = masters.materials.find(m => m.id === pc.newMaterialId)?.name || 'Desconocido';
+                
+                if (pc.approvalStatus === 'APROBADO') {
+                  addToast(`¡Cambio Aprobado! El análisis de ${prevMat} a ${newMat} fue APROBADO.`, "success");
+                } else if (pc.approvalStatus === 'RECHAZADO') {
+                  const obsStr = pc.rejectionObservation ? ` Obs: ${pc.rejectionObservation}` : '';
+                  addToast(`¡Cambio Rechazado! El análisis de ${prevMat} a ${newMat} fue RECHAZADO.${obsStr}`, "error");
+                }
+              }
+            } else {
+              // New pending change registered by someone else
+              if (pc.approvalStatus === 'PENDIENTE') {
+                const isLab = currentUser.profile === 'Laboratorio' || currentUser.position === 'Laboratórista';
+                if (isLab) {
+                  const newMat = masters.materials.find(m => m.id === pc.newMaterialId)?.name || 'Desconocido';
+                  addToast(`Nuevo Cambio de Producto cargado por ${pc.operatorName} para material: ${newMat}.`, "info");
+                }
+              }
+            }
+          });
+
+          setProductChanges(fetchedChanges);
+        }
+
+        if (resStops.success && resStops.data) {
+          setStops(resStops.data);
+        }
+
+        if (resProd.success && resProd.data) {
+          setProductionReports(resProd.data);
+        }
+
+      } catch (err) {
+        console.warn("[BackgroundSync] Silent polling warning:", err);
+      }
+    }, 12000); // Poll every 12 seconds to maintain freshness without hitting Sheets API limits
+
+    return () => clearInterval(intervalId);
+  }, [hasEnteredApp, currentUser.profile, currentUser.position, masters.materials]);
+
   // --- Centralized, Synchronized & Toast-Enabled handlers ---
   
   const handleSaveDispatch = (entry: any) => {
