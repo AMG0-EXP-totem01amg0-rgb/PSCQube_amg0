@@ -795,10 +795,19 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
       id: "id",
       hac: "hac",
       descripcion_hac: "detail",
+      detalle_hac: "detail",
+      "detalle hac": "detail",
+      detalle: "detail",
+      descripcion: "detail",
+      descripción: "detail",
       gpo_codigo_objeto: "gpoCodObjeto",
+      "gpo.cód. objeto": "gpoCodObjeto",
+      grupo_codigo_objeto: "gpoCodObjeto",
       equipo: "equipment",
       "es_fechador?": "isDater",
-      "es_balanza?": "isScale"
+      es_fechador: "isDater",
+      "es_balanza?": "isScale",
+      es_balanza: "isScale"
     }
   },
   CAUSASV2: {
@@ -830,13 +839,29 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
       id: "id",
       hac: "hac",
       descripcion: "text",
+      descripción: "text",
+      "texto de causa": "text",
+      texto_de_causa: "text",
       parte_objeto: "partObject",
+      "parte objeto": "partObject",
       grupo_código_sintoma: "symptomGroup",
+      grupo_codigo_sintoma: "symptomGroup",
+      "gpo.cód. sintoma": "symptomGroup",
+      "gpo.cód. síntoma": "symptomGroup",
+      gpo_cod_sintoma: "symptomGroup",
       codigo_sintoma: "symptomCode",
+      código_sintoma: "symptomCode",
+      "cód. sintoma": "symptomCode",
+      "cód. síntoma": "symptomCode",
       causa_sap: "sapCause",
+      "causa sap": "sapCause",
       grupo_codigo_causa: "causeGroup",
+      "gpo.cod. causa": "causeGroup",
+      gpo_cod_causa: "causeGroup",
       codigo_causa: "causeCode",
-      tipo_paro: "stopType"
+      "código causa": "causeCode",
+      tipo_paro: "stopType",
+      "tipo paro": "stopType"
     }
   },
   MATERIALESV2: {
@@ -1549,7 +1574,22 @@ function parseRowToClientObject(headers: string[], row: any[], tableName: string
   headers.forEach((header, index) => {
     if (header) {
       const val = row[index] !== undefined ? row[index] : "";
-      const clientKey = (schema && schema.sheetToClient[header]) ? schema.sheetToClient[header] : header;
+      
+      let clientKey = header;
+      if (schema) {
+        if (schema.sheetToClient[header]) {
+          clientKey = schema.sheetToClient[header];
+        } else {
+          // Robust fallback: try looking up using sanitized header
+          const cleanHeader = sanitizeColumnName(header);
+          const matchedEntry = Object.entries(schema.sheetToClient).find(
+            ([k, v]) => sanitizeColumnName(k) === cleanHeader
+          );
+          if (matchedEntry) {
+            clientKey = matchedEntry[1] as string;
+          }
+        }
+      }
       
       let parsedVal: any = val;
       if (typeof val === "string" && (val.trim().startsWith("[") || val.trim().startsWith("{"))) {

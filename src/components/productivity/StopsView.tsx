@@ -272,7 +272,9 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
               </div>
               <GlassSelect 
                 label="Material en Línea" 
-                options={masters.materials.map(m => ({ label: m.name, value: m.id }))}
+                options={(masters.materials || [])
+                  .filter((m: any) => m && m.isProductive === true)
+                  .map((m: any) => ({ label: m.name || m.nombre, value: m.id }))}
                 value={formData.materialId}
                 onChange={e => setFormData({ ...formData, materialId: (e.target as HTMLSelectElement).value })}
               />
