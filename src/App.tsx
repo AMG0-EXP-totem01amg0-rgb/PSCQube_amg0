@@ -1311,6 +1311,7 @@ export default function App() {
                         console.warn(`[AutoSync] No se encontró mapeo de sufijo para tabla: "${type}"`);
                       }
                     }}
+                    addToast={addToast}
                 />
               )}
             </AnimatePresence>

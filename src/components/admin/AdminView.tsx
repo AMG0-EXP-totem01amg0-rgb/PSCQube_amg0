@@ -54,6 +54,7 @@ import {
   fetchTableFromSheets,
   VERCEL_SETUP_GUIDE,
   getBackendSheetsStatus,
+  clearClientCache,
 } from "../../lib/sheetsService";
 
 interface Props {
@@ -63,6 +64,7 @@ interface Props {
   onTabChange: (tab: any) => void;
   onUpdateMasters: (type: string, data: any[]) => void;
   onUserSwitch?: (dni: string) => void;
+  addToast?: (message: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
 }
 
 function safeHacMatch(hacA: any, hacB: any): boolean {
@@ -174,6 +176,7 @@ export default function AdminView({
   onTabChange,
   onUpdateMasters,
   onUserSwitch,
+  addToast,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -181,6 +184,46 @@ export default function AdminView({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isRefreshingActiveTab, setIsRefreshingActiveTab] = useState(false);
+
+  const tabToSuffix: Record<string, string> = {
+    SHIFTS: "TURNOSV2",
+    MACHINES: "PALETIZADORAV2",
+    BAGGERS: "ENSACADORAV2",
+    HACS: "HACSV2",
+    CAUSES: "CAUSASV2",
+    MATERIALS: "MATERIALESV2",
+    CAPACITIES: "CAPACIDADESV2",
+    USERS: "USUARIOSV2",
+    COMPANIES: "EMPRESASV2",
+    PUNTOS_CARGA: "PUNTOS_CARGAV2",
+  };
+
+  const handleRefreshActiveTab = async () => {
+    const suffix = tabToSuffix[activeTab];
+    if (!suffix) return;
+    setIsRefreshingActiveTab(true);
+    try {
+      clearClientCache(suffix);
+      const result = await fetchTableFromSheets(suffix, true);
+      if (result.success && result.data) {
+        onUpdateMasters(activeTab, result.data);
+        if (addToast) {
+          addToast(`Pestaña ${activeTab} actualizada con éxito desde Supabase.`, "success");
+        }
+      } else {
+        if (addToast) {
+          addToast("Error al renovar datos: " + (result.error || "Desconocido"), "error");
+        }
+      }
+    } catch (e: any) {
+      if (addToast) {
+        addToast("Error de conexión: " + e.message, "error");
+      }
+    } finally {
+      setIsRefreshingActiveTab(false);
+    }
+  };
   const [expandedHacs, setExpandedHacs] = useState<Record<string, boolean>>({});
 
   const toggleHac = (hacCode: string) => {
@@ -480,6 +523,23 @@ export default function AdminView({
           masters.materials.find((m) => m.id === b.materialId)?.name || "";
         return mNameA.localeCompare(mNameB, "es", { sensitivity: "base" });
       });
+    } else if (activeTab === "CAUSES") {
+      result.sort((a: any, b: any) => {
+        const hacA = String(a.hac || "").trim();
+        const hacB = String(b.hac || "").trim();
+        const hacCompare = hacA.localeCompare(hacB, "es", {
+          sensitivity: "base",
+          numeric: true,
+        });
+        if (hacCompare !== 0) return hacCompare;
+
+        const textA = String(a.text || "").trim();
+        const textB = String(b.text || "").trim();
+        return textA.localeCompare(textB, "es", {
+          sensitivity: "base",
+          numeric: true,
+        });
+      });
     }
 
     return result;
@@ -535,7 +595,12 @@ export default function AdminView({
         return {
           hac: hacKey,
           hacDetail: hacObj ? hacObj.detail : "",
-          causes: items,
+          causes: items.sort((a, b) =>
+            String(a.text || "").localeCompare(String(b.text || ""), "es", {
+              sensitivity: "base",
+              numeric: true,
+            })
+          ),
         };
       })
       .sort((a, b) => a.hac.localeCompare(b.hac, "es", { sensitivity: "base" }));
@@ -1886,6 +1951,18 @@ export default function AdminView({
               />
             </div>
             <div className="flex items-center gap-2">
+              {/* Actualizar Datos (invalidación manual de caché) */}
+              <button
+                onClick={handleRefreshActiveTab}
+                disabled={isRefreshingActiveTab}
+                title="Actualizar Datos desde Base de Datos"
+                type="button"
+                className="h-10 px-4 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.05)] border border-emerald-500/20 rounded-lg font-semibold text-xs flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+              >
+                <RefreshCw size={14} className={cn(isRefreshingActiveTab && "animate-spin")} />
+                <span>{isRefreshingActiveTab ? "Actualizando..." : "Actualizar Datos"}</span>
+              </button>
+
               <input
                 type="file"
                 ref={fileInputRef}

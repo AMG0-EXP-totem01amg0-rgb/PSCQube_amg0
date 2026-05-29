@@ -422,6 +422,29 @@ function mapSupabaseRowToClient(tableName: string, dbRow: any): any {
   return clientObj;
 }
 
+function normalizeUniqueIds(tableName: string, list: any[]): any[] {
+  if (!list || !Array.isArray(list)) return [];
+  const { clientKey } = getIdColumnAndKey(tableName);
+  const seenIds = new Set<string>();
+  
+  return list.map((item: any, idx: number) => {
+    if (!item) return item;
+    let idVal = item[clientKey];
+    if (idVal === undefined || idVal === null || String(idVal).trim() === "") {
+      idVal = `auto-${tableName.toLowerCase()}-${idx}-${Date.now().toString(36)}`;
+      item[clientKey] = idVal;
+    } else {
+      const idStr = String(idVal).trim();
+      if (seenIds.has(idStr)) {
+        idVal = `${idStr}-dup-${idx}`;
+        item[clientKey] = idVal;
+      }
+    }
+    seenIds.add(String(idVal).trim());
+    return item;
+  });
+}
+
 async function readFromSupabase(tableName: string): Promise<any[] | null> {
   const supabase = getSupabaseClient();
   if (!supabase) return null;
@@ -434,24 +457,71 @@ async function readFromSupabase(tableName: string): Promise<any[] | null> {
 
   for (const targetTable of tablesToTry) {
     try {
-      const { data, error } = await supabase.from(targetTable).select("*");
-      if (error) {
-        let errStr = (error.message || "").toLowerCase();
-        let errCode = error.code || "";
-        const isTableMissing = errCode === "42P01" || errStr.includes("does not exist") || errStr.includes("no existe") || errStr.includes("not found") || errStr.includes("invalid path");
-        
-        if (isTableMissing) {
-          console.log(`[Supabase Read] Table '${targetTable}' does not exist in database yet (expected fallback).`);
-          continue;
-        }
-        throw error;
+      let allRows: any[] = [];
+      let page = 0;
+      const PAGE_SIZE = 1000;
+      let hasMore = true;
+      let selectStr = "*";
+      
+      const isCausaTable = targetTable.toLowerCase().includes("causa");
+      if (isCausaTable) {
+        // Optimize: select only the 10 required columns for causas to stay performant and avoid fat wire loads
+        selectStr = "id,hac,descripcion,parte_objeto,grupo_codigo_sintoma,codigo_sintoma,causa_sap,grupo_codigo_causa,codigo_causa,tipo_paro";
       }
 
-      if (data) {
-        console.log(`[Supabase Read] Successfully loaded ${data.length} records from table '${targetTable}'.`);
-        const mappedList = data.map((dbRow: any) => {
+      while (hasMore) {
+        const from = page * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+
+        let query = supabase.from(targetTable).select(selectStr).range(from, to);
+
+        if (isCausaTable) {
+          query = query.order("hac", { ascending: true });
+        }
+
+        const { data, error } = await query;
+        if (error) {
+          // If optimized select failed, handle fallback to select("*") in page 0
+          if (selectStr !== "*" && page === 0) {
+            console.warn(`[Supabase Read] Optimized select failed for '${targetTable}', falling back to select("*"). Error: ${error.message}`);
+            selectStr = "*";
+            continue; // Retry the first page with "*"
+          }
+
+          let errStr = (error.message || "").toLowerCase();
+          let errCode = error.code || "";
+          const isTableMissing = errCode === "42P01" || errStr.includes("does not exist") || errStr.includes("no existe") || errStr.includes("not found") || errStr.includes("invalid path");
+          
+          if (isTableMissing && page === 0) {
+            console.log(`[Supabase Read] Table '${targetTable}' does not exist in database yet (expected fallback).`);
+            break; // Break the page loop to try the next table fallback
+          }
+          throw error;
+        }
+
+        if (data && data.length > 0) {
+          allRows = [...allRows, ...data];
+          if (data.length < PAGE_SIZE) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      if (allRows.length > 0 || page > 0) {
+        console.log(`[Supabase Read] Successfully loaded ${allRows.length} total records from table '${targetTable}' over ${page + 1} pages.`);
+        const mappedList = allRows.map((dbRow: any) => {
           return mapSupabaseRowToClient(tableName, dbRow);
         });
+        
+        // Log diagnostics for CAUSAS
+        if (tableName.toUpperCase() === "CAUSASV2") {
+          console.log(`[Diagnostic] CAUSASV2 total read from database: ${allRows.length} original records.`);
+        }
+        
         return mappedList;
       }
     } catch (err: any) {

@@ -88,6 +88,11 @@ export function clearClientCache(tableName?: string): void {
       const keysToClear = [sheetName, sheetName.endsWith('V2') ? sheetName : `${sheetName}V2`];
       keysToClear.forEach(k => {
         sessionStorage.removeItem(CACHE_PREFIX + k);
+        if (k === "CAUSASV2") {
+          localStorage.removeItem("app_causas_v2_local_cache");
+          localStorage.removeItem("app_causas_v2_local_cache_time");
+          console.log("[Client Cache Invalidation] Cleared causas localStorage cache.");
+        }
       });
 
       // Special dependency invalidation: PAROSV2, PRODUCCIONV2 and PAROS_BOQUILLASV2 are closely linked on calculations
@@ -105,6 +110,8 @@ export function clearClientCache(tableName?: string): void {
           i--; // offset index shift
         }
       }
+      localStorage.removeItem("app_causas_v2_local_cache");
+      localStorage.removeItem("app_causas_v2_local_cache_time");
     }
   } catch (err) {
     console.warn("[Client Cache Clear Error]", err);
@@ -160,12 +167,35 @@ export async function fetchTableFromSheets(tableName: string, forceBypass = fals
     sheetName = `${sheetName}V2`;
   }
 
-  // Optimize: Try loading from browser / explorer sessionStorage cache first
+  const CAUSAS_LOCAL_CACHE_KEY = "app_causas_v2_local_cache";
+  const CAUSAS_LOCAL_CACHE_TIME_KEY = "app_causas_v2_local_cache_time";
+  const CAUSAS_CACHE_TTL = 10 * 60 * 1000; // 10 minutes TTL
+
+  // Optimize: Try loading from browser / explorer sessionStorage or localStorage cache first
   if (!forceBypass) {
-    const cached = getCachedData(sheetName);
-    if (cached) {
-      console.log(`[Client Cache Hit] Loaded table ${sheetName} from sessionStorage`);
-      return { success: true, data: cached };
+    if (sheetName === "CAUSASV2") {
+      try {
+        const localCached = localStorage.getItem(CAUSAS_LOCAL_CACHE_KEY);
+        const localCachedTime = localStorage.getItem(CAUSAS_LOCAL_CACHE_TIME_KEY);
+        const parsedTime = localCachedTime ? parseInt(localCachedTime, 10) : 0;
+
+        if (localCached && (Date.now() - parsedTime < CAUSAS_CACHE_TTL)) {
+          const parsedData = JSON.parse(localCached);
+          console.log(`[Diagnostic] CAUSASV2 Cache hit!`);
+          console.log(`- registros leídos desde caché: ${parsedData.length}`);
+          console.log(`- registros consultados a Supabase: 0`);
+          console.log(`- total final disponible en masters.causes: ${parsedData.length}`);
+          return { success: true, data: parsedData };
+        }
+      } catch (e) {
+        console.warn("Error reading localStorage causas cache:", e);
+      }
+    } else {
+      const cached = getCachedData(sheetName);
+      if (cached) {
+        console.log(`[Client Cache Hit] Loaded table ${sheetName} from sessionStorage`);
+        return { success: true, data: cached };
+      }
     }
   }
 
@@ -180,8 +210,21 @@ export async function fetchTableFromSheets(tableName: string, forceBypass = fals
 
     const result = await response.json();
     if (result.success && Array.isArray(result.data)) {
-      // Warm browser cache
-      setCachedData(sheetName, result.data);
+      if (sheetName === "CAUSASV2") {
+        try {
+          localStorage.setItem(CAUSAS_LOCAL_CACHE_KEY, JSON.stringify(result.data));
+          localStorage.setItem(CAUSAS_LOCAL_CACHE_TIME_KEY, String(Date.now()));
+          console.log(`[Diagnostic] CAUSASV2 Cache miss! Loading fresh from Supabase.`);
+          console.log(`- registros leídos desde caché: 0`);
+          console.log(`- registros consultados a Supabase: ${result.data.length}`);
+          console.log(`- total final disponible en masters.causes: ${result.data.length}`);
+        } catch (e) {
+          console.warn("Error writing localStorage causas cache:", e);
+        }
+      } else {
+        // Warm browser cache
+        setCachedData(sheetName, result.data);
+      }
       return { success: true, data: result.data };
     }
     return { success: false, error: result.error || "Formato de respuesta inválido" };
