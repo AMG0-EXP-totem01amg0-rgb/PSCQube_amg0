@@ -96,7 +96,12 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
     const duration = differenceInMinutes(end, start);
 
     // Lookups for technical fields
-    const hacObj = masters.hacs.find(h => h.hac === formData.hacId);
+    const hacObj = masters.hacs.find(h => {
+      if (!h || !h.hac || !formData.hacId) return false;
+      const a = h.hac.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const b = formData.hacId.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      return a === b || a.includes(b) || b.includes(a);
+    });
     const causeObj = masters.causes.find(c => c.id === formData.causeId);
 
     if (!hacObj || !causeObj) {
@@ -105,7 +110,13 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
     }
 
     const machineObj = masters.palletizers.find(p => p.id === palletizerId) || masters.baggers.find(b => b.id === palletizerId);
-    const machineHacObj = masters.hacs.find(h => h.id === machineObj?.hacId || h.hac === machineObj?.hacId);
+    const machineHacObj = masters.hacs.find(h => {
+      if (!h || !machineObj?.hacId) return false;
+      if (h.id === machineObj.hacId || h.hac === machineObj.hacId) return true;
+      const a = (h.hac || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const b = machineObj.hacId.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      return a === b || a.includes(b) || b.includes(a);
+    });
     const machineHacText = machineHacObj ? machineHacObj.hac : (machineObj?.hacId || '');
 
     onSave({
@@ -302,7 +313,14 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
               />
               <GlassSelect 
                 label="Causa Específica" 
-                options={masters.causes.filter((c:any) => c.hac === formData.hacId).map((c:any) => ({label: c.text, value: c.id}))} 
+                options={(masters.causes || [])
+                  .filter((c: any) => {
+                    if (!c || !c.hac || !formData.hacId) return false;
+                    const a = String(c.hac).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+                    const b = String(formData.hacId).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+                    return a === b || a.includes(b) || b.includes(a);
+                  })
+                  .map((c: any) => ({ label: c.text || c.descripcion || '', value: c.id }))} 
                 value={formData.causeId} 
                 onChange={(e: any) => setFormData({...formData, causeId: (e.target as HTMLSelectElement).value})} 
                 disabled={!formData.hacId} 

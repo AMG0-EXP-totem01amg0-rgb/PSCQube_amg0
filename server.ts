@@ -65,6 +65,14 @@ function safeMatch(idA: any, idB: any): boolean {
   return String(idA).trim() === String(idB).trim();
 }
 
+function safeHacMatch(hacA: any, hacB: any): boolean {
+  if (hacA === undefined || hacA === null || hacB === undefined || hacB === null) return false;
+  const a = String(hacA).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const b = String(hacB).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (a === "" || b === "") return false;
+  return a === b || a.includes(b) || b.includes(a);
+}
+
 function formatSupabaseError(err: any): string {
   if (!err) return "unknown error";
   if (typeof err === "object") {
@@ -113,6 +121,7 @@ function sanitizeValue(val: any): any {
         return num;
       }
     }
+    return trimmed;
   }
   return val;
 }
@@ -265,12 +274,16 @@ function mapSupabaseRowToClient(tableName: string, dbRow: any): any {
   const clientObj: any = {};
 
   const processValue = (val: any) => {
-    if (typeof val === "string" && (val.trim().startsWith("[") || val.trim().startsWith("{"))) {
-      try {
-        return JSON.parse(val);
-      } catch (e) {
-        return val;
+    if (typeof val === "string") {
+      const trimmed = val.trim();
+      if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+        try {
+          return JSON.parse(trimmed);
+        } catch (e) {
+          return trimmed;
+        }
       }
+      return trimmed;
     }
     return val;
   };
@@ -1591,13 +1604,15 @@ function parseRowToClientObject(headers: string[], row: any[], tableName: string
         }
       }
       
-      let parsedVal: any = val;
+      let parsedVal: any = typeof val === "string" ? val.trim() : val;
       if (typeof val === "string" && (val.trim().startsWith("[") || val.trim().startsWith("{"))) {
         try {
-          parsedVal = JSON.parse(val);
+          parsedVal = JSON.parse(val.trim());
         } catch (e) {
-          parsedVal = val;
+          parsedVal = val.trim();
         }
+      } else if (typeof val === "string") {
+        parsedVal = val.trim();
       } else {
         parsedVal = val;
       }
@@ -2212,7 +2227,7 @@ async function enrichParos(sheets: any, spreadsheetId: string, data: any[]) {
 
       if (item.machineId) {
         const pal = dbPalletizers.find((p: any) => p && safeMatch(p.id, item.machineId)) || dbBaggers.find((b: any) => b && safeMatch(b.id, item.machineId));
-        const hacPal = dbHacs.find((h: any) => h && (safeMatch(h.id, pal?.hacId) || safeMatch(h.hac, pal?.hacId)));
+        const hacPal = dbHacs.find((h: any) => h && (safeMatch(h.id, pal?.hacId) || safeMatch(h.hac, pal?.hacId) || safeHacMatch(h.hac, pal?.hacId)));
         // If there is no HAC related to this machine, use the machine's ID so we can map it back perfectly on read
         item.machineHacText = item.machineHacText || (hacPal ? hacPal.hac : (pal?.id || item.machineId));
         item["máquina afectada"] = item.machineHacText;
@@ -3053,13 +3068,13 @@ async function enrichParosOnRead(sheets: any, spreadsheetId: string, list: any[]
         item.machineName = pal.name || pal.nombre || "";
       } else {
         // Find if item.machineHacText represents a HAC code
-        const hacForPal = hacs.find((h: any) => h.hac && String(h.hac).toUpperCase() === String(item.machineHacText).toUpperCase());
+        const hacForPal = hacs.find((h: any) => h.hac && safeHacMatch(h.hac, item.machineHacText));
         if (hacForPal) {
           const matchedPal = allMachines.find((p: any) => 
-            p.hacId === hacForPal.id || 
-            p.hacId === hacForPal.hac || 
-            p.hac_id === hacForPal.id || 
-            p.hac_id === hacForPal.hac
+            safeMatch(p.hacId, hacForPal.id) || 
+            safeHacMatch(p.hacId, hacForPal.hac) || 
+            safeMatch(p.hac_id, hacForPal.id) || 
+            safeHacMatch(p.hac_id, hacForPal.hac)
           );
           if (matchedPal) {
             item.machineId = matchedPal.id;
@@ -3083,7 +3098,7 @@ async function enrichParosOnRead(sheets: any, spreadsheetId: string, list: any[]
       }
 
       // 4. HAC
-      const hacObj = hacs.find((h: any) => h.hac === item.hacName);
+      const hacObj = hacs.find((h: any) => h.hac && safeHacMatch(h.hac, item.hacName));
       if (hacObj) {
         item.hacId = hacObj.id;
       } else {
