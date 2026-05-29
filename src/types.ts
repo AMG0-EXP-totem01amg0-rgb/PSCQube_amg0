@@ -68,6 +68,7 @@ export interface MachineStop {
   machineName: string; // MÁQUINA AFECTADA (Nombre - de la paletizadora creada en MAQUINAS)
   machineHacText?: string; // HAC de la máquina afectada
   shiftId: string; // TURNO (ID)
+  shiftName?: string; // Nombre del turno (T1, T2, T3) / Turno A, B, C
   materialId: string; // MATERIAL (ID)
   startTime: string; // INICIO
   endTime?: string;   // FIN

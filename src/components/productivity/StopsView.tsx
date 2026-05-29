@@ -152,23 +152,19 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
     }
 
     const machineObj = masters.palletizers.find(p => p.id === palletizerId) || masters.baggers.find(b => b.id === palletizerId);
-    const machineHacObj = masters.hacs.find(h => {
-      if (!h || !machineObj?.hacId) return false;
-      if (h.id === machineObj.hacId || h.hac === machineObj.hacId) return true;
-      const a = (h.hac || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-      const b = machineObj.hacId.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-      return a === b || a.includes(b) || b.includes(a);
-    });
-    const machineHacText = machineHacObj ? machineHacObj.hac : (machineObj?.hacId || '');
+    const machineName = machineObj?.name || palletizerId || '';
+    const machineHacText = machineName; // machineName directly determines 'máquina afectada' column
+    const shiftName = selectedShift?.name || '';
 
     onSave({
       id: editingId || `STP-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
       date: selectedDate,
       finishDate: selectedDate, // Igual a fecha de registro (FECHAFIN = FECHA)
       machineId: palletizerId || '', 
-      machineName: machineObj?.name || '', // MÁQUINA AFECTADA es el nombre de la paletizadora creada en MAQUINAS
-      machineHacText: machineHacText, // HAC de la máquina afectada
+      machineName: machineName, // MÁQUINA AFECTADA es el nombre de la paletizadora creada en MAQUINAS
+      machineHacText: machineHacText, // HAC o Nombre de la máquina afectada
       shiftId: shiftId || '',
+      shiftName: shiftName, // TURNO de la carga del paro
       materialId: formData.materialId,
       startTime: formData.startTime,
       endTime: formData.endTime,
