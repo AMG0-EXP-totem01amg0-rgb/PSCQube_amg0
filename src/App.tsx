@@ -288,6 +288,7 @@ export default function App() {
   }, [currentUser, prodTab, activeSection]);
 
   const [stops, setStops] = useState<MachineStop[]>([]);
+  const deletedStopIdsRef = useRef<Set<string>>(new Set());
   const [productionReports, setProductionReports] = useState<ProductionReport[]>([]);
   const [dispatchEntries, setDispatchEntries] = useState<any[]>([]);
   const [daterControls, setDaterControls] = useState<DaterControl[]>([]);
@@ -590,7 +591,9 @@ export default function App() {
         }
 
         if (resStops.success && resStops.data) {
-          setStops(resStops.data);
+          const freshStops = resStops.data as MachineStop[];
+          const filtered = freshStops.filter(s => s && !deletedStopIdsRef.current.has(s.id));
+          setStops(filtered);
         }
 
         if (resProd.success && resProd.data) {
@@ -646,6 +649,7 @@ export default function App() {
   const handleSaveStop = (stop: MachineStop) => {
     let exists = false;
     let nextStops: MachineStop[] = [];
+    deletedStopIdsRef.current.delete(stop.id);
     setStops(prev => {
       exists = !!prev.find(x => x.id === stop.id);
       nextStops = exists
@@ -670,6 +674,7 @@ export default function App() {
 
   const handleDeleteStop = (id: string) => {
     let nextStops: MachineStop[] = [];
+    deletedStopIdsRef.current.add(id);
     setStops(prev => {
       nextStops = prev.filter(s => s.id !== id);
       return nextStops;
@@ -1170,7 +1175,7 @@ export default function App() {
                         selectedShift={selectedShift}
                         selectedDate={userContext.selectedDate}
                         onTabChange={tab => setProdTab(tab)} 
-                        stops={stops.filter(s => s.shiftId === userContext.selectedShiftId && s.date === userContext.selectedDate)}
+                        stops={stops.filter(s => s && s.date === userContext.selectedDate && isStopForShift(s, userContext.selectedShiftId, masters))}
                         productionReports={productionReports.filter(r => r.shiftId === userContext.selectedShiftId && r.date === userContext.selectedDate)}
                         inventoryEntries={inventoryEntries.filter(e => e.shiftId === userContext.selectedShiftId && e.date === userContext.selectedDate)}
                         dispatchEntries={dispatchEntries.filter(d => d.shiftId === userContext.selectedShiftId && d.date === userContext.selectedDate)}
