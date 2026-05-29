@@ -44,6 +44,7 @@ import {
   GlassButton,
   GlassInput,
   GlassSelect,
+  GlassSearchableSelect,
 } from "../ui/GlassUI";
 import { SYSTEM_VIEWS } from "../../lib/mockData";
 import {
@@ -256,12 +257,24 @@ export default function AdminView({
 
     // Apply search filter
     if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter((item) =>
-        Object.values(item).some((val) =>
-          String(val).toLowerCase().includes(term),
-        ),
-      );
+      const term = searchTerm.trim().toLowerCase();
+      if (term !== "") {
+        const cleanTerm = term.replace(/[^a-z0-9]/g, "");
+        result = result.filter((item) => {
+          return Object.entries(item).some(([key, val]) => {
+            if (val === undefined || val === null) return false;
+            const strVal = String(val).toLowerCase();
+            
+            // Standard inclusion
+            if (strVal.includes(term)) return true;
+            
+            // Loose alphanumeric inclusion (e.g., matching "672" against "MG.672-RIL")
+            if (cleanTerm && strVal.replace(/[^a-z0-9]/g, "").includes(cleanTerm)) return true;
+            
+            return false;
+          });
+        });
+      }
     }
 
     // Apply sorting based on activeTab
@@ -2155,16 +2168,18 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
 
               {type === "CAUSES" && (
                 <>
-                  <GlassSelect
+                  <GlassSearchableSelect
                     label="HAC"
-                    options={masters.hacs.map((h: any) => ({
+                    options={(masters.hacs || []).map((h: any) => ({
                       label: h.hac,
                       value: h.hac,
+                      searchTags: [h.hac, h.detail]
                     }))}
                     value={formData.hac || ""}
                     onChange={(e: any) =>
                       setFormData({ ...formData, hac: e.target.value })
                     }
+                    placeholder="Buscar y seleccionar HAC..."
                   />
                   <GlassInput
                     label="Texto de Causa"
