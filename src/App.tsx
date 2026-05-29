@@ -1128,7 +1128,7 @@ export default function App() {
                         palletizerId={userContext.selectedPalletizerId} 
                         shiftId={userContext.selectedShiftId} 
                         selectedDate={userContext.selectedDate}
-                        history={stops.filter(s => s.machineId === userContext.selectedPalletizerId && s.shiftId === userContext.selectedShiftId && s.date === userContext.selectedDate)}
+                        history={stops.filter(s => s && String(s.machineId || '').trim().toUpperCase() === String(userContext.selectedPalletizerId || '').trim().toUpperCase() && String(s.shiftId || '').trim().toUpperCase() === String(userContext.selectedShiftId || '').trim().toUpperCase() && s.date === userContext.selectedDate)}
                     />
                   )}
                   {prodTab === 'PRODUCCION' && (
@@ -1140,7 +1140,7 @@ export default function App() {
                         palletizerId={userContext.selectedPalletizerId} 
                         shiftId={userContext.selectedShiftId} 
                         selectedDate={userContext.selectedDate}
-                        history={productionReports.filter(r => r.palletizerId === userContext.selectedPalletizerId && r.shiftId === userContext.selectedShiftId && r.date === userContext.selectedDate)}
+                        history={productionReports.filter(r => r && String(r.palletizerId || '').trim().toUpperCase() === String(userContext.selectedPalletizerId || '').trim().toUpperCase() && String(r.shiftId || '').trim().toUpperCase() === String(userContext.selectedShiftId || '').trim().toUpperCase() && r.date === userContext.selectedDate)}
                       />
                   )}
                   {prodTab === 'DATER' && (
@@ -1149,7 +1149,7 @@ export default function App() {
                         currentUser={currentUser}
                         onSave={handleSaveDaterControl}
                         onDelete={handleDeleteDaterControl}
-                        history={daterControls.filter(c => c.shiftId === userContext.selectedShiftId && c.date === userContext.selectedDate)}
+                        history={daterControls.filter(c => c && String(c.shiftId || '').trim().toUpperCase() === String(userContext.selectedShiftId || '').trim().toUpperCase() && c.date === userContext.selectedDate)}
                         selectedShiftId={userContext.selectedShiftId}
                         selectedDate={userContext.selectedDate}
                     />
@@ -1160,7 +1160,7 @@ export default function App() {
                         currentUser={currentUser}
                         onSave={handleSaveScaleControl}
                         onDelete={handleDeleteScaleControl}
-                        history={scaleControls.filter(c => c.shiftId === userContext.selectedShiftId && c.date === userContext.selectedDate)}
+                        history={scaleControls.filter(c => c && String(c.shiftId || '').trim().toUpperCase() === String(userContext.selectedShiftId || '').trim().toUpperCase() && c.date === userContext.selectedDate)}
                         selectedShiftId={userContext.selectedShiftId}
                         selectedDate={userContext.selectedDate}
                     />

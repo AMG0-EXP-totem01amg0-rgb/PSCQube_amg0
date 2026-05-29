@@ -2329,13 +2329,21 @@ async function enrichParos(sheets: any, spreadsheetId: string, data: any[]) {
 
     data.forEach((item: any) => {
       const shiftId = item.shiftId || item.turno_id;
-      const shift = dbShifts.find((s: any) => s && (safeMatch(s.id, shiftId) || safeMatch(s.id, item.shiftId)));
+      const shift = dbShifts.find((s: any) => s && (
+        safeMatch(s.id, shiftId) || 
+        safeMatch(s.name, shiftId) || 
+        safeMatch(s.nombre, shiftId) || 
+        safeMatch(s.id, item.shiftId) ||
+        safeMatch(s.name, item.shiftId) ||
+        safeMatch(s.nombre, item.shiftId)
+      ));
       const shiftName = shift ? (shift.name || shift.nombre || "") : "";
       item.shiftName = shiftName;
       item["turno"] = shiftName;
 
       if (item.machineId) {
-        const pal = dbPalletizers.find((p: any) => p && safeMatch(p.id, item.machineId)) || dbBaggers.find((b: any) => b && safeMatch(b.id, item.machineId));
+        const pal = dbPalletizers.find((p: any) => p && (safeMatch(p.id, item.machineId) || safeMatch(p.name, item.machineId) || safeMatch(p.nombre, item.machineId))) || 
+                    dbBaggers.find((b: any) => b && (safeMatch(b.id, item.machineId) || safeMatch(b.name, item.machineId) || safeMatch(b.nombre, item.machineId)));
         const hacPal = dbHacs.find((h: any) => h && (safeMatch(h.id, pal?.hacId) || safeMatch(h.hac, pal?.hacId) || safeHacMatch(h.hac, pal?.hacId)));
         // If there is no HAC related to this machine, use the machine's ID so we can map it back perfectly on read
         item.machineHacText = item.machineHacText || (hacPal ? hacPal.hac : (pal?.id || item.machineId));
@@ -3156,46 +3164,106 @@ async function enrichParosOnRead(sheets: any, spreadsheetId: string, list: any[]
     ]);
 
     list.forEach((item: any) => {
-      // 1. Shift
-      const shift = shifts.find((s: any) => s.name === item.shiftName);
+      // 1. Shift Mapping (Ultra-Robust)
+      const targetShiftName = String(item.shiftName || "").trim().toUpperCase();
+      const shift = shifts.find((s: any) => 
+        s && (
+          String(s.name || "").trim().toUpperCase() === targetShiftName ||
+          String(s.nombre || "").trim().toUpperCase() === targetShiftName ||
+          String(s.id || "").trim().toUpperCase() === targetShiftName
+        )
+      );
       if (shift) {
         item.shiftId = shift.id;
       } else {
-        item.shiftId = item.shiftName || "";
+        // Try partial check
+        const looseShift = shifts.find((s: any) => 
+          s && (
+            String(s.name || "").trim().toUpperCase().includes(targetShiftName) ||
+            targetShiftName.includes(String(s.name || "").trim().toUpperCase())
+          )
+        );
+        item.shiftId = looseShift ? looseShift.id : (item.shiftName || "");
       }
 
-      // 2. Machine Affected (Palletizer / Bagger)
+      // 2. Machine Affected (Palletizer / Bagger) - Ultra-Robust Resolution Engine
       const allMachines = [...palletizers, ...baggers];
-      const pal = allMachines.find((p: any) => 
-        (p.id && String(p.id).toUpperCase() === String(item.machineHacText).toUpperCase()) || 
-        (p.name && String(p.name).toUpperCase() === String(item.machineHacText).toUpperCase()) ||
-        (p.nombre && String(p.nombre).toUpperCase() === String(item.machineHacText).toUpperCase())
-      );
+      const targetMachineText = String(item.machineHacText || "").trim().toUpperCase();
+
+      // Tier 1: Case-insensitive name or ID match
+      let pal = allMachines.find((p: any) => {
+        if (!p) return false;
+        const pId = String(p.id || "").trim().toUpperCase();
+        const pName = String(p.name || p.nombre || "").trim().toUpperCase();
+        return pId === targetMachineText || pName === targetMachineText;
+      });
+
+      // Tier 2: Alphanumeric match (removing symbols, spacing and letters)
+      if (!pal) {
+        const cleanTarget = targetMachineText.replace(/[^A-Z0-9]/g, "");
+        pal = allMachines.find((p: any) => {
+          if (!p) return false;
+          const cleanId = String(p.id || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+          const cleanName = String(p.name || p.nombre || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+          return cleanId === cleanTarget || cleanName === cleanTarget;
+        });
+      }
+
+      // Tier 3: Match through HAC table integration
+      if (!pal) {
+        const hacForPal = hacs.find((h: any) => 
+          h && h.hac && (
+            String(h.hac).trim().toUpperCase() === targetMachineText ||
+            safeHacMatch(h.hac, targetMachineText)
+          )
+        );
+        if (hacForPal) {
+          pal = allMachines.find((p: any) => {
+            if (!p) return false;
+            const pHacId = String(p.hacId || p.hac_id || "").trim().toUpperCase();
+            const hId = String(hacForPal.id || "").trim().toUpperCase();
+            const hHac = String(hacForPal.hac || "").trim().toUpperCase();
+            return (
+              pHacId === hId || 
+              pHacId === hHac || 
+              safeHacMatch(pHacId, hId) || 
+              safeHacMatch(pHacId, hHac)
+            );
+          });
+        }
+      }
+
+      // Tier 4: Inclusion / substring match
+      if (!pal) {
+        const cleanTarget = targetMachineText.replace(/[^A-Z0-9]/g, "");
+        pal = allMachines.find((p: any) => {
+          if (!p) return false;
+          const cleanId = String(p.id || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+          const cleanName = String(p.name || p.nombre || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+          return (
+            (cleanId && cleanTarget.includes(cleanId)) || 
+            (cleanTarget && cleanId.includes(cleanTarget)) ||
+            (cleanName && cleanTarget.includes(cleanName)) || 
+            (cleanTarget && cleanName.includes(cleanTarget))
+          );
+        });
+      }
+
+      // Tier 5: Split token match
+      if (!pal) {
+        pal = allMachines.find((p: any) => {
+          if (!p) return false;
+          const pName = String(p.name || p.nombre || "").trim().toUpperCase();
+          return safeHacMatch(pName, targetMachineText);
+        });
+      }
 
       if (pal) {
         item.machineId = pal.id;
         item.machineName = pal.name || pal.nombre || "";
       } else {
-        // Find if item.machineHacText represents a HAC code
-        const hacForPal = hacs.find((h: any) => h.hac && safeHacMatch(h.hac, item.machineHacText));
-        if (hacForPal) {
-          const matchedPal = allMachines.find((p: any) => 
-            safeMatch(p.hacId, hacForPal.id) || 
-            safeHacMatch(p.hacId, hacForPal.hac) || 
-            safeMatch(p.hac_id, hacForPal.id) || 
-            safeHacMatch(p.hac_id, hacForPal.hac)
-          );
-          if (matchedPal) {
-            item.machineId = matchedPal.id;
-            item.machineName = matchedPal.name || matchedPal.nombre || "";
-          } else {
-            item.machineId = item.machineHacText || "";
-            item.machineName = item.machineHacText || "";
-          }
-        } else {
-          item.machineId = item.machineHacText || "";
-          item.machineName = item.machineHacText || "";
-        }
+        item.machineId = item.machineHacText || "";
+        item.machineName = item.machineHacText || "";
       }
 
       // 3. Material
