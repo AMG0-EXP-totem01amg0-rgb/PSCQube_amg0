@@ -112,6 +112,61 @@ function safeHacMatch(hacA: any, hacB: any): boolean {
   return false;
 }
 
+export function normalizeSearchText(value: any): string {
+  if (value === undefined || value === null) return "";
+  return String(value)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function buildCauseSearchIndex(cause: any, masters: MasterData): string[] {
+  const parts: string[] = [];
+
+  // Own cause fields
+  if (cause.hac) parts.push(cause.hac);
+  if (cause.text) parts.push(cause.text);
+  if (cause.stopType) parts.push(cause.stopType);
+  if (cause.partObject) parts.push(cause.partObject);
+  if (cause.causeCode) parts.push(cause.causeCode);
+  if (cause.sapCause) parts.push(cause.sapCause);
+  if (cause.symptomGroup) parts.push(cause.symptomGroup);
+  if (cause.symptomCode) parts.push(cause.symptomCode);
+  if (cause.causeGroup) parts.push(cause.causeGroup);
+
+  // Related HAC details
+  const relatedHacs = (masters.hacs || []).filter(
+    (h) => h.hac === cause.hac || safeHacMatch(h.hac, cause.hac)
+  );
+  relatedHacs.forEach((h) => {
+    if (h.hac) parts.push(h.hac);
+    if (h.detail) parts.push(h.detail);
+    if (h.gpoCodObjeto) parts.push(h.gpoCodObjeto);
+    if (h.equipment) parts.push(h.equipment);
+  });
+
+  // Related machines/equipments (palletizers) with matching HAC
+  const relatedPalletizers = (masters.palletizers || []).filter(
+    (p) => p.hacId === cause.hac || safeHacMatch(p.hacId, cause.hac)
+  );
+  relatedPalletizers.forEach((p) => {
+    if (p.name) parts.push(p.name);
+    if (p.hacId) parts.push(p.hacId);
+  });
+
+  // Related baggers with matching HAC
+  const relatedBaggers = (masters.baggers || []).filter(
+    (b) => b.hacId === cause.hac || safeHacMatch(b.hacId, cause.hac)
+  );
+  relatedBaggers.forEach((b) => {
+    if (b.name) parts.push(b.name);
+    if (b.hacId) parts.push(b.hacId);
+  });
+
+  return parts;
+}
+
 export default function AdminView({
   masters,
   currentUser,
@@ -126,6 +181,14 @@ export default function AdminView({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [expandedHacs, setExpandedHacs] = useState<Record<string, boolean>>({});
+
+  const toggleHac = (hacCode: string) => {
+    setExpandedHacs((prev) => ({
+      ...prev,
+      [hacCode]: !prev[hacCode],
+    }));
+  };
 
   // States for Google Sheets V2 Integration
   const [copiedScript, setCopiedScript] = useState(false);
@@ -306,46 +369,57 @@ export default function AdminView({
     if (searchTerm) {
       const term = searchTerm.trim().toLowerCase();
       if (term !== "") {
-        const cleanTerm = term.replace(/[^a-z0-9]/g, "");
-        result = result.filter((item) => {
-          // 1. If item has a HAC identifier, use the highly optimized bi-directional alphanumeric matcher
-          const targetHac = (item as any).hac || (item as any).hacId || (item as any).hac_id;
-          if (targetHac) {
-            const cleanTarget = String(targetHac).toLowerCase().replace(/[^a-z0-9]/g, "");
-            
-            // Standard inclusion of clean strings
-            if (cleanTarget.includes(cleanTerm) || cleanTerm.includes(cleanTarget)) {
-              return true;
-            }
-            
-            // Loose comparison removing standard "mg" prefix if any
-            const looseTarget = cleanTarget.startsWith("mg") ? cleanTarget.substring(2) : cleanTarget;
-            const looseQuery = cleanTerm.startsWith("mg") ? cleanTerm.substring(2) : cleanTerm;
-            if (looseTarget && looseQuery && (looseTarget.includes(looseQuery) || looseQuery.includes(looseTarget))) {
-              return true;
-            }
-          }
-
-          // 2. Generic fallback search across all entries
-          return Object.entries(item).some(([key, val]) => {
-            if (val === undefined || val === null) return false;
-            const strVal = String(val).toLowerCase();
-            
-            // Standard inclusion
-            if (strVal.includes(term)) return true;
-            
-            // Loose alphanumeric inclusion on any string
-            const cleanVal = strVal.replace(/[^a-z0-9]/g, "");
-            if (cleanTerm && cleanVal.includes(cleanTerm)) return true;
-
-            // Handled explicitly above, but keep as third fallback
-            if (key === "hac" && safeHacMatch(val, term)) {
-              return true;
-            }
-            
-            return false;
+        if (activeTab === "CAUSES") {
+          const queryNorm = normalizeSearchText(term);
+          result = result.filter((cause) => {
+            const indexParts = buildCauseSearchIndex(cause, masters);
+            return indexParts.some((part) => {
+              const partNorm = normalizeSearchText(part);
+              return partNorm.includes(queryNorm);
+            });
           });
-        });
+        } else {
+          const cleanTerm = term.replace(/[^a-z0-9]/g, "");
+          result = result.filter((item) => {
+            // 1. If item has a HAC identifier, use the highly optimized bi-directional alphanumeric matcher
+            const targetHac = (item as any).hac || (item as any).hacId || (item as any).hac_id;
+            if (targetHac) {
+              const cleanTarget = String(targetHac).toLowerCase().replace(/[^a-z0-9]/g, "");
+              
+              // Standard inclusion of clean strings
+              if (cleanTarget.includes(cleanTerm) || cleanTerm.includes(cleanTarget)) {
+                return true;
+              }
+              
+              // Loose comparison removing standard "mg" prefix if any
+              const looseTarget = cleanTarget.startsWith("mg") ? cleanTarget.substring(2) : cleanTarget;
+              const looseQuery = cleanTerm.startsWith("mg") ? cleanTerm.substring(2) : cleanTerm;
+              if (looseTarget && looseQuery && (looseTarget.includes(looseQuery) || looseQuery.includes(looseTarget))) {
+                return true;
+              }
+            }
+
+            // 2. Generic fallback search across all entries
+            return Object.entries(item).some(([key, val]) => {
+              if (val === undefined || val === null) return false;
+              const strVal = String(val).toLowerCase();
+              
+              // Standard inclusion
+              if (strVal.includes(term)) return true;
+              
+              // Loose alphanumeric inclusion on any string
+              const cleanVal = strVal.replace(/[^a-z0-9]/g, "");
+              if (cleanTerm && cleanVal.includes(cleanTerm)) return true;
+
+              // Handled explicitly above, but keep as third fallback
+              if (key === "hac" && safeHacMatch(val, term)) {
+                return true;
+              }
+              
+              return false;
+            });
+          });
+        }
       }
     }
 
@@ -440,6 +514,32 @@ export default function AdminView({
 
     return groups;
   }, [filteredData, activeTab, masters.palletizers]);
+
+  const groupedCauses = useMemo(() => {
+    if (activeTab !== "CAUSES") return [];
+
+    const groups: Record<string, Cause[]> = {};
+    filteredData.forEach((cause: any) => {
+      const key = cause.hac || "SIN_HAC";
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+      groups[key].push(cause);
+    });
+
+    return Object.entries(groups)
+      .map(([hacKey, items]) => {
+        const hacObj = (masters.hacs || []).find(
+          (h) => h.hac === hacKey || safeHacMatch(h.hac, hacKey)
+        );
+        return {
+          hac: hacKey,
+          hacDetail: hacObj ? hacObj.detail : "",
+          causes: items,
+        };
+      })
+      .sort((a, b) => a.hac.localeCompare(b.hac, "es", { sensitivity: "base" }));
+  }, [filteredData, activeTab, masters.hacs]);
 
   const handleDelete = () => {
     if (!deletingId) return;
@@ -1856,13 +1956,62 @@ export default function AdminView({
               />
             )}
             {activeTab === "CAUSES" && (
-              <DataTable
-                title="Catálogo de Causas"
-                countLabel="registros"
-                columns={causeColumns}
-                data={filteredData}
-                keyExtractor={(r) => r.id}
-              />
+              <div className="space-y-4">
+                {groupedCauses.map((group) => {
+                  const isExpanded = !!expandedHacs[group.hac];
+                  return (
+                    <div
+                      key={group.hac}
+                      className="border border-border rounded-xl bg-surface/10 overflow-hidden shadow-sm"
+                    >
+                      {/* Accordion Header */}
+                      <button
+                        onClick={() => toggleHac(group.hac)}
+                        className="w-full flex items-center justify-between px-5 py-4 bg-surface/80 hover:bg-surface/90 border-b border-border transition-all text-left"
+                      >
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span className="text-xs bg-primary/10 text-primary border border-primary/20 px-2.5 py-1 rounded font-black tracking-wide">
+                            {group.hac}
+                          </span>
+                          {group.hacDetail && (
+                            <span className="text-xs font-black text-text-main uppercase tracking-wider">
+                              {group.hacDetail}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-text-muted font-bold font-mono uppercase bg-bg px-2 py-0.5 rounded border border-border">
+                            {group.causes.length} {group.causes.length === 1 ? 'causa' : 'causas'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <ChevronDown
+                            size={16}
+                            className={cn(
+                              "text-text-muted transition-transform duration-200",
+                              isExpanded ? "rotate-180" : ""
+                            )}
+                          />
+                        </div>
+                      </button>
+
+                      {/* Accordion Content */}
+                      {isExpanded && (
+                        <div className="p-4 bg-bg-input/10 animate-fade-in">
+                          <DataTable
+                            columns={causeColumns.filter((col) => col.header !== "HAC")}
+                            data={group.causes}
+                            keyExtractor={(r) => r.id}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {groupedCauses.length === 0 && (
+                  <div className="p-12 text-center text-xs font-medium text-text-muted bg-surface rounded-xl border border-border">
+                    No se encontraron causas coincidentes.
+                  </div>
+                )}
+              </div>
             )}
             {activeTab === "MATERIALS" && (
               <DataTable
