@@ -630,25 +630,33 @@ export default function AdminView({
       activeTab === "CAPACITIES"
         ? list.some(
             (i) =>
-              `${i.palletizerId}-${i.baggerId}-${i.materialId}` ===
-              `${item.palletizerId}-${item.baggerId}-${item.materialId}`,
+              `${i.palletizerId}-${i.baggerId}-${i.materialId}`.trim().toLowerCase() ===
+              `${item.palletizerId}-${item.baggerId}-${item.materialId}`.trim().toLowerCase(),
           )
         : activeTab === "USERS"
-          ? list.some((i) => i.dni === item.dni)
-          : list.some((i) => i.id === item.id);
+          ? list.some((i) => String(i.dni).trim() === String(item.dni).trim())
+          : list.some(
+              (i) =>
+                (i.id !== undefined && i.id !== null && String(i.id).trim().toUpperCase() === String(item.id).trim().toUpperCase()) ||
+                (i.ID !== undefined && i.ID !== null && String(i.ID).trim().toUpperCase() === String(item.id).trim().toUpperCase())
+            );
 
     if (isEdit) {
       if (activeTab === "CAPACITIES") {
         newList = list.map((i) =>
-          `${i.palletizerId}-${i.baggerId}-${i.materialId}` ===
-          `${item.palletizerId}-${item.baggerId}-${item.materialId}`
+          `${i.palletizerId}-${i.baggerId}-${i.materialId}`.trim().toLowerCase() ===
+          `${item.palletizerId}-${item.baggerId}-${item.materialId}`.trim().toLowerCase()
             ? item
             : i,
         );
       } else if (activeTab === "USERS") {
-        newList = list.map((i) => (i.dni === item.dni ? item : i));
+        newList = list.map((i) => (String(i.dni).trim() === String(item.dni).trim() ? item : i));
       } else {
-        newList = list.map((i) => (i.id === item.id ? item : i));
+        newList = list.map((i) => {
+          const iId = String(i.id || i.ID || "").trim().toUpperCase();
+          const itemId = String(item.id || item.ID || "").trim().toUpperCase();
+          return iId === itemId ? item : i;
+        });
       }
     } else {
       newList = [item, ...list];
@@ -1951,18 +1959,6 @@ export default function AdminView({
               />
             </div>
             <div className="flex items-center gap-2">
-              {/* Actualizar Datos (invalidación manual de caché) */}
-              <button
-                onClick={handleRefreshActiveTab}
-                disabled={isRefreshingActiveTab}
-                title="Actualizar Datos desde Base de Datos"
-                type="button"
-                className="h-10 px-4 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.05)] border border-emerald-500/20 rounded-lg font-semibold text-xs flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
-              >
-                <RefreshCw size={14} className={cn(isRefreshingActiveTab && "animate-spin")} />
-                <span>{isRefreshingActiveTab ? "Actualizando..." : "Actualizar Datos"}</span>
-              </button>
-
               <input
                 type="file"
                 ref={fileInputRef}

@@ -91,6 +91,29 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
     [masters.shifts, shiftId]
   );
 
+  const calculatedDuration = useMemo(() => {
+    if (!formData.startTime || !formData.endTime) return null;
+    try {
+      const start = parse(formData.startTime, 'HH:mm', new Date());
+      const end = parse(formData.endTime, 'HH:mm', new Date());
+      if (isBefore(end, start)) {
+        return { text: "La hora de fin no puede ser menor a la hora de inicio", isError: true, mins: 0 };
+      }
+      const mins = differenceInMinutes(end, start);
+      const hrs = Math.floor(mins / 60);
+      const remainingMins = mins % 60;
+      let text = '';
+      if (hrs > 0) {
+        text = `${hrs} h ${remainingMins} min (${mins} min total)`;
+      } else {
+        text = `${mins} min`;
+      }
+      return { text, isError: false, mins };
+    } catch {
+      return null;
+    }
+  }, [formData.startTime, formData.endTime]);
+
   const isTimeInShift = (timeStr: string, shift: Shift) => {
     if (!timeStr) return true;
     const time = parse(timeStr, 'HH:mm', new Date());
@@ -319,6 +342,21 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
                    onChange={e => setFormData({...formData, endTime: (e.target as HTMLInputElement).value})} 
                  />
               </div>
+
+              {calculatedDuration && (
+                <div className={cn(
+                  "p-2.5 rounded-lg border text-xs font-semibold flex items-center gap-2",
+                  calculatedDuration.isError 
+                    ? "bg-red-500/10 border-red-500/20 text-red-400" 
+                    : "bg-primary/10 border-primary/20 text-primary animate-fade-in"
+                )}>
+                  <Clock size={14} className={calculatedDuration.isError ? "text-red-400 shrink-0" : "text-primary shrink-0"} />
+                  <span>
+                    Duración: <strong className="font-extrabold">{calculatedDuration.text}</strong>
+                  </span>
+                </div>
+              )}
+
               <GlassSelect 
                 label="Material en Línea" 
                 options={(masters.materials || [])
@@ -349,14 +387,24 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
                 value={formData.hacId} 
                 onChange={(e: any) => setFormData({...formData, hacId: e.target.value, causeId: ''})} 
               />
-              <GlassSelect 
+              <GlassSearchableSelect 
                 label="Causa Específica" 
                 options={(masters.causes || [])
                   .filter((c: any) => c && c.hac && formData.hacId && safeHacMatch(c.hac, formData.hacId))
-                  .map((c: any) => ({ label: c.text || c.descripcion || '', value: c.id }))} 
+                  .map((c: any) => ({ 
+                    label: c.text || c.descripcion || '', 
+                    value: c.id,
+                    searchTags: [
+                      c.text,
+                      c.descripcion,
+                      c.id,
+                      c.partObject,
+                    ].filter(Boolean).map(s => String(s).toLowerCase())
+                  }))} 
                 value={formData.causeId} 
-                onChange={(e: any) => setFormData({...formData, causeId: (e.target as HTMLSelectElement).value})} 
+                onChange={(e: any) => setFormData({...formData, causeId: e.target.value})} 
                 disabled={!formData.hacId} 
+                placeholder={!formData.hacId ? "Selecciona un equipo primero..." : "Buscar causa específica..."}
               />
             </div>
 
