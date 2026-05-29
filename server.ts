@@ -67,10 +67,49 @@ function safeMatch(idA: any, idB: any): boolean {
 
 function safeHacMatch(hacA: any, hacB: any): boolean {
   if (hacA === undefined || hacA === null || hacB === undefined || hacB === null) return false;
-  const a = String(hacA).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-  const b = String(hacB).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (a === "" || b === "") return false;
-  return a === b || a.includes(b) || b.includes(a);
+  
+  let strA = String(hacA).trim().toUpperCase();
+  let strB = String(hacB).trim().toUpperCase();
+  if (strA === "" || strB === "") return false;
+
+  // 1. Direct match
+  if (strA === strB) return true;
+
+  // 2. Clear alphanumeric match
+  const cleanA = strA.replace(/[^A-Z0-9]/g, '');
+  const cleanB = strB.replace(/[^A-Z0-9]/g, '');
+  if (cleanA === "" || cleanB === "") return false;
+  if (cleanA === cleanB) return true;
+
+  // 3. Bidirectional inclusion
+  if (cleanA.includes(cleanB) || cleanB.includes(cleanA)) return true;
+
+  // 4. Prefix/mid comparison by removing "MG" or similar standard prefixes
+  const looseA = cleanA.startsWith("MG") ? cleanA.slice(2) : cleanA;
+  const looseB = cleanB.startsWith("MG") ? cleanB.slice(2) : cleanB;
+  if (looseA === looseB || looseA.includes(looseB) || looseB.includes(looseA)) return true;
+
+  // 5. Split and check numerical similarity (e.g., 672, 673, 674)
+  const partsA = strA.split(/[\s.\-_/]+/).filter(Boolean);
+  const partsB = strB.split(/[\s.\-_/]+/).filter(Boolean);
+
+  const hasNumA = partsA.some(p => p.includes("672") || p.includes("673") || p.includes("674"));
+  const hasNumB = partsB.some(p => p.includes("672") || p.includes("673") || p.includes("674"));
+  
+  if (hasNumA && hasNumB) {
+    // Check if they share a specific suffix portion (like BT1, PZ1, AM1)
+    const suffixA = partsA.find(p => p !== "MG" && !p.includes("672") && !p.includes("673") && !p.includes("674"));
+    const suffixB = partsB.find(p => p !== "MG" && !p.includes("672") && !p.includes("673") && !p.includes("674"));
+    if (suffixA && suffixB && (suffixA.includes(suffixB) || suffixB.includes(suffixA))) {
+      return true;
+    }
+    // If one is just the group (e.g. 672) and the other is specific (e.g. 672-BT1)
+    if (partsA.length === 1 || partsB.length === 1) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function formatSupabaseError(err: any): string {
