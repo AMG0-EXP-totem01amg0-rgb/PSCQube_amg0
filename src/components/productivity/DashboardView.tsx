@@ -59,6 +59,41 @@ const MaterialStatCard = ({ item }: { item: any; key?: React.Key }) => {
   );
 };
 
+const isStopForMachine = (stop: MachineStop | null | undefined, machine: any, mastersAvailable: any) => {
+  if (!stop || !machine) return false;
+  
+  const macId = String(machine.id).trim().toUpperCase();
+  const macName = String(machine.name || machine.nombre || "").trim().toUpperCase();
+  const macHacId = String(machine.hacId || machine.hac_id || "").trim().toUpperCase();
+  
+  const stopMachineId = String(stop.machineId || "").trim().toUpperCase();
+  const stopMachineName = String(stop.machineName || "").trim().toUpperCase();
+  const stopMachineHacText = String(stop.machineHacText || "").trim().toUpperCase();
+  
+  // 1. Direct ID map match
+  if (stopMachineId === macId) return true;
+  
+  // 2. Direct name match
+  if (macName && (stopMachineName === macName || stopMachineHacText === macName || stopMachineId === macName)) return true;
+  
+  // 3. HAC-based match
+  if (macHacId && (stopMachineId === macHacId || stopMachineHacText === macHacId)) return true;
+  
+  // 4. Loose alphanumeric name comparison
+  const cleanMacName = macName.replace(/[^A-Z0-9]/g, '');
+  const cleanStopId = stopMachineId.replace(/[^A-Z0-9]/g, '');
+  const cleanStopName = stopMachineName.replace(/[^A-Z0-9]/g, '');
+  const cleanStopHac = stopMachineHacText.replace(/[^A-Z0-9]/g, '');
+  
+  if (cleanMacName && (cleanStopId === cleanMacName || cleanStopName === cleanMacName || cleanStopHac === cleanMacName)) return true;
+  
+  // 5. Containment match
+  if (cleanMacName && cleanStopName && (cleanMacName.includes(cleanStopName) || cleanStopName.includes(cleanMacName))) return true;
+  if (cleanMacName && cleanStopHac && (cleanMacName.includes(cleanStopHac) || cleanStopHac.includes(cleanMacName))) return true;
+
+  return false;
+};
+
 export default function DashboardView({ masters, selectedShift, selectedDate, onTabChange, stops, productionReports, inventoryEntries, dispatchEntries, laneStatuses }: Props) {
   const [isShareOpen, setIsShareOpen] = React.useState(false);
 
@@ -141,26 +176,7 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
   // Palletizer Detailed Analysis
   const palletizerData = React.useMemo(() => {
     return masters.palletizers.map((p: any) => {
-      const lineStops = stops.filter(s => {
-        if (!s) return false;
-        // 1. Direct match by ID
-        if (s.machineId === p.id) return true;
-        if (s.machineId && String(s.machineId).toUpperCase() === String(p.id).toUpperCase()) return true;
-
-        // 2. Direct match by Name
-        if (s.machineName && p.name && String(s.machineName).toUpperCase() === String(p.name).toUpperCase()) return true;
-        if (s.machineName && p.nombre && String(s.machineName).toUpperCase() === String(p.nombre).toUpperCase()) return true;
-
-        // 3. Match by machine HAC code
-        const pHacObj = masters.hacs.find((h: any) => h.id === p.hacId || h.hac === p.hacId);
-        if (pHacObj) {
-          if (s.machineId && String(s.machineId).toUpperCase() === String(pHacObj.hac).toUpperCase()) return true;
-          if (s.machineId && String(s.machineId).toUpperCase() === String(pHacObj.id).toUpperCase()) return true;
-          if (s.machineHacText && String(s.machineHacText).toUpperCase() === String(pHacObj.hac).toUpperCase()) return true;
-        }
-
-        return false;
-      });
+      const lineStops = stops.filter(s => s && isStopForMachine(s, p, masters));
       const lineReports = productionReports.filter(r => r.palletizerId === p.id);
 
       // 1. Top 4 Relevant Internal Stops

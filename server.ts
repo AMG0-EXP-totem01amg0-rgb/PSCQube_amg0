@@ -3190,13 +3190,17 @@ async function enrichParosOnRead(sheets: any, spreadsheetId: string, list: any[]
       const allMachines = [...palletizers, ...baggers];
       const targetMachineText = String(item.machineHacText || "").trim().toUpperCase();
 
+      let pal = null;
+
       // Tier 1: Case-insensitive name or ID match
-      let pal = allMachines.find((p: any) => {
-        if (!p) return false;
-        const pId = String(p.id || "").trim().toUpperCase();
-        const pName = String(p.name || p.nombre || "").trim().toUpperCase();
-        return pId === targetMachineText || pName === targetMachineText;
-      });
+      if (!pal) {
+        pal = allMachines.find((p: any) => {
+          if (!p) return false;
+          const pId = String(p.id || "").trim().toUpperCase();
+          const pName = String(p.name || p.nombre || "").trim().toUpperCase();
+          return pId === targetMachineText || pName === targetMachineText;
+        });
+      }
 
       // Tier 2: Alphanumeric match (removing symbols, spacing and letters)
       if (!pal) {

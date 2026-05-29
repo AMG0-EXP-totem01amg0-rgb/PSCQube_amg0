@@ -50,6 +50,74 @@ const getCurrentShift = (shifts: Shift[]): Shift | null => {
   }) || null;
 };
 
+const isStopForMachine = (stop: any, machineId: string | null | undefined, mastersAvailable: MasterData) => {
+  if (!stop || !machineId) return false;
+  const targetId = String(machineId).trim().toUpperCase();
+  
+  // Find the selected machine object
+  const selectedMac: any = (mastersAvailable.palletizers || []).find((p: any) => p && String(p.id).trim().toUpperCase() === targetId) ||
+                           (mastersAvailable.baggers || []).find((b: any) => b && String(b.id).trim().toUpperCase() === targetId);
+                      
+  if (!selectedMac) {
+    // Fallback if the selected id itself matches the stop.machineId
+    return String(stop.machineId || '').trim().toUpperCase() === targetId;
+  }
+  
+  const macId = String(selectedMac.id).trim().toUpperCase();
+  const macName = String(selectedMac.name || selectedMac.nombre || "").trim().toUpperCase();
+  const macHacId = String(selectedMac.hacId || selectedMac.hac_id || "").trim().toUpperCase();
+  
+  const stopMachineId = String(stop.machineId || "").trim().toUpperCase();
+  const stopMachineName = String(stop.machineName || "").trim().toUpperCase();
+  const stopMachineHacText = String(stop.machineHacText || "").trim().toUpperCase();
+  
+  // 1. Direct ID map match
+  if (stopMachineId === macId) return true;
+  
+  // 2. Direct name match
+  if (macName && (stopMachineName === macName || stopMachineHacText === macName || stopMachineId === macName)) return true;
+  
+  // 3. HAC-based match
+  if (macHacId && (stopMachineId === macHacId || stopMachineHacText === macHacId)) return true;
+  
+  // 4. Loose alphanumeric name comparison (e.g., removing spaces and dashes)
+  const cleanMacName = macName.replace(/[^A-Z0-9]/g, '');
+  const cleanStopId = stopMachineId.replace(/[^A-Z0-9]/g, '');
+  const cleanStopName = stopMachineName.replace(/[^A-Z0-9]/g, '');
+  const cleanStopHac = stopMachineHacText.replace(/[^A-Z0-9]/g, '');
+  
+  if (cleanMacName && (cleanStopId === cleanMacName || cleanStopName === cleanMacName || cleanStopHac === cleanMacName)) return true;
+  
+  // 5. If one contains the other (partial / group matches)
+  if (cleanMacName && cleanStopName && (cleanMacName.includes(cleanStopName) || cleanStopName.includes(cleanMacName))) return true;
+  if (cleanMacName && cleanStopHac && (cleanMacName.includes(cleanStopHac) || cleanStopHac.includes(cleanMacName))) return true;
+
+  return false;
+};
+
+const isStopForShift = (stop: any, shiftId: string | null | undefined, mastersAvailable: MasterData) => {
+  if (!stop || !shiftId) return false;
+  const targetId = String(shiftId).trim().toUpperCase();
+  
+  const selectedS: any = (mastersAvailable.shifts || []).find((s: any) => s && String(s.id).trim().toUpperCase() === targetId);
+  if (!selectedS) {
+    return String(stop.shiftId || '').trim().toUpperCase() === targetId;
+  }
+  
+  const sId = String(selectedS.id).trim().toUpperCase();
+  const sName = String(selectedS.name || selectedS.nombre || "").trim().toUpperCase();
+  
+  const stopShiftId = String(stop.shiftId || "").trim().toUpperCase();
+  const stopShiftName = String(stop.shiftName || stop.turno || "").trim().toUpperCase();
+  
+  if (stopShiftId === sId) return true;
+  if (stopShiftName === sName) return true;
+  if (stopShiftId === sName) return true;
+  if (stopShiftName === sId) return true;
+  
+  return false;
+};
+
 type AppSection = 'PRODUCTIVITY' | 'SAFETY' | 'ENVIRONMENT' | 'HR' | 'ADMIN';
 type ProductivityTab = 'DASHBOARD' | 'PAROS' | 'PRODUCCION' | 'DATER' | 'SCALE' | 'STOCK' | 'GASOIL' | 'MANTENIMIENTO' | 'CHANGE' | 'LOADING_LANES' | 'DESPACHOS';
 
@@ -903,9 +971,10 @@ export default function App() {
   const kpis = useMemo(() => {
     if (!selectedPalletizer || !selectedShift) return { availability: 0, performance: 0, hsMarcha: 0, totalTons: 0 };
     const machineStops = stops.filter(s => 
-      s.machineId === selectedPalletizer.id && 
-      s.shiftId === selectedShift.id &&
-      s.date === userContext.selectedDate
+      s &&
+      s.date === userContext.selectedDate &&
+      isStopForMachine(s, selectedPalletizer.id, masters) &&
+      isStopForShift(s, selectedShift.id, masters)
     );
     const contextReports = productionReports.filter(r => 
       r.palletizerId === selectedPalletizer.id && 
@@ -1128,7 +1197,7 @@ export default function App() {
                         palletizerId={userContext.selectedPalletizerId} 
                         shiftId={userContext.selectedShiftId} 
                         selectedDate={userContext.selectedDate}
-                        history={stops.filter(s => s && String(s.machineId || '').trim().toUpperCase() === String(userContext.selectedPalletizerId || '').trim().toUpperCase() && String(s.shiftId || '').trim().toUpperCase() === String(userContext.selectedShiftId || '').trim().toUpperCase() && s.date === userContext.selectedDate)}
+                        history={stops.filter(s => s && s.date === userContext.selectedDate && isStopForMachine(s, userContext.selectedPalletizerId, masters) && isStopForShift(s, userContext.selectedShiftId, masters))}
                     />
                   )}
                   {prodTab === 'PRODUCCION' && (
