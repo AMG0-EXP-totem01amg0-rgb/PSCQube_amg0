@@ -308,6 +308,25 @@ export default function AdminView({
       if (term !== "") {
         const cleanTerm = term.replace(/[^a-z0-9]/g, "");
         result = result.filter((item) => {
+          // 1. If item has a HAC identifier, use the highly optimized bi-directional alphanumeric matcher
+          const targetHac = (item as any).hac || (item as any).hacId || (item as any).hac_id;
+          if (targetHac) {
+            const cleanTarget = String(targetHac).toLowerCase().replace(/[^a-z0-9]/g, "");
+            
+            // Standard inclusion of clean strings
+            if (cleanTarget.includes(cleanTerm) || cleanTerm.includes(cleanTarget)) {
+              return true;
+            }
+            
+            // Loose comparison removing standard "mg" prefix if any
+            const looseTarget = cleanTarget.startsWith("mg") ? cleanTarget.substring(2) : cleanTarget;
+            const looseQuery = cleanTerm.startsWith("mg") ? cleanTerm.substring(2) : cleanTerm;
+            if (looseTarget && looseQuery && (looseTarget.includes(looseQuery) || looseQuery.includes(looseTarget))) {
+              return true;
+            }
+          }
+
+          // 2. Generic fallback search across all entries
           return Object.entries(item).some(([key, val]) => {
             if (val === undefined || val === null) return false;
             const strVal = String(val).toLowerCase();
@@ -315,10 +334,11 @@ export default function AdminView({
             // Standard inclusion
             if (strVal.includes(term)) return true;
             
-            // Loose alphanumeric inclusion (e.g., matching "672" against "MG.672-RIL")
-            if (cleanTerm && strVal.replace(/[^a-z0-9]/g, "").includes(cleanTerm)) return true;
+            // Loose alphanumeric inclusion on any string
+            const cleanVal = strVal.replace(/[^a-z0-9]/g, "");
+            if (cleanTerm && cleanVal.includes(cleanTerm)) return true;
 
-            // Deep bidirectional HAC Match if checking the "hac" field (e.g., in CAUSES or HACS)
+            // Handled explicitly above, but keep as third fallback
             if (key === "hac" && safeHacMatch(val, term)) {
               return true;
             }
