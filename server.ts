@@ -996,7 +996,8 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
       "es_pallet?",
       "es_productivo?",
       "es_insumo?",
-      "es_bigbag?"
+      "es_bigbag?",
+      "es_despacho?"
     ],
     clientToSheet: {
       id: "id",
@@ -1007,7 +1008,8 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
       isPallet: "es_pallet?",
       isProductive: "es_productivo?",
       isSupply: "es_insumo?",
-      isBigBag: "es_bigbag?"
+      isBigBag: "es_bigbag?",
+      isDispatch: "es_despacho?"
     },
     sheetToClient: {
       id: "id",
@@ -1018,7 +1020,8 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
       "es_pallet?": "isPallet",
       "es_productivo?": "isProductive",
       "es_insumo?": "isSupply",
-      "es_bigbag?": "isBigBag"
+      "es_bigbag?": "isBigBag",
+      "es_despacho?": "isDispatch"
     }
   },
   CAPACIDADESV2: {
@@ -1798,7 +1801,7 @@ function parseRowToClientObject(headers: string[], row: any[], tableName: string
 
       // Standardize boolean fields across all tables to prevent false-positives
       const isBoolean = header.endsWith("?") || 
-                        ["isPallet", "isProductive", "isSupply", "isBigBag", "isSamplingPoint", "isDater", "isScale", "isEnabled", "purge"].includes(clientKey);
+                        ["isPallet", "isProductive", "isSupply", "isBigBag", "isDispatch", "isSamplingPoint", "isDater", "isScale", "isEnabled", "purge"].includes(clientKey);
       if (isBoolean) {
         const norm = String(val).trim().toUpperCase();
         parsedVal = (val === true || val === 1 || norm === "TRUE" || norm === "1" || norm === "SI" || norm === "SÍ" || norm === "HABILITADO" || norm === "HABILITADA" || norm === "CUMPLIDO");
@@ -1832,7 +1835,7 @@ const PREDEFINED_HEADERS: Record<string, string[]> = {
   ENSACADORAV2: ["id", "tipo", "nombre", "boquillas", "hac_id", "es_punto_de_muestreo?"],
   HACSV2: ["id", "hac", "descripcion_hac", "gpo_codigo_objeto", "equipo", "es_fechador?", "es_balanza?"],
   CAUSASV2: ["id", "hac", "descripcion", "parte_objeto", "grupo_código_sintoma", "codigo_sintoma", "causa_sap", "grupo_codigo_causa", "codigo_causa", "tipo_paro"],
-  MATERIALESV2: ["id", "nombre", "codigo_sap", "peso_embalaje", "peso_bolsa", "es_pallet?", "es_productivo?", "es_insumo?", "es_bigbag?"],
+  MATERIALESV2: ["id", "nombre", "codigo_sap", "peso_embalaje", "peso_bolsa", "es_pallet?", "es_productivo?", "es_insumo?", "es_bigbag?", "es_despacho?"],
   CAPACIDADESV2: ["id", "ensacadora_id", "peletizadora_id", "material_id", "bdp"],
   USUARIOSV2: ["dni", "nombre", "usuariosap", "email", "email2", "puesto", "perfil", "permisos"],
   EMPRESASV2: ["id", "nombre", "dirección", "cuit", "telefono", "email"],

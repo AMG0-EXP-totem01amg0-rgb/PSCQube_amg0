@@ -32,7 +32,7 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
   const [isEditingId, setIsEditingId] = useState<string | null>(null);
 
   const productiveMaterials = useMemo(() => 
-    masters.materials.filter(m => m.isProductive),
+    masters.materials.filter(m => m.isDispatch === true),
     [masters.materials]
   );
 

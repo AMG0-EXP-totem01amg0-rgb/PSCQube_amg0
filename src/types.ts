@@ -50,6 +50,7 @@ export interface Material {
   isProductive: boolean; // Es productivo?
   isSupply: boolean;     // Es insumo?
   isBigBag: boolean;     // Es bigbag?
+  isDispatch?: boolean;   // Es despacho?
 }
 
 export interface CapacityBDP {

@@ -870,6 +870,11 @@ export default function AdminView({
               BIGBAG
             </span>
           )}
+          {row.isDispatch && (
+            <span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-1 py-0.5 rounded text-[8px] font-bold">
+              DESPACHO
+            </span>
+          )}
         </div>
       ),
     },
@@ -2656,6 +2661,26 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                         className="text-xs font-bold text-text-main uppercase"
                       >
                         Es BigBag
+                      </label>
+                    </div>
+                    <div className="flex items-center gap-3 bg-bg-input p-3 rounded-lg border border-border">
+                      <input
+                        type="checkbox"
+                        id="isDispatch"
+                        checked={formData.isDispatch || false}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            isDispatch: e.target.checked,
+                          })
+                        }
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                      />
+                      <label
+                        htmlFor="isDispatch"
+                        className="text-xs font-bold text-text-main uppercase"
+                      >
+                        Es Despacho
                       </label>
                     </div>
                   </div>
