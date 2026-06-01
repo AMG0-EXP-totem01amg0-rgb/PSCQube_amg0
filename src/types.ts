@@ -131,6 +131,8 @@ export interface ProductionReport {
   nozzleNews: NozzleNews[];
   nozzleAvailability?: string;
   hsMarchaTis?: number;
+  machinistId?: string;
+  machinistName?: string;
 }
 
 export interface DaterControl {

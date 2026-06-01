@@ -327,7 +327,9 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       discardedBagsTransport: parseInt(formData.discardedBagsTransport) || 0,
       nozzleNews: formData.nozzleNews,
       nozzleAvailability: nozzleAvailabilityStr,
-      hsMarchaTis: formData.hsMarchaTis ? parseFloat(formData.hsMarchaTis) : null
+      hsMarchaTis: formData.hsMarchaTis ? parseFloat(formData.hsMarchaTis) : null,
+      machinistId: editingItem?.machinistId || currentUser?.dni || "",
+      machinistName: editingItem?.machinistName || currentUser?.name || ""
     };
 
     onSave(record);
@@ -345,6 +347,21 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
           <div className="text-[9px] font-bold text-primary uppercase tracking-wider">
             {masters.materials.find(m => m.id === row.materialId)?.name}
           </div>
+        </div>
+      )
+    },
+    {
+      header: 'Maquinista',
+      accessor: (row) => (
+        <div className="py-1">
+          <div className="text-[11px] font-bold text-text-main">
+            {row.machinistName || <span className="text-text-muted/80 italic">Sin registrar</span>}
+          </div>
+          {row.machinistId && (
+            <div className="text-[9px] font-mono text-text-muted">
+              DNI: {row.machinistId}
+            </div>
+          )}
         </div>
       )
     },

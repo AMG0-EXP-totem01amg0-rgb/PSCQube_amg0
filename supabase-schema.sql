@@ -172,7 +172,9 @@ CREATE TABLE IF NOT EXISTS produccionv2 (
     disponibilidad NUMERIC DEFAULT 100,
     oee NUMERIC DEFAULT 100,
     disponibilidad_boquillas NUMERIC DEFAULT 100,
-    hs_marcha_tis NUMERIC DEFAULT NULL
+    hs_marcha_tis NUMERIC DEFAULT NULL,
+    id_maquinista TEXT,
+    descripcion_maquinista TEXT
 );
 
 -- 15. Tabla: paros_boquillasv2

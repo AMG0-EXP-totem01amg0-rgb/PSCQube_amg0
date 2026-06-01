@@ -1174,7 +1174,9 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
       "disponibilidad",
       "oee",
       "disponibilidad_boquillas",
-      "hs_marcha_tis"
+      "hs_marcha_tis",
+      "id_maquinista",
+      "descripcion_maquinista"
     ],
     clientToSheet: {
       id: "id",
@@ -1200,7 +1202,9 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
       availability: "disponibilidad",
       oee: "oee",
       nozzleAvailability: "disponibilidad_boquillas",
-      hsMarchaTis: "hs_marcha_tis"
+      hsMarchaTis: "hs_marcha_tis",
+      machinistId: "id_maquinista",
+      machinistName: "descripcion_maquinista"
     },
     sheetToClient: {
       id: "id",
@@ -1226,7 +1230,9 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
       disponibilidad: "availability",
       oee: "oee",
       disponibilidad_boquillas: "nozzleAvailability",
-      hs_marcha_tis: "hsMarchaTis"
+      hs_marcha_tis: "hsMarchaTis",
+      id_maquinista: "machinistId",
+      descripcion_maquinista: "machinistName"
     }
   },
   PAROS_BOQUILLASV2: {
@@ -1877,7 +1883,9 @@ const PREDEFINED_HEADERS: Record<string, string[]> = {
     "disponibilidad",
     "oee",
     "disponibilidad_boquillas",
-    "hs_marcha_tis"
+    "hs_marcha_tis",
+    "id_maquinista",
+    "descripcion_maquinista"
   ],
   PAROS_BOQUILLASV2: [
     "id",
