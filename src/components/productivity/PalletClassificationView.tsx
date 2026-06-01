@@ -4,7 +4,7 @@ import { PlusCircle, Box, Trash2, Save, Layers, Calculator, ClipboardList, BarCh
 import { ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell } from 'recharts';
 import { MasterData, PalletClassification, AppUser } from '../../types';
 import { DataTable, Column, TableActions } from '../ui/DataTable';
-import { GlassCard, GlassButton, GlassInput, GlassSelect, ConfirmModal } from '../ui/GlassUI';
+import { GlassCard, GlassButton, GlassInput, GlassSelect, ConfirmModal, Modal } from '../ui/GlassUI';
 import { cn } from '../../lib/utils';
 import { format, parseISO } from 'date-fns';
 
@@ -19,8 +19,7 @@ interface Props {
   selectedDate: string;
 }
 
-const PALLET_COLORS = ['#f97316', '#10b981', '#06b6d4', '#8b5cf6', '#3b82f6', '#f59e0b', '#ec4899'];
-
+const PALLET_COLORS = ['#3b82f6', '#10b981', '#06b6d4', '#8b5cf6', '#eab308', '#ec4899', '#f97316'];
 
 export default function PalletClassificationView({ 
   masters, 
@@ -94,21 +93,37 @@ export default function PalletClassificationView({
     return Array.from(pSet).sort((a, b) => a.localeCompare(b));
   }, [chartTypeData]);
 
-  // Chart Data: Total Quantity of Pallets Grouped by Shift Description/ID
+  // Chart Data: Total Quantity of Pallets Grouped by Shift and Stacked by Pallet Type
   const chartShiftData = useMemo(() => {
-    const grouped: Record<string, number> = {};
+    const grouped: Record<string, Record<string, number>> = {};
     
     (allEntries || []).forEach(entry => {
       const shiftName = entry.shiftDescription || entry.shiftId || 'DIVERSO';
-      grouped[shiftName] = (grouped[shiftName] || 0) + (Number(entry.quantity) || 0);
+      const pType = entry.palletType || 'DIVERSOS';
+      
+      if (!grouped[shiftName]) {
+        grouped[shiftName] = {};
+      }
+      grouped[shiftName][pType] = (grouped[shiftName][pType] || 0) + (Number(entry.quantity) || 0);
     });
 
-    return Object.entries(grouped).map(([shiftName, totalQty]) => ({
+    return Object.entries(grouped).map(([shiftName, palletQuantities]) => ({
       shiftName,
-      cantidad: totalQty
+      ...palletQuantities
     })).sort((a, b) => a.shiftName.localeCompare(b.shiftName));
   }, [allEntries]);
 
+  const uniquePalletTypesInShiftChart = useMemo(() => {
+    const pSet = new Set<string>();
+    chartShiftData.forEach(item => {
+      Object.keys(item).forEach(key => {
+        if (key !== 'shiftName') {
+          pSet.add(key);
+        }
+      });
+    });
+    return Array.from(pSet).sort((a, b) => a.localeCompare(b));
+  }, [chartShiftData]);
 
   // Filter materials that are marked as pallet (tarima)
   const palletMaterials = useMemo(() => {
@@ -221,8 +236,8 @@ export default function PalletClassificationView({
         className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface/50 p-4 rounded-2xl border border-border"
       >
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500 border border-orange-500/20">
-            <Layers size={24} />
+          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shadow-inner">
+            <Layers size={24} className="fill-primary/20" />
           </div>
           <div>
             <h2 className="text-xl font-bold tracking-tight text-text-main">Clasificación de Pallets</h2>
@@ -253,7 +268,7 @@ export default function PalletClassificationView({
         <GlassCard className="p-6 relative overflow-hidden">
           <div className="mb-4">
             <h3 className="text-sm font-bold text-text-main flex items-center gap-2">
-              <Layers size={16} className="text-orange-500" />
+              <Layers size={16} className="text-primary" />
               Evolución por Tipo de Pallet
             </h3>
             <p className="text-xs text-text-muted font-mono uppercase tracking-wider mt-1">Últimos 10 días de registro</p>
@@ -276,11 +291,13 @@ export default function PalletClassificationView({
                   />
                   <Tooltip 
                     contentStyle={{ 
-                      backgroundColor: '#1E2230', 
+                      backgroundColor: '#161920', 
                       borderColor: 'rgba(255,255,255,0.1)',
                       borderRadius: '12px',
                       color: '#f3f4f6'
                     }}
+                    itemStyle={{ color: '#ffffff' }}
+                    labelStyle={{ color: '#9ca3af', fontWeight: 'bold' }}
                   />
                   <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: 10 }} />
                   {uniquePalletTypesInChart.map((pallet, idx) => (
@@ -310,7 +327,7 @@ export default function PalletClassificationView({
         <GlassCard className="p-6 relative overflow-hidden">
           <div className="mb-4">
             <h3 className="text-sm font-bold text-text-main flex items-center gap-2">
-              <BarChart2 size={16} className="text-orange-500" />
+              <BarChart2 size={16} className="text-primary" />
               Clasificación por Turno
             </h3>
             <p className="text-xs text-text-muted font-mono uppercase tracking-wider mt-1">Total acumulado de pallets por turno</p>
@@ -333,17 +350,24 @@ export default function PalletClassificationView({
                   />
                   <Tooltip 
                     contentStyle={{ 
-                      backgroundColor: '#1E2230', 
+                      backgroundColor: '#161920', 
                       borderColor: 'rgba(255,255,255,0.1)',
                       borderRadius: '12px',
                       color: '#f3f4f6'
                     }}
+                    itemStyle={{ color: '#ffffff' }}
+                    labelStyle={{ color: '#9ca3af', fontWeight: 'bold' }}
                   />
-                  <Bar dataKey="cantidad" name="Pallets Clasificados" radius={[4, 4, 0, 0]}>
-                    {chartShiftData.map((_entry, index) => (
-                      <Cell key={`cell-${index}`} fill={PALLET_COLORS[index % PALLET_COLORS.length]} />
-                    ))}
-                  </Bar>
+                  <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: 10 }} />
+                  {uniquePalletTypesInShiftChart.map((pallet, index) => (
+                    <Bar 
+                      key={pallet} 
+                      dataKey={pallet} 
+                      name={pallet} 
+                      stackId="palletStack" 
+                      fill={PALLET_COLORS[index % PALLET_COLORS.length]} 
+                    />
+                  ))}
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -358,67 +382,60 @@ export default function PalletClassificationView({
 
       <AnimatePresence>
         {isFormOpen && (
-          <motion.div 
-            id="pallet-classification-form-container"
-            initial={{ height: 0, opacity: 0 }} 
-            animate={{ height: 'auto', opacity: 1 }} 
-            exit={{ height: 0, opacity: 0 }}
+          <Modal 
+            isOpen={isFormOpen} 
+            onClose={() => setIsFormOpen(false)} 
+            title={editingId ? "Editar Clasificación de Pallets" : "Registrar Clasificación de Pallets"}
           >
-            <GlassCard className="p-6 mb-6 overflow-hidden border-orange-500/20">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-sm font-bold uppercase tracking-widest flex items-center gap-2">
-                  <Calculator size={16} className="text-orange-500" />
-                  {editingId ? 'Editar' : 'Nuevo'} Registro de Pallets
-                </h3>
-                <button 
-                  id="close-pallet-form-btn"
-                  onClick={() => setIsFormOpen(false)} 
-                  className="text-text-muted hover:text-text-main transition-colors"
-                >
-                  <PlusCircle className="rotate-45" size={20} />
-                </button>
+            <form 
+              id="pallet-classification-form"
+              onSubmit={handleSubmit} 
+              className="space-y-4"
+            >
+              <div>
+                {palletMaterials.length > 0 ? (
+                  <GlassSelect 
+                    label="Tipo de Tarima*" 
+                    options={palletMaterials.map(m => ({ label: m.name, value: m.name }))}
+                    value={formData.palletType}
+                    onChange={(e: any) => setFormData({...formData, palletType: e.target.value})}
+                    required
+                  />
+                ) : (
+                  <div className="p-3 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-xs">
+                    No hay materiales marcados como pallet en el Maestro de Materiales.
+                  </div>
+                )}
               </div>
               
-              <form 
-                id="pallet-classification-form"
-                onSubmit={handleSubmit} 
-                className="grid grid-cols-1 md:grid-cols-3 gap-6"
-              >
-                <div className="md:col-span-1">
-                  {palletMaterials.length > 0 ? (
-                    <GlassSelect 
-                      label="Tipo de Tarima" 
-                      options={palletMaterials.map(m => ({ label: m.name, value: m.name }))}
-                      value={formData.palletType}
-                      onChange={e => setFormData({...formData, palletType: e.target.value})}
-                      required
-                    />
-                  ) : (
-                    <div className="p-3 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-xs">
-                      No hay materiales marcados como pallet en el Maestro de Materiales.
-                    </div>
-                  )}
-                </div>
-                <GlassInput 
-                  type="number" 
-                  label="Cantidad (unidades)" 
-                  value={formData.quantity} 
-                  onChange={e => setFormData({...formData, quantity: Number(e.target.value)})} 
-                  required
-                  min="1"
-                />
-                <div className="flex items-end gap-3">
-                  <GlassButton 
-                    id="save-pallet-classification-btn"
-                    type="submit" 
-                    className="w-full h-10"
-                  >
-                    <Save size={16} /> Guardar Registro
-                  </GlassButton>
-                </div>
-              </form>
-            </GlassCard>
-          </motion.div>
+              <GlassInput 
+                type="number" 
+                label="Cantidad* (unidades)" 
+                value={formData.quantity || ''} 
+                onChange={(e: any) => setFormData({...formData, quantity: e.target.value ? Number(e.target.value) : 0})} 
+                required
+                min="1"
+              />
+              
+              <div className="flex gap-3 pt-4">
+                <GlassButton 
+                  variant="secondary" 
+                  className="flex-1" 
+                  onClick={() => setIsFormOpen(false)}
+                  type="button"
+                >
+                  Cancelar
+                </GlassButton>
+                <GlassButton 
+                  id="save-pallet-classification-btn"
+                  type="submit" 
+                  className="flex-1 text-white bg-primary hover:bg-primary-hover shadow-sm"
+                >
+                  <Save size={16} /> Guardar
+                </GlassButton>
+              </div>
+            </form>
+          </Modal>
         )}
       </AnimatePresence>
 
