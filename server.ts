@@ -375,6 +375,8 @@ function mapSupabaseRowToClient(tableName: string, dbRow: any): any {
     numericFields.forEach(f => {
       if (clientObj[f] !== undefined) clientObj[f] = Number(clientObj[f]) || 0;
     });
+    const p = clientObj.purge;
+    clientObj.purge = (p === true || p === "true" || p === "SI" || p === "SÍ" || p === "TRUE" || p === 1) ? "SI" : "NO";
   }
 
   if (upperTable === "CONTROL_BALANZAV2") {
@@ -1749,6 +1751,8 @@ function parseRowToClientObject(headers: string[], row: any[], tableName: string
       if (upperTable === "CONTROL_FECHADORV2") {
         if (clientKey === "inkStock" || clientKey === "solventStock" || clientKey === "headsStock") {
           parsedVal = Number(val) || 0;
+        } else if (clientKey === "purge") {
+          parsedVal = (val === true || val === "true" || val === "SI" || val === "SÍ" || val === "TRUE" || val === 1) ? "SI" : "NO";
         }
       }
 
