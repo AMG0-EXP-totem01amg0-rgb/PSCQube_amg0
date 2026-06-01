@@ -243,7 +243,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
       endTime: stop.endTime || '',
       hacId: hacObj?.hac || '',
       causeId: stop.causeId,
-      noticeText: stop.noticeText || '' 
+      noticeText: stop.symptomText || '' 
     });
     setError(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
