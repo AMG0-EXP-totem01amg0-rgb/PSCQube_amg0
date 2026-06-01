@@ -1199,13 +1199,13 @@ export default function App() {
                           >
                             {canView('LOADING_LANES') && <ProductivitySubTab active={prodTab === 'LOADING_LANES'} onClick={() => setProdTab('LOADING_LANES')} icon={null} label="Calles Carga" />}
                             {canView('CHANGE') && <ProductivitySubTab active={prodTab === 'CHANGE'} onClick={() => setProdTab('CHANGE')} icon={<Bot size={14} />} label="Cambio Producto" />}
+                            {canView('PALLET_CLASS') && <ProductivitySubTab active={prodTab === 'PALLET_CLASS'} onClick={() => setProdTab('PALLET_CLASS')} icon={<Layers size={14} />} label="Clasificación Pallets" />}
                             {canView('GASOIL') && <ProductivitySubTab active={prodTab === 'GASOIL'} onClick={() => setProdTab('GASOIL')} icon={<Droplet size={14} />} label="Combustible" />}
                             {canView('SCALE') && <ProductivitySubTab active={prodTab === 'SCALE'} onClick={() => setProdTab('SCALE')} icon={<Activity size={14} />} label="Control Balanzas" />}
                             {canView('DATER') && <ProductivitySubTab active={prodTab === 'DATER'} onClick={() => setProdTab('DATER')} icon={<ClipboardList size={14} />} label="Control Fechadores" />}
                             {canView('DASHBOARD') && <ProductivitySubTab active={prodTab === 'DASHBOARD'} onClick={() => setProdTab('DASHBOARD')} icon={<Activity size={14} />} label="Dashboard" />}
                             {canView('DESPACHOS') && <ProductivitySubTab active={prodTab === 'DESPACHOS'} onClick={() => setProdTab('DESPACHOS')} icon={<Truck size={14} />} label="Despachos" />}
                             {canView('STOCK') && <ProductivitySubTab active={prodTab === 'STOCK'} onClick={() => setProdTab('STOCK')} icon={<PlusCircle size={14} />} label="Insumos" />}
-                            {canView('PALLET_CLASS') && <ProductivitySubTab active={prodTab === 'PALLET_CLASS'} onClick={() => setProdTab('PALLET_CLASS')} icon={<Layers size={14} />} label="Clasificación Pallets" />}
                             {canView('MANTENIMIENTO') && <ProductivitySubTab active={prodTab === 'MANTENIMIENTO'} onClick={() => setProdTab('MANTENIMIENTO')} icon={<Settings size={14} />} label="Mantenimiento" />}
                             {canView('PAROS') && <ProductivitySubTab active={prodTab === 'PAROS'} onClick={() => setProdTab('PAROS')} icon={<AlertTriangle size={14} />} label="Paros" />}
                             {canView('PRODUCCION') && <ProductivitySubTab active={prodTab === 'PRODUCCION'} onClick={() => setProdTab('PRODUCCION')} icon={<Package size={14} />} label="Producción" />}
@@ -1302,6 +1302,7 @@ export default function App() {
                         masters={masters} 
                         currentUser={currentUser}
                         entries={palletClassifications.filter(e => e.shiftId === userContext.selectedShiftId && e.date === userContext.selectedDate)}
+                        allEntries={palletClassifications}
                         onSave={handleSavePalletClass}
                         onDelete={handleDeletePalletClass}
                         selectedShiftId={userContext.selectedShiftId}

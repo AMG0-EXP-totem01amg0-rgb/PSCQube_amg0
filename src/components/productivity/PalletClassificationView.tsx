@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { PlusCircle, Box, Trash2, Save, Layers, Calculator, ClipboardList } from 'lucide-react';
+import { PlusCircle, Box, Trash2, Save, Layers, Calculator, ClipboardList, BarChart2 } from 'lucide-react';
+import { ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell } from 'recharts';
 import { MasterData, PalletClassification, AppUser } from '../../types';
 import { DataTable, Column, TableActions } from '../ui/DataTable';
 import { GlassCard, GlassButton, GlassInput, GlassSelect, ConfirmModal } from '../ui/GlassUI';
@@ -13,9 +14,13 @@ interface Props {
   onSave: (entry: PalletClassification) => void;
   onDelete: (id: string) => void;
   entries: PalletClassification[];
+  allEntries?: PalletClassification[];
   selectedShiftId: string | null;
   selectedDate: string;
 }
+
+const PALLET_COLORS = ['#f97316', '#10b981', '#06b6d4', '#8b5cf6', '#3b82f6', '#f59e0b', '#ec4899'];
+
 
 export default function PalletClassificationView({ 
   masters, 
@@ -23,6 +28,7 @@ export default function PalletClassificationView({
   onSave, 
   onDelete, 
   entries, 
+  allEntries = [],
   selectedShiftId, 
   selectedDate 
 }: Props) {
@@ -35,6 +41,74 @@ export default function PalletClassificationView({
     const perm = currentUser?.permissions?.find(p => p.viewId === 'PALLET_CLASS');
     return perm ? perm.level === 'EDIT' : false;
   }, [currentUser]);
+
+  // Chart Data: Quantity by Date by Pallet Type
+  const chartTypeData = useMemo(() => {
+    const grouped: Record<string, Record<string, number>> = {};
+    
+    (allEntries || []).forEach(entry => {
+      const d = entry.date || '';
+      if (!d) return;
+      
+      if (!grouped[d]) {
+        grouped[d] = {};
+      }
+      
+      const pType = entry.palletType || 'DIVERSOS';
+      grouped[d][pType] = (grouped[d][pType] || 0) + (Number(entry.quantity) || 0);
+    });
+    
+    const sortedDates = Object.keys(grouped).sort((a, b) => a.localeCompare(b));
+    const latestDates = sortedDates.slice(-10); // Last 10 days
+    
+    return latestDates.map(d => {
+      let displayDate = d;
+      try {
+        if (d.includes('-')) {
+          const parts = d.split('-');
+          if (parts.length === 3) {
+            displayDate = `${parts[2]}/${parts[1]}`; // dd/mm
+          }
+        }
+      } catch (e) {
+        // fallback
+      }
+      
+      return {
+        date: displayDate,
+        rawDate: d,
+        ...grouped[d]
+      };
+    });
+  }, [allEntries]);
+
+  const uniquePalletTypesInChart = useMemo(() => {
+    const pSet = new Set<string>();
+    chartTypeData.forEach(item => {
+      Object.keys(item).forEach(key => {
+        if (key !== 'date' && key !== 'rawDate') {
+          pSet.add(key);
+        }
+      });
+    });
+    return Array.from(pSet).sort((a, b) => a.localeCompare(b));
+  }, [chartTypeData]);
+
+  // Chart Data: Total Quantity of Pallets Grouped by Shift Description/ID
+  const chartShiftData = useMemo(() => {
+    const grouped: Record<string, number> = {};
+    
+    (allEntries || []).forEach(entry => {
+      const shiftName = entry.shiftDescription || entry.shiftId || 'DIVERSO';
+      grouped[shiftName] = (grouped[shiftName] || 0) + (Number(entry.quantity) || 0);
+    });
+
+    return Object.entries(grouped).map(([shiftName, totalQty]) => ({
+      shiftName,
+      cantidad: totalQty
+    })).sort((a, b) => a.shiftName.localeCompare(b.shiftName));
+  }, [allEntries]);
+
 
   // Filter materials that are marked as pallet (tarima)
   const palletMaterials = useMemo(() => {
@@ -173,6 +247,115 @@ export default function PalletClassificationView({
         )}
       </div>
 
+      {/* Gráficos Estadísticos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Gráfico 1: Evolución por Tipo de Pallet */}
+        <GlassCard className="p-6 relative overflow-hidden">
+          <div className="mb-4">
+            <h3 className="text-sm font-bold text-text-main flex items-center gap-2">
+              <Layers size={16} className="text-orange-500" />
+              Evolución por Tipo de Pallet
+            </h3>
+            <p className="text-xs text-text-muted font-mono uppercase tracking-wider mt-1">Últimos 10 días de registro</p>
+          </div>
+          {chartTypeData.length > 0 ? (
+            <div className="h-64 w-full mt-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartTypeData} margin={{ top: 10, right: 15, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="rgba(255, 255, 255, 0.4)" 
+                    fontSize={10}
+                    tickLine={false}
+                  />
+                  <YAxis 
+                    stroke="rgba(255, 255, 255, 0.4)" 
+                    fontSize={10}
+                    tickLine={false}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#1E2230', 
+                      borderColor: 'rgba(255,255,255,0.1)',
+                      borderRadius: '12px',
+                      color: '#f3f4f6'
+                    }}
+                  />
+                  <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: 10 }} />
+                  {uniquePalletTypesInChart.map((pallet, idx) => (
+                    <Line 
+                      key={pallet}
+                      type="monotone"
+                      dataKey={pallet}
+                      name={pallet}
+                      stroke={PALLET_COLORS[idx % PALLET_COLORS.length]}
+                      strokeWidth={2.5}
+                      dot={{ r: 3, strokeWidth: 1, fill: '#161920' }}
+                      activeDot={{ r: 6 }}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-64 flex flex-col items-center justify-center border border-dashed border-border rounded-xl bg-surface/25">
+              <Layers className="text-text-muted opacity-20 mb-2 animate-pulse" size={32} />
+              <p className="text-xs text-text-muted">Cargá clasificaciones de pallets para visualizar la tendencia</p>
+            </div>
+          )}
+        </GlassCard>
+
+        {/* Gráfico 2: Clasificación por Turno */}
+        <GlassCard className="p-6 relative overflow-hidden">
+          <div className="mb-4">
+            <h3 className="text-sm font-bold text-text-main flex items-center gap-2">
+              <BarChart2 size={16} className="text-orange-500" />
+              Clasificación por Turno
+            </h3>
+            <p className="text-xs text-text-muted font-mono uppercase tracking-wider mt-1">Total acumulado de pallets por turno</p>
+          </div>
+          {chartShiftData.length > 0 ? (
+            <div className="h-64 w-full mt-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartShiftData} margin={{ top: 10, right: 15, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" />
+                  <XAxis 
+                    dataKey="shiftName" 
+                    stroke="rgba(255, 255, 255, 0.4)" 
+                    fontSize={10}
+                    tickLine={false}
+                  />
+                  <YAxis 
+                    stroke="rgba(255, 255, 255, 0.4)" 
+                    fontSize={10}
+                    tickLine={false}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#1E2230', 
+                      borderColor: 'rgba(255,255,255,0.1)',
+                      borderRadius: '12px',
+                      color: '#f3f4f6'
+                    }}
+                  />
+                  <Bar dataKey="cantidad" name="Pallets Clasificados" radius={[4, 4, 0, 0]}>
+                    {chartShiftData.map((_entry, index) => (
+                      <Cell key={`cell-${index}`} fill={PALLET_COLORS[index % PALLET_COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-64 flex flex-col items-center justify-center border border-dashed border-border rounded-xl bg-surface/25">
+              <BarChart2 className="text-text-muted opacity-20 mb-2 animate-pulse" size={32} />
+              <p className="text-xs text-text-muted font-mono">No hay información de turnos disponible</p>
+            </div>
+          )}
+        </GlassCard>
+      </div>
+
       <AnimatePresence>
         {isFormOpen && (
           <motion.div 
@@ -228,7 +411,7 @@ export default function PalletClassificationView({
                   <GlassButton 
                     id="save-pallet-classification-btn"
                     type="submit" 
-                    className="w-full h-10 border-orange-500/30 text-orange-500 hover:bg-orange-500/10"
+                    className="w-full h-10"
                   >
                     <Save size={16} /> Guardar Registro
                   </GlassButton>
