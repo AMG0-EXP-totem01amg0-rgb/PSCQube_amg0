@@ -373,9 +373,8 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
 
             {/* Clasificación (HAC/Causa) */}
             <div className="space-y-6">
-              <GlassSearchableSelect 
-                label="Equipo Afectado (HAC)" 
-                options={masters.hacs
+              {(() => {
+                const filteredHacs = (masters.hacs || [])
                   .filter((h: any) => h && h.hac)
                   .map((h: any) => ({
                     label: `${h.hac || ''} - ${h.detail || ''} ${h.equipment ? `(${h.equipment})` : ''}`, 
@@ -386,15 +385,48 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
                       h.equipment,
                       h.id,
                       h.gpoCodObjeto,
-                    ].filter(Boolean).map(s => String(s).toLowerCase())
-                  }))} 
-                value={formData.hacId} 
-                onChange={(e: any) => setFormData({...formData, hacId: e.target.value, causeId: ''})} 
-              />
-              <GlassSearchableSelect 
-                label="Causa Específica" 
-                options={(masters.causes || [])
-                  .filter((c: any) => c && c.hac && formData.hacId && safeHacMatch(c.hac, formData.hacId))
+                    ].filter(Boolean).map((s: any) => String(s).toLowerCase())
+                  }));
+
+                if (formData.hacId) {
+                  const exists = filteredHacs.some(opt => String(opt.value).trim().toUpperCase() === String(formData.hacId).trim().toUpperCase());
+                  if (!exists) {
+                    const matchedHac = (masters.hacs || []).find(h => 
+                      String(h.id).trim().toUpperCase() === String(formData.hacId).trim().toUpperCase() ||
+                      String(h.hac).trim().toUpperCase() === String(formData.hacId).trim().toUpperCase()
+                    );
+                    const label = matchedHac 
+                      ? `${matchedHac.hac || ''} - ${matchedHac.detail || ''} ${matchedHac.equipment ? `(${matchedHac.equipment})` : ''}`
+                      : String(formData.hacId);
+                    filteredHacs.unshift({
+                      label: label,
+                      value: formData.hacId,
+                      searchTags: [label.toLowerCase()]
+                    });
+                  }
+                }
+
+                return (
+                  <GlassSearchableSelect 
+                    label="Equipo Afectado (HAC)" 
+                    options={filteredHacs}
+                    value={formData.hacId} 
+                    onChange={(e: any) => setFormData({...formData, hacId: e.target.value, causeId: ''})} 
+                  />
+                );
+              })()}
+
+              {(() => {
+                const filteredOptions = (masters.causes || [])
+                  .filter((c: any) => {
+                    const isSelected = formData.causeId && (
+                      String(c.id).trim().toUpperCase() === String(formData.causeId).trim().toUpperCase() ||
+                      String(c.text || '').trim().toUpperCase() === String(formData.causeId).trim().toUpperCase() ||
+                      String((c as any).descripcion || '').trim().toUpperCase() === String(formData.causeId).trim().toUpperCase()
+                    );
+                    if (isSelected) return true;
+                    return c && c.hac && formData.hacId && safeHacMatch(c.hac, formData.hacId);
+                  })
                   .map((c: any) => ({ 
                     label: c.text || c.descripcion || '', 
                     value: c.id,
@@ -403,13 +435,36 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
                       c.descripcion,
                       c.id,
                       c.partObject,
-                    ].filter(Boolean).map(s => String(s).toLowerCase())
-                  }))} 
-                value={formData.causeId} 
-                onChange={(e: any) => setFormData({...formData, causeId: e.target.value})} 
-                disabled={!formData.hacId} 
-                placeholder={!formData.hacId ? "Selecciona un equipo primero..." : "Buscar causa específica..."}
-              />
+                    ].filter(Boolean).map((s: any) => String(s).toLowerCase())
+                  }));
+
+                if (formData.causeId) {
+                  const exists = filteredOptions.some(opt => String(opt.value).trim().toUpperCase() === String(formData.causeId).trim().toUpperCase());
+                  if (!exists) {
+                    const matchedCause = (masters.causes || []).find(c => 
+                      String(c.id).trim().toUpperCase() === String(formData.causeId).trim().toUpperCase() ||
+                      String(c.text || '').trim().toUpperCase() === String(formData.causeId).trim().toUpperCase()
+                    );
+                    const label = matchedCause ? (matchedCause.text || (matchedCause as any).descripcion) : String(formData.causeId);
+                    filteredOptions.unshift({
+                      label: label,
+                      value: formData.causeId,
+                      searchTags: [label.toLowerCase()]
+                    });
+                  }
+                }
+
+                return (
+                  <GlassSearchableSelect 
+                    label="Causa Específica" 
+                    options={filteredOptions} 
+                    value={formData.causeId} 
+                    onChange={(e: any) => setFormData({...formData, causeId: e.target.value})} 
+                    disabled={!formData.hacId} 
+                    placeholder={!formData.hacId ? "Selecciona un equipo primero..." : "Buscar causa específica..."}
+                  />
+                );
+              })()}
             </div>
 
             {/* Información Adicional */}
