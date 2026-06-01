@@ -34,7 +34,7 @@ import { getSupabaseClient } from './lib/supabaseClient';
 import { cn } from './lib/utils';
 import { Shift, MachineStop, ProductionReport, DaterControl, ScaleControl, InventoryEntry, UserContext, MasterData, AppUser, ProductChange, Company, FuelLoad, AlertNotification } from './types';
 import { SHIFTS, PALLETIZERS, BAGGERS, MATERIALS, HACS, CAUSES, CAPACITIES, USERS, SYSTEM_VIEWS, COMPANIES, LOADING_POINTS, LANE_STATUSES } from './lib/mockData';
-import { syncTableToSheets, getBackendSheetsStatus, fetchTableFromSheets } from './lib/sheetsService';
+import { syncTableToSheets, getBackendSheetsStatus, fetchTableFromSheets, clearClientCache } from './lib/sheetsService';
 import { ToastContainer, ToastMessage } from './components/ui/Toast';
 
 // --- Utilities ---
@@ -384,6 +384,9 @@ export default function App() {
     setIsSyncing(true);
     setSyncMessage('Iniciando sincronización...');
     try {
+      // Intentionally clear all browser-side caches to guarantee fresh database state on page refresh
+      clearClientCache();
+
       setSyncMessage('Estableciendo conexión con base de datos...');
       const status = await getBackendSheetsStatus();
       
@@ -391,7 +394,7 @@ export default function App() {
 
       if (status.configured) {
         setSyncMessage('Sincronizando información...');
-        // Parallel fetching of master & transactional data
+        // Parallel fetching of master & transactional data with explicit cache bypass to get manual DB updates
         const [
           resStops,
           resProduction,
@@ -416,28 +419,28 @@ export default function App() {
           resVehicles,
           resFuelLoads
         ] = await Promise.all([
-          fetchTableFromSheets("PAROSV2"),
-          fetchTableFromSheets("PRODUCCIONV2"),
-          fetchTableFromSheets("CONTROL_FECHADORV2"),
-          fetchTableFromSheets("CONTROL_BALANZAV2"),
-          fetchTableFromSheets("INVENTARIO_FISICOV2"),
-          fetchTableFromSheets("CAMBIO_PRODUCTOV2"),
-          fetchTableFromSheets("DESPACHOSV2"),
-          fetchTableFromSheets("ESTADO_CALLESV2"),
+          fetchTableFromSheets("PAROSV2", true),
+          fetchTableFromSheets("PRODUCCIONV2", true),
+          fetchTableFromSheets("CONTROL_FECHADORV2", true),
+          fetchTableFromSheets("CONTROL_BALANZAV2", true),
+          fetchTableFromSheets("INVENTARIO_FISICOV2", true),
+          fetchTableFromSheets("CAMBIO_PRODUCTOV2", true),
+          fetchTableFromSheets("DESPACHOSV2", true),
+          fetchTableFromSheets("ESTADO_CALLESV2", true),
           // Masters
-          fetchTableFromSheets("TURNOSV2"),
-          fetchTableFromSheets("PALETIZADORAV2"),
-          fetchTableFromSheets("ENSACADORAV2"),
-          fetchTableFromSheets("HACSV2"),
-          fetchTableFromSheets("CAUSASV2"),
-          fetchTableFromSheets("MATERIALESV2"),
-          fetchTableFromSheets("CAPACIDADESV2"),
-          fetchTableFromSheets("USUARIOSV2"),
-          fetchTableFromSheets("EMPRESASV2"),
-          fetchTableFromSheets("PUNTOS_CARGAV2"),
-          fetchTableFromSheets("PROVEEDORES_BOLSAV2"),
-          fetchTableFromSheets("VEHICULOSV2"),
-          fetchTableFromSheets("CARGA_COMBUSTIBLEV2")
+          fetchTableFromSheets("TURNOSV2", true),
+          fetchTableFromSheets("PALETIZADORAV2", true),
+          fetchTableFromSheets("ENSACADORAV2", true),
+          fetchTableFromSheets("HACSV2", true),
+          fetchTableFromSheets("CAUSASV2", true),
+          fetchTableFromSheets("MATERIALESV2", true),
+          fetchTableFromSheets("CAPACIDADESV2", true),
+          fetchTableFromSheets("USUARIOSV2", true),
+          fetchTableFromSheets("EMPRESASV2", true),
+          fetchTableFromSheets("PUNTOS_CARGAV2", true),
+          fetchTableFromSheets("PROVEEDORES_BOLSAV2", true),
+          fetchTableFromSheets("VEHICULOSV2", true),
+          fetchTableFromSheets("CARGA_COMBUSTIBLEV2", true)
         ]);
 
         setSyncMessage('Preparando sistema...');

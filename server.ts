@@ -3352,6 +3352,17 @@ app.get("/api/sheets", async (req, res) => {
     return res.status(400).json({ success: false, error: "Falta el parámetro 'table'" });
   }
 
+  const bypassCache = req.query.bypassCache === "true";
+  if (bypassCache) {
+    const upperTable = table.toUpperCase();
+    delete readCache[upperTable];
+    if (upperTable === "PRODUCCIONV2") {
+      delete readCache["PAROS_BOQUILLASV2"];
+    } else if (upperTable === "PAROS_BOQUILLASV2") {
+      delete readCache["PRODUCCIONV2"];
+    }
+  }
+
   // Safely attempt to initialize Google Sheets client details (making them optional if Supabase is active)
   let sheets: any = null;
   let spreadsheetId: string = "";

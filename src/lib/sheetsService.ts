@@ -200,7 +200,7 @@ export async function fetchTableFromSheets(tableName: string, forceBypass = fals
   }
 
   try {
-    const url = `/api/sheets?table=${sheetName}`;
+    const url = `/api/sheets?table=${sheetName}${forceBypass ? '&bypassCache=true' : ''}`;
     const response = await fetch(url);
 
     if (!response.ok) {
