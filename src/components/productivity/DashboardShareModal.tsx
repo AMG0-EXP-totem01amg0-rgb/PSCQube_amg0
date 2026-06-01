@@ -402,13 +402,27 @@ export default function DashboardShareModal({
                     </h2>
 
                     <div className="space-y-4">
-                      {palletizerData.map(({ palletizer, topStops, tonsByMaterial, runHours, activeNozzles, totalTons }, idx) => (
+                      {palletizerData.map(({ palletizer, topStops, tonsByMaterial, runHours, oee, availability, performance, activeNozzles, totalTons }, idx) => (
                         <div key={idx} className="border border-gray-300 rounded-lg p-4">
-                          <div className="flex justify-between items-baseline border-b border-gray-150 pb-2 mb-3">
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline border-b border-gray-150 pb-2 mb-3 gap-2">
                             <span className="text-xs font-extrabold text-blue-950 uppercase">{palletizer.name}</span>
-                            <div className="text-right flex items-center gap-2">
-                              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Horas en Marcha:</span>
-                              <span className="text-sm font-black text-blue-800 font-mono">{runHours} hs</span>
+                            <div className="flex flex-wrap items-center gap-3">
+                              <div className="flex items-center gap-1">
+                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Marcha:</span>
+                                <span className="text-xs font-black text-blue-800 font-mono">{runHours}hs</span>
+                              </div>
+                              <div className="flex items-center gap-1 border-l border-gray-200 pl-2">
+                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">OEE:</span>
+                                <span className="text-xs font-black text-emerald-700 font-mono">{oee || 0}%</span>
+                              </div>
+                              <div className="flex items-center gap-1 border-l border-gray-200 pl-2">
+                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Disp:</span>
+                                <span className="text-xs font-black text-indigo-700 font-mono">{availability || 0}%</span>
+                              </div>
+                              <div className="flex items-center gap-1 border-l border-gray-200 pl-2">
+                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Rend:</span>
+                                <span className="text-xs font-black text-rose-700 font-mono">{performance || 0}%</span>
+                              </div>
                             </div>
                           </div>
 

@@ -196,10 +196,42 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
       }, {} as Record<string, number>);
 
       // 3. Operating Hours (Run time)
-      const shiftTotalMinutes = selectedShift ? selectedShift.durationHours * 60 : 480;
+      const shiftTotalHours = selectedShift ? selectedShift.durationHours : 8;
       const stopMinutes = lineStops.reduce((sum, s) => sum + (Number(s.durationMinutes) || 0), 0);
-      const runMinutes = Math.max(0, shiftTotalMinutes - stopMinutes);
-      const runHours = (runMinutes / 60).toFixed(1);
+      const stopHours = stopMinutes / 60;
+
+      // "las hs de marcha, por defecto deben aparecer en cero, solo si se registra algun tipo de paro.
+      // si en el turno no se han reportado paros, deberían figurar en cero."
+      const runHours = lineStops.length === 0 ? "0" : Math.max(0, shiftTotalHours - stopHours).toFixed(1);
+
+      // Calculations of OEE, availability & performance
+      const externalStopMinutes = lineStops
+        .filter(s => {
+          const causeObj = masters.causes.find(c => c.id === s.causeId || c.text === s.causeText);
+          const type = String(s.stopType || causeObj?.stopType || 'INTERNO').toUpperCase();
+          return type === 'EXTERNO';
+        })
+        .reduce((sum, s) => sum + (Number(s.durationMinutes) || 0), 0);
+      const externalStopHours = externalStopMinutes / 60;
+
+      const actualHsMarchaVal = shiftTotalHours - stopHours;
+      let availVal = shiftTotalHours > 0 ? (externalStopHours + Math.max(0, actualHsMarchaVal)) / shiftTotalHours : 0;
+      availVal = Math.min(1, Math.max(0, availVal));
+
+      let perfVal = 0;
+      const actualHsMarchaUsed = Math.max(0, actualHsMarchaVal);
+      if (lineReports.length > 0 && actualHsMarchaUsed > 0) {
+        const totalTons = lineReports.reduce((sum, r) => sum + (Number(r.tonsProduced) || 0), 0);
+        const sumTonsOverBDP = lineReports.reduce((sum, r) => sum + ((Number(r.tonsProduced) || 0) / (Number(r.bdp) || 100)), 0);
+        const theoreticBDPWeighted = sumTonsOverBDP > 0 ? totalTons / sumTonsOverBDP : 100;
+        perfVal = Math.min(1.5, (totalTons / actualHsMarchaUsed) / theoreticBDPWeighted);
+      }
+
+      const oeeVal = availVal * perfVal;
+
+      const oee = Math.round(oeeVal * 100);
+      const availability = Math.round(availVal * 100);
+      const performance = Math.round(perfVal * 100);
 
       // 4. Nozzles info
       const activeNozzles = lineReports.map(r => ({
@@ -212,6 +244,9 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
         topStops,
         tonsByMaterial,
         runHours,
+        oee,
+        availability,
+        performance,
         activeNozzles,
         totalTons: lineReports.reduce((sum, r) => sum + (Number(r.tonsProduced) || 0), 0)
       };
@@ -374,14 +409,30 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {palletizerData.map(({ palletizer, topStops, tonsByMaterial, runHours, activeNozzles, totalTons }) => (
+          {palletizerData.map(({ palletizer, topStops, tonsByMaterial, runHours, oee, availability, performance, activeNozzles, totalTons }) => (
             <GlassCard key={palletizer.id} className="p-8 overflow-hidden border-primary/10 hover:border-primary/30 transition-all duration-500">
-              <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-4">
-                <div className="flex items-center gap-4">
-                  <h3 className="text-2xl font-black text-text-main uppercase tracking-tight">{palletizer.name}</h3>
-                  <div className="text-right flex flex-col items-end border-l border-white/10 pl-4">
-                     <span className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-1">Hs Marcha</span>
-                     <span className="text-3xl font-black text-primary leading-none tracking-tighter">{runHours}</span>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 border-b border-white/5 pb-4">
+                <h3 className="text-2xl font-black text-text-main uppercase tracking-tight">{palletizer.name}</h3>
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                  {/* Hs Marcha */}
+                  <div className="text-center flex flex-col items-center min-w-[55px]">
+                     <span className="text-[8px] sm:text-[9px] font-black text-text-muted uppercase tracking-wider mb-0.5">Hs Marcha</span>
+                     <span className="text-xl sm:text-2xl font-black text-primary font-mono leading-none tracking-tighter">{runHours}</span>
+                  </div>
+                  {/* OEE */}
+                  <div className="text-center flex flex-col items-center border-l border-white/10 pl-3 min-w-[45px]">
+                     <span className="text-[8px] sm:text-[9px] font-black text-text-muted uppercase tracking-wider mb-0.5">OEE</span>
+                     <span className="text-lg sm:text-xl font-black text-emerald-400 font-mono leading-none tracking-tight">{oee}%</span>
+                  </div>
+                  {/* Disponibilidad */}
+                  <div className="text-center flex flex-col items-center border-l border-white/10 pl-3 min-w-[55px]">
+                     <span className="text-[8px] sm:text-[9px] font-black text-text-muted uppercase tracking-wider mb-0.5">Dispon.</span>
+                     <span className="text-lg sm:text-xl font-black text-blue-400 font-mono leading-none tracking-tight">{availability}%</span>
+                  </div>
+                  {/* Rendimiento */}
+                  <div className="text-center flex flex-col items-center border-l border-white/10 pl-3 min-w-[55px]">
+                     <span className="text-[8px] sm:text-[9px] font-black text-text-muted uppercase tracking-wider mb-0.5">Rend.</span>
+                     <span className="text-lg sm:text-xl font-black text-pink-400 font-mono leading-none tracking-tight">{performance}%</span>
                   </div>
                 </div>
               </div>
