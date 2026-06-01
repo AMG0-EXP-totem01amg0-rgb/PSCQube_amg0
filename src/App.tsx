@@ -1218,6 +1218,7 @@ export default function App() {
                         shiftId={userContext.selectedShiftId} 
                         selectedDate={userContext.selectedDate}
                         history={productionReports.filter(r => r && String(r.palletizerId || '').trim().toUpperCase() === String(userContext.selectedPalletizerId || '').trim().toUpperCase() && String(r.shiftId || '').trim().toUpperCase() === String(userContext.selectedShiftId || '').trim().toUpperCase() && r.date === userContext.selectedDate)}
+                        stops={stops}
                       />
                   )}
                   {prodTab === 'DATER' && (

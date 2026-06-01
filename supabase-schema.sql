@@ -77,7 +77,8 @@ CREATE TABLE IF NOT EXISTS materialesv2 (
     es_pallet BOOLEAN DEFAULT FALSE,
     es_productivo BOOLEAN DEFAULT FALSE,
     es_insumo BOOLEAN DEFAULT FALSE,
-    es_bigbag BOOLEAN DEFAULT FALSE
+    es_bigbag BOOLEAN DEFAULT FALSE,
+    es_despacho BOOLEAN DEFAULT FALSE
 );
 
 -- 7. Tabla: capacidadesv2
@@ -170,7 +171,8 @@ CREATE TABLE IF NOT EXISTS produccionv2 (
     rendimiento NUMERIC DEFAULT 100,
     disponibilidad NUMERIC DEFAULT 100,
     oee NUMERIC DEFAULT 100,
-    disponibilidad_boquillas NUMERIC DEFAULT 100
+    disponibilidad_boquillas NUMERIC DEFAULT 100,
+    hs_marcha_tis NUMERIC DEFAULT NULL
 );
 
 -- 15. Tabla: paros_boquillasv2

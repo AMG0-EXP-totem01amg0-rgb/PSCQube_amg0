@@ -4,8 +4,66 @@ import { Package, Plus, Trash2, History, Pencil, TrendingUp, Filter, BarChart3, 
 import { format, parse, differenceInMinutes } from 'date-fns';
 import { GlassCard, GlassInput, GlassSelect, GlassButton, ConfirmModal, Modal } from '../ui/GlassUI';
 import { DataTable, Column, TableActions } from '../ui/DataTable';
-import { MasterData, ProductionReport, NozzleNews, AppUser } from '../../types';
+import { MasterData, ProductionReport, NozzleNews, AppUser, MachineStop } from '../../types';
 import { cn } from '../../lib/utils';
+
+// Helper function to check if stop is for shift
+const isStopForShift = (stop: any, shiftId: string | null | undefined, mastersAvailable: MasterData) => {
+  if (!stop || !shiftId) return false;
+  const targetId = String(shiftId).trim().toUpperCase();
+  
+  const selectedS: any = (mastersAvailable.shifts || []).find((s: any) => s && String(s.id).trim().toUpperCase() === targetId);
+  if (!selectedS) {
+    return String(stop.shiftId || '').trim().toUpperCase() === targetId;
+  }
+  
+  const sId = String(selectedS.id).trim().toUpperCase();
+  const sName = String(selectedS.name || selectedS.nombre || "").trim().toUpperCase();
+  
+  const stopShiftId = String(stop.shiftId || "").trim().toUpperCase();
+  const stopShiftName = String(stop.shiftName || stop.turno || "").trim().toUpperCase();
+  
+  if (stopShiftId === sId) return true;
+  if (sName && (stopShiftName === sName || stopShiftId === sName)) return true;
+  
+  return false;
+};
+
+// Helper function to check if stop is for machine
+const isStopForMachine = (stop: any, machineId: string | null | undefined, mastersAvailable: MasterData) => {
+  if (!stop || !machineId) return false;
+  const targetId = String(machineId).trim().toUpperCase();
+  
+  const selectedMac: any = (mastersAvailable.palletizers || []).find((p: any) => p && String(p.id).trim().toUpperCase() === targetId) ||
+                           (mastersAvailable.baggers || []).find((b: any) => b && String(b.id).trim().toUpperCase() === targetId);
+                      
+  if (!selectedMac) {
+    return String(stop.machineId || '').trim().toUpperCase() === targetId;
+  }
+  
+  const macId = String(selectedMac.id).trim().toUpperCase();
+  const macName = String(selectedMac.name || selectedMac.nombre || "").trim().toUpperCase();
+  const macHacId = String(selectedMac.hacId || selectedMac.hac_id || "").trim().toUpperCase();
+  
+  const stopMachineId = String(stop.machineId || "").trim().toUpperCase();
+  const stopMachineName = String(stop.machineName || "").trim().toUpperCase();
+  const stopMachineHacText = String(stop.machineHacText || "").trim().toUpperCase();
+  
+  if (stopMachineId === macId) return true;
+  if (macName && (stopMachineName === macName || stopMachineHacText === macName || stopMachineId === macName)) return true;
+  if (macHacId && (stopMachineId === macHacId || stopMachineHacText === macHacId)) return true;
+  
+  const cleanMacName = macName.replace(/[^A-Z0-9]/g, '');
+  const cleanStopId = stopMachineId.replace(/[^A-Z0-9]/g, '');
+  const cleanStopName = stopMachineName.replace(/[^A-Z0-9]/g, '');
+  const cleanStopHac = stopMachineHacText.replace(/[^A-Z0-9]/g, '');
+  
+  if (cleanMacName && (cleanStopId === cleanMacName || cleanStopName === cleanMacName || cleanStopHac === cleanMacName)) return true;
+  if (cleanMacName && cleanStopName && (cleanMacName.includes(cleanStopName) || cleanStopName.includes(cleanMacName))) return true;
+  if (cleanMacName && cleanStopHac && (cleanMacName.includes(cleanStopHac) || cleanStopHac.includes(cleanMacName))) return true;
+
+  return false;
+};
 
 interface Props {
   masters: MasterData;
@@ -16,9 +74,10 @@ interface Props {
   shiftId: string | null;
   selectedDate: string;
   history: ProductionReport[];
+  stops: MachineStop[];
 }
 
-export default function ProductionView({ masters, currentUser, onSave, onDelete, palletizerId, shiftId, selectedDate, history }: Props) {
+export default function ProductionView({ masters, currentUser, onSave, onDelete, palletizerId, shiftId, selectedDate, history, stops }: Props) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ProductionReport | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -42,7 +101,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
     notNozzledBags: '',
     discardedBagsVentocheck: '',
     discardedBagsTransport: '',
-    nozzleNews: [] as NozzleNews[]
+    nozzleNews: [] as NozzleNews[],
+    hsMarchaTis: ''
   });
 
   // Local state for adding nozzle news
@@ -81,6 +141,26 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
     }
   }, [formData.bags, formData.materialId, selectedMaterialObj]);
 
+  // Calculate active running hours (hs de marcha) computed by the app
+  const hsCalculatedByApp = useMemo(() => {
+    if (!palletizerId || !shiftId) return 0;
+    const selectedShift = masters.shifts.find(s => s.id === shiftId);
+    if (!selectedShift) return 0;
+
+    const machineStops = stops.filter(s => 
+      s &&
+      s.date === selectedDate &&
+      isStopForMachine(s, palletizerId, masters) &&
+      isStopForShift(s, shiftId, masters)
+    );
+
+    const hsShift = selectedShift.durationHours;
+    const totalStopMinutes = machineStops.reduce((sum, s) => sum + (s.durationMinutes || 0), 0);
+    const totalStopHours = totalStopMinutes / 60;
+    
+    return Math.max(0, hsShift - totalStopHours);
+  }, [palletizerId, shiftId, selectedDate, stops, masters]);
+
   // Calculate Global Summary (Automated)
   const totals = useMemo(() => {
     const totalTons = history.reduce((sum, r) => sum + (Number(r.tonsProduced) || 0), 0);
@@ -105,7 +185,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       notNozzledBags: '0',
       discardedBagsVentocheck: '0',
       discardedBagsTransport: '0',
-      nozzleNews: []
+      nozzleNews: [],
+      hsMarchaTis: ''
     });
     setTempNews({ nozzleNumber: '', startTime: '', endTime: '', isAllShift: false, observation: '' });
     setIsModalOpen(true);
@@ -125,7 +206,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       notNozzledBags: item.notNozzledBags?.toString() || '0',
       discardedBagsVentocheck: item.discardedBagsVentocheck?.toString() || '0',
       discardedBagsTransport: item.discardedBagsTransport?.toString() || '0',
-      nozzleNews: item.nozzleNews || []
+      nozzleNews: item.nozzleNews || [],
+      hsMarchaTis: item.hsMarchaTis?.toString() || ''
     });
     setTempNews({ nozzleNumber: '', startTime: '', endTime: '', isAllShift: false, observation: '' });
     setIsModalOpen(true);
@@ -244,7 +326,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       discardedBagsVentocheck: parseInt(formData.discardedBagsVentocheck) || 0,
       discardedBagsTransport: parseInt(formData.discardedBagsTransport) || 0,
       nozzleNews: formData.nozzleNews,
-      nozzleAvailability: nozzleAvailabilityStr
+      nozzleAvailability: nozzleAvailabilityStr,
+      hsMarchaTis: formData.hsMarchaTis ? parseFloat(formData.hsMarchaTis) : null
     };
 
     onSave(record);
@@ -309,6 +392,42 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
           <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-black font-mono", colorClass)}>
             {value}
           </span>
+        );
+      }
+    },
+    {
+      header: 'TIS vs App',
+      align: 'center',
+      accessor: (row) => {
+        if (row.hsMarchaTis === undefined || row.hsMarchaTis === null) {
+          return <span className="text-[10px] text-text-muted/60 italic font-medium">Sin registrar</span>;
+        }
+        
+        const diff = hsCalculatedByApp - (row.hsMarchaTis || 0);
+        const absoluteDiff = Math.abs(diff);
+        
+        let colorClass = 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20';
+        let displayText = 'OK (0.00h)';
+        
+        if (absoluteDiff >= 0.01) {
+          if (diff > 0) {
+            colorClass = 'text-amber-400 bg-amber-500/10 border border-amber-500/20';
+            displayText = `Faltan paros (+${diff.toFixed(2)}h)`;
+          } else {
+            colorClass = 'text-red-400 bg-red-500/10 border border-red-500/20';
+            displayText = `Sobran paros (${diff.toFixed(2)}h)`;
+          }
+        }
+        
+        return (
+          <div className="flex flex-col items-center py-0.5">
+            <span className="text-[10px] font-bold text-text-main font-mono">
+              TIS: {row.hsMarchaTis.toFixed(2)}h
+            </span>
+            <span className={cn("px-2 py-0.5 rounded-lg text-[8px] font-black tracking-wider uppercase mt-1", colorClass)}>
+              {displayText}
+            </span>
+          </div>
         );
       }
     },
@@ -493,7 +612,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                       </div>
                     )}
                  </div>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                    <GlassInput 
                     label="Boquillas Disponibles" 
                     type="number" 
@@ -507,7 +626,55 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                     value={formData.bagProvider} 
                     onChange={e => setFormData({...formData, bagProvider: (e.target as HTMLSelectElement).value})} 
                   />
+                  <GlassInput 
+                    label="Hs. Marcha TIS" 
+                    type="number"
+                    step="0.01"
+                    value={formData.hsMarchaTis} 
+                    onChange={e => setFormData({...formData, hsMarchaTis: (e.target as HTMLInputElement).value})} 
+                    placeholder="Ej: 7.50"
+                  />
                  </div>
+
+                 {formData.hsMarchaTis && (
+                   <div className="mt-4 p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
+                     <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-text-muted">
+                       <span>Comparativa de Horas de Marcha</span>
+                       <span className="font-mono text-text-main">
+                         App: {hsCalculatedByApp.toFixed(2)} hs | TIS: {parseFloat(formData.hsMarchaTis || "0").toFixed(2)} hs
+                       </span>
+                     </div>
+                     
+                     {(() => {
+                       const tisVal = parseFloat(formData.hsMarchaTis || "0");
+                       const diff = hsCalculatedByApp - tisVal;
+                       const absoluteDiff = Math.abs(diff);
+                       
+                       if (absoluteDiff < 0.01) {
+                         return (
+                           <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 rounded-lg">
+                             <ShieldCheck size={14} />
+                             <span>Sincronización perfecta de horas (0.00 hs de diferencia)</span>
+                           </div>
+                         );
+                       } else if (diff > 0) {
+                         return (
+                           <div className="flex items-center gap-2 text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-2 rounded-lg">
+                             <AlertCircle size={14} />
+                             <span>Faltan paros de reportar en la app (Diferencia de +{diff.toFixed(2)} hs)</span>
+                           </div>
+                         );
+                       } else {
+                         return (
+                           <div className="flex items-center gap-2 text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-2 rounded-lg">
+                             <AlertCircle size={14} />
+                             <span>Hay paros de más reportados en la app (Diferencia de {diff.toFixed(2)} hs)</span>
+                           </div>
+                         );
+                       }
+                     })()}
+                   </div>
+                 )}
               </div>
             </div>
           </div>

@@ -1173,7 +1173,8 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
       "rendimineto",
       "disponibilidad",
       "oee",
-      "disponibilidad_boquillas"
+      "disponibilidad_boquillas",
+      "hs_marcha_tis"
     ],
     clientToSheet: {
       id: "id",
@@ -1198,7 +1199,8 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
       yield: "rendimineto",
       availability: "disponibilidad",
       oee: "oee",
-      nozzleAvailability: "disponibilidad_boquillas"
+      nozzleAvailability: "disponibilidad_boquillas",
+      hsMarchaTis: "hs_marcha_tis"
     },
     sheetToClient: {
       id: "id",
@@ -1223,7 +1225,8 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
       rendimineto: "yield",
       disponibilidad: "availability",
       oee: "oee",
-      disponibilidad_boquillas: "nozzleAvailability"
+      disponibilidad_boquillas: "nozzleAvailability",
+      hs_marcha_tis: "hsMarchaTis"
     }
   },
   PAROS_BOQUILLASV2: {
@@ -1792,7 +1795,8 @@ function parseRowToClientObject(headers: string[], row: any[], tableName: string
           "discardedBagsTransport",
           "yield",
           "availability",
-          "oee"
+          "oee",
+          "hsMarchaTis"
         ];
         if (numericFields.includes(clientKey)) {
           parsedVal = Number(String(val).replace(",", ".")) || 0;
@@ -1872,7 +1876,8 @@ const PREDEFINED_HEADERS: Record<string, string[]> = {
     "rendimineto",
     "disponibilidad",
     "oee",
-    "disponibilidad_boquillas"
+    "disponibilidad_boquillas",
+    "hs_marcha_tis"
   ],
   PAROS_BOQUILLASV2: [
     "id",

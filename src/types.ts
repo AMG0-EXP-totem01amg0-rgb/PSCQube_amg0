@@ -130,6 +130,7 @@ export interface ProductionReport {
   discardedBagsTransport: number;
   nozzleNews: NozzleNews[];
   nozzleAvailability?: string;
+  hsMarchaTis?: number;
 }
 
 export interface DaterControl {
