@@ -68,8 +68,8 @@ export default function DaterControlView({ masters, currentUser, onSave, onDelet
     const report: DaterControl = {
       id: editingId || `CTRL-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
       date: selectedDate,
-      userId: 'USER-1', // Emulated
-      userName: 'Operador Holcim', // Emulated
+      userId: editingId ? (formData.userId || currentUser?.dni || '') : (currentUser?.dni || ''),
+      userName: editingId ? (formData.userName || currentUser?.name || '') : (currentUser?.name || ''),
       shiftId: selectedShiftId || '',
       hac: formData.hac || '',
       purge: formData.purge as 'SI' | 'NO',
@@ -90,6 +90,21 @@ export default function DaterControlView({ masters, currentUser, onSave, onDelet
   const columns: Column<DaterControl>[] = [
     { header: 'Fecha', accessor: (row) => <span className="text-[10px] opacity-70">{format(parseISO(row.date), 'dd/MM/yyyy')}</span> },
     { header: 'HAC', accessor: (row) => <span className="font-bold text-primary">{row.hac}</span> },
+    {
+      header: 'Maquinista',
+      accessor: (row) => (
+        <div className="py-1">
+          <div className="text-[11px] font-bold text-text-main">
+            {row.userName || <span className="text-text-muted/80 italic">Sin registrar</span>}
+          </div>
+          {row.userId && (
+            <div className="text-[9px] font-mono text-text-muted">
+              DNI: {row.userId}
+            </div>
+          )}
+        </div>
+      )
+    },
     { header: 'Purga', accessor: (row) => <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold", row.purge === 'SI' ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500")}>{row.purge}</span> },
     { header: 'Nivel', accessor: 'containerLevel' },
     { header: 'Calidad', accessor: 'printQuality' },
