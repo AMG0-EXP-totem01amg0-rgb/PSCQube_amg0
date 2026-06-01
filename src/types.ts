@@ -179,6 +179,17 @@ export interface InventoryEntry {
   userName: string;
 }
 
+export interface PalletClassification {
+  id: string;
+  date: string;
+  machinistId: string;
+  machinistName: string;
+  shiftId: string;
+  shiftDescription: string;
+  palletType: string;
+  quantity: number;
+}
+
 export interface Company {
   id: string;
   name: string;

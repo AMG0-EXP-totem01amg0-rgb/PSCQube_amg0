@@ -7,6 +7,7 @@ export const SYSTEM_VIEWS: { id: string; label: string; section: 'PRODUCTIVITY' 
   { id: 'DATER', label: 'Control Fechadores', section: 'PRODUCTIVITY' },
   { id: 'SCALE', label: 'Control Balanzas', section: 'PRODUCTIVITY' },
   { id: 'STOCK', label: 'Insumos', section: 'PRODUCTIVITY' },
+  { id: 'PALLET_CLASS', label: 'Clasificación de Pallets', section: 'PRODUCTIVITY' },
   { id: 'DESPACHOS', label: 'Despachos', section: 'PRODUCTIVITY' },
   { id: 'CHANGE', label: 'Cambio de Producto', section: 'PRODUCTIVITY' },
   { id: 'GASOIL', label: 'Combustible', section: 'PRODUCTIVITY' },

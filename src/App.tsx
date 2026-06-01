@@ -9,7 +9,7 @@ import { format, parse, differenceInMinutes } from 'date-fns';
 import { 
   AlertTriangle, Package, ClipboardList, Fuel, Wrench,
   Activity, PlusCircle, ShieldCheck, Settings, Bot,
-  ChevronLeft, ChevronRight, Truck, Droplet
+  ChevronLeft, ChevronRight, Truck, Droplet, Layers
 } from 'lucide-react';
 
 // Modules
@@ -23,6 +23,7 @@ import DaterControlView from './components/productivity/DaterControlView';
 import ProductChangeView from './components/productivity/ProductChangeView';
 import ScaleControlView from './components/productivity/ScaleControlView';
 import InventoryView from './components/productivity/InventoryView';
+import PalletClassificationView from './components/productivity/PalletClassificationView';
 import DespachosView from './components/productivity/DespachosView';
 import FuelView from './components/productivity/FuelView';
 import AdminView from './components/admin/AdminView';
@@ -32,7 +33,7 @@ import { getSupabaseClient } from './lib/supabaseClient';
 
 // Lib & Types
 import { cn } from './lib/utils';
-import { Shift, MachineStop, ProductionReport, DaterControl, ScaleControl, InventoryEntry, UserContext, MasterData, AppUser, ProductChange, Company, FuelLoad, AlertNotification } from './types';
+import { Shift, MachineStop, ProductionReport, DaterControl, ScaleControl, InventoryEntry, PalletClassification, UserContext, MasterData, AppUser, ProductChange, Company, FuelLoad, AlertNotification } from './types';
 import { SHIFTS, PALLETIZERS, BAGGERS, MATERIALS, HACS, CAUSES, CAPACITIES, USERS, SYSTEM_VIEWS, COMPANIES, LOADING_POINTS, LANE_STATUSES } from './lib/mockData';
 import { syncTableToSheets, getBackendSheetsStatus, fetchTableFromSheets, clearClientCache } from './lib/sheetsService';
 import { ToastContainer, ToastMessage } from './components/ui/Toast';
@@ -119,7 +120,7 @@ const isStopForShift = (stop: any, shiftId: string | null | undefined, mastersAv
 };
 
 type AppSection = 'PRODUCTIVITY' | 'SAFETY' | 'ENVIRONMENT' | 'HR' | 'ADMIN';
-type ProductivityTab = 'DASHBOARD' | 'PAROS' | 'PRODUCCION' | 'DATER' | 'SCALE' | 'STOCK' | 'GASOIL' | 'MANTENIMIENTO' | 'CHANGE' | 'LOADING_LANES' | 'DESPACHOS';
+type ProductivityTab = 'DASHBOARD' | 'PAROS' | 'PRODUCCION' | 'DATER' | 'SCALE' | 'STOCK' | 'PALLET_CLASS' | 'GASOIL' | 'MANTENIMIENTO' | 'CHANGE' | 'LOADING_LANES' | 'DESPACHOS';
 
 export default function App() {
   const [activeSection, setActiveSection] = useState<AppSection>('PRODUCTIVITY');
@@ -294,6 +295,7 @@ export default function App() {
   const [daterControls, setDaterControls] = useState<DaterControl[]>([]);
   const [scaleControls, setScaleControls] = useState<ScaleControl[]>([]);
   const [inventoryEntries, setInventoryEntries] = useState<InventoryEntry[]>([]);
+  const [palletClassifications, setPalletClassifications] = useState<PalletClassification[]>([]);
   const [productChanges, setProductChanges] = useState<ProductChange[]>([]);
   const [laneStatuses, setLaneStatuses] = useState<any[]>([]);
 
@@ -401,6 +403,7 @@ export default function App() {
           resDater,
           resScale,
           resStock,
+          resPalletClassifications,
           resChange,
           resDespachos,
           resLoadingLanes,
@@ -424,6 +427,7 @@ export default function App() {
           fetchTableFromSheets("CONTROL_FECHADORV2", true),
           fetchTableFromSheets("CONTROL_BALANZAV2", true),
           fetchTableFromSheets("INVENTARIO_FISICOV2", true),
+          fetchTableFromSheets("CLASISFICACION_PALLETSV2", true),
           fetchTableFromSheets("CAMBIO_PRODUCTOV2", true),
           fetchTableFromSheets("DESPACHOSV2", true),
           fetchTableFromSheets("ESTADO_CALLESV2", true),
@@ -450,6 +454,7 @@ export default function App() {
         if (resDater.success && resDater.data) setDaterControls(resDater.data);
         if (resScale.success && resScale.data) setScaleControls(resScale.data);
         if (resStock.success && resStock.data) setInventoryEntries(resStock.data);
+        if (resPalletClassifications.success && resPalletClassifications.data) setPalletClassifications(resPalletClassifications.data);
         if (resChange.success && resChange.data) setProductChanges(resChange.data);
         if (resDespachos.success && resDespachos.data) setDispatchEntries(resDespachos.data);
         if (resLoadingLanes.success && resLoadingLanes.data) setLaneStatuses(resLoadingLanes.data);
@@ -841,6 +846,42 @@ export default function App() {
     });
   };
 
+  const handleSavePalletClass = (entry: PalletClassification) => {
+    let exists = false;
+    let nextEntries: PalletClassification[] = [];
+    setPalletClassifications(prev => {
+      exists = !!prev.find(x => x.id === entry.id);
+      nextEntries = exists
+        ? prev.map(x => x.id === entry.id ? entry : x)
+        : [entry, ...prev];
+      return nextEntries;
+    });
+
+    syncTableToSheets("CLASISFICACION_PALLETSV2", nextEntries).then(res => {
+      if (res.success) {
+        addToast(exists ? "Registro de pallet actualizado" : "Registro de pallet guardado", "success");
+      } else {
+        addToast("Guardado localmente. Error al sincronizar con base de datos.", "warning");
+      }
+    });
+  };
+
+  const handleDeletePalletClass = (id: string) => {
+    let nextEntries: PalletClassification[] = [];
+    setPalletClassifications(prev => {
+      nextEntries = prev.filter(e => e.id !== id);
+      return nextEntries;
+    });
+
+    syncTableToSheets("CLASISFICACION_PALLETSV2", nextEntries).then(res => {
+      if (res.success) {
+        addToast("Registro de pallet eliminado", "success");
+      } else {
+        addToast("Eliminado localmente. Error al sincronizar con base de datos.", "warning");
+      }
+    });
+  };
+
   const handleSaveProductChange = (report: ProductChange) => {
     let exists = false;
     let nextChanges: ProductChange[] = [];
@@ -1164,6 +1205,7 @@ export default function App() {
                             {canView('DASHBOARD') && <ProductivitySubTab active={prodTab === 'DASHBOARD'} onClick={() => setProdTab('DASHBOARD')} icon={<Activity size={14} />} label="Dashboard" />}
                             {canView('DESPACHOS') && <ProductivitySubTab active={prodTab === 'DESPACHOS'} onClick={() => setProdTab('DESPACHOS')} icon={<Truck size={14} />} label="Despachos" />}
                             {canView('STOCK') && <ProductivitySubTab active={prodTab === 'STOCK'} onClick={() => setProdTab('STOCK')} icon={<PlusCircle size={14} />} label="Insumos" />}
+                            {canView('PALLET_CLASS') && <ProductivitySubTab active={prodTab === 'PALLET_CLASS'} onClick={() => setProdTab('PALLET_CLASS')} icon={<Layers size={14} />} label="Clasificación Pallets" />}
                             {canView('MANTENIMIENTO') && <ProductivitySubTab active={prodTab === 'MANTENIMIENTO'} onClick={() => setProdTab('MANTENIMIENTO')} icon={<Settings size={14} />} label="Mantenimiento" />}
                             {canView('PAROS') && <ProductivitySubTab active={prodTab === 'PAROS'} onClick={() => setProdTab('PAROS')} icon={<AlertTriangle size={14} />} label="Paros" />}
                             {canView('PRODUCCION') && <ProductivitySubTab active={prodTab === 'PRODUCCION'} onClick={() => setProdTab('PRODUCCION')} icon={<Package size={14} />} label="Producción" />}
@@ -1251,6 +1293,17 @@ export default function App() {
                         productionReports={productionReports.filter(r => r.shiftId === userContext.selectedShiftId && r.date === userContext.selectedDate)}
                         onSave={handleSaveInventory}
                         onDelete={handleDeleteInventory}
+                        selectedShiftId={userContext.selectedShiftId}
+                        selectedDate={userContext.selectedDate}
+                    />
+                  )}
+                  {prodTab === 'PALLET_CLASS' && (
+                    <PalletClassificationView 
+                        masters={masters} 
+                        currentUser={currentUser}
+                        entries={palletClassifications.filter(e => e.shiftId === userContext.selectedShiftId && e.date === userContext.selectedDate)}
+                        onSave={handleSavePalletClass}
+                        onDelete={handleDeletePalletClass}
                         selectedShiftId={userContext.selectedShiftId}
                         selectedDate={userContext.selectedDate}
                     />

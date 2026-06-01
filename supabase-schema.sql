@@ -223,6 +223,18 @@ CREATE TABLE IF NOT EXISTS control_balanzav2 (
     observaciones TEXT
 );
 
+-- 17b. Tabla: clasisficacion_palletsv2
+CREATE TABLE IF NOT EXISTS clasisficacion_palletsv2 (
+    id TEXT PRIMARY KEY,
+    fecha TEXT,
+    id_maquinista TEXT,
+    descripcion_maquinista TEXT,
+    turno_id TEXT,
+    descripcion_turno TEXT,
+    tipo_pallets TEXT,
+    cantidad NUMERIC DEFAULT 0
+);
+
 -- 18. Tabla: cambio_productov2
 CREATE TABLE IF NOT EXISTS cambio_productov2 (
     id TEXT PRIMARY KEY,
@@ -357,6 +369,7 @@ ALTER TABLE produccionv2 ENABLE ROW LEVEL SECURITY;
 ALTER TABLE paros_boquillasv2 ENABLE ROW LEVEL SECURITY;
 ALTER TABLE control_fechadorv2 ENABLE ROW LEVEL SECURITY;
 ALTER TABLE control_balanzav2 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clasisficacion_palletsv2 ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cambio_productov2 ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventario_fisicov2 ENABLE ROW LEVEL SECURITY;
 ALTER TABLE estado_callesv2 ENABLE ROW LEVEL SECURITY;
@@ -380,7 +393,7 @@ DECLARE
         'materialesv2', 'capacidadesv2', 'puntos_cargav2', 'empresasv2',
         'proveedores_bolsav2', 'vehiculosv2', 'carga_combustiblev2',
         'usuariosv2', 'produccionv2', 'paros_boquillasv2', 'control_fechadorv2',
-        'control_balanzav2', 'cambio_productov2', 'inventario_fisicov2',
+        'control_balanzav2', 'clasisficacion_palletsv2', 'cambio_productov2', 'inventario_fisicov2',
         'estado_callesv2', 'despachosv2', 'parosv2'
     ];
 BEGIN

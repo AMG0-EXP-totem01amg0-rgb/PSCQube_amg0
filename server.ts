@@ -386,6 +386,10 @@ function mapSupabaseRowToClient(tableName: string, dbRow: any): any {
     });
   }
 
+  if (upperTable === "CLASISFICACION_PALLETSV2") {
+    if (clientObj.quantity !== undefined) clientObj.quantity = Number(clientObj.quantity) || 0;
+  }
+
   if (upperTable === "CAMBIO_PRODUCTOV2") {
     const booleanFields = [
       "siloValveClosed", "circuitEmptied", "machineCleaned", "hopperEmptied", "siloChanged",
@@ -1363,6 +1367,38 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
       observaciones: "observations"
     }
   },
+  CLASISFICACION_PALLETSV2: {
+    sheetHeaders: [
+      "id",
+      "fecha",
+      "id_maquinista",
+      "descripcion_maquinista",
+      "turno_id",
+      "descripcion_turno",
+      "tipo_pallets",
+      "cantidad"
+    ],
+    clientToSheet: {
+      id: "id",
+      date: "fecha",
+      machinistId: "id_maquinista",
+      machinistName: "descripcion_maquinista",
+      shiftId: "turno_id",
+      shiftDescription: "descripcion_turno",
+      palletType: "tipo_pallets",
+      quantity: "cantidad"
+    },
+    sheetToClient: {
+      id: "id",
+      fecha: "date",
+      id_maquinista: "machinistId",
+      descripcion_maquinista: "machinistName",
+      turno_id: "shiftId",
+      descripcion_turno: "shiftDescription",
+      tipo_pallets: "palletType",
+      cantidad: "quantity"
+    }
+  },
   CAMBIO_PRODUCTOV2: {
     sheetHeaders: [
       "id",
@@ -1762,6 +1798,12 @@ function parseRowToClientObject(headers: string[], row: any[], tableName: string
         }
       }
 
+      if (upperTable === "CLASISFICACION_PALLETSV2") {
+        if (clientKey === "quantity") {
+          parsedVal = Number(val) || 0;
+        }
+      }
+
       if (upperTable === "CAMBIO_PRODUCTOV2") {
         const booleanFields = [
           "siloValveClosed", "circuitEmptied", "machineCleaned", "hopperEmptied", "siloChanged",
@@ -1908,6 +1950,9 @@ const PREDEFINED_HEADERS: Record<string, string[]> = {
   ],
   INVENTARIO_FISICOV2: [
     "id", "fecha", "turno_id", "descripcion_turno", "material_id", "descripcion_material", "cantidad", "peso_tn", "usuario_id", "descripcion_maquinista"
+  ],
+  CLASISFICACION_PALLETSV2: [
+    "id", "fecha", "id_maquinista", "descripcion_maquinista", "turno_id", "descripcion_turno", "tipo_pallets", "cantidad"
   ],
   CAMBIO_PRODUCTOV2: [
     "id", "fecha", "turno_id", "maquinista_id", "maquinista_nombre", "maquina_id", "valvula_silo_cerrada", "circuito_vaciado", "maquina_limpia", "tolva_vaciada", "silo_cambiado", "fechador_actualizado", "envase_correcto", "dos_big_bags_pal", "muestreo_color", "muestra_enviada_lab", "producto_liberado", "material_anterior_id", "material_nuevo_id", "motivo_cambio", "lab_operador_id", "lab_operador_name", "p_calcinacion", "aire_incorporado", "porcentaje_ck_drx", "estado_aprobacion", "observacion_rechazo"
