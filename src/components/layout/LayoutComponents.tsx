@@ -281,7 +281,7 @@ export function Header({
                 PSCQube
               </h1>
                {!isCollapsed && (
-                 <div className="mt-0.5 relative group cursor-pointer">
+                 <div className="mt-0.5 relative group cursor-pointer" onClick={handleDateClick}>
                    <div 
                      className="flex items-center gap-1.5 px-1.5 py-0.5 rounded transition-all hover:bg-primary/5 active:bg-primary/10 border-none outline-none group"
                    >
@@ -290,6 +290,7 @@ export function Header({
                    </div>
                    {/* Overlay Input for robust Native Calendar Triggering across all devices (including iOS Safari) */}
                    <input 
+                     ref={dateInputRef}
                      type="date" 
                      value={selectedDate}
                      onChange={(e) => onDateChange(e.target.value)}
