@@ -197,15 +197,56 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
 
   const handleEdit = (stop: MachineStop) => {
     setEditingId(stop.id);
-    // Find back the HAC ID (string name) from the masters using the stop.hacId (UUID)
-    const hacObj = masters.hacs.find(h => h.id === stop.hacId);
+    
+    // Find back the HAC object from the masters using the stop.hacId or other fields in an ultra-robust way
+    let hacObj = masters.hacs.find(h => h && h.id && stop.hacId && String(h.id).trim().toUpperCase() === String(stop.hacId).trim().toUpperCase());
+    
+    if (!hacObj) {
+      hacObj = masters.hacs.find(h => h && h.hac && stop.hacId && String(h.hac).trim().toUpperCase() === String(stop.hacId).trim().toUpperCase());
+    }
+    
+    if (!hacObj && (stop as any).hacName) {
+      hacObj = masters.hacs.find(h => h && h.hac && (stop as any).hacName && String(h.hac).trim().toUpperCase() === String((stop as any).hacName).trim().toUpperCase());
+    }
+    
+    // Fallback normalising special characters if no exact match (removes spaces, hyphens, and other symbols)
+    if (!hacObj) {
+      const cleanStopHacId = String(stop.hacId || "").replace(/[^A-Z0-9]/g, "").toUpperCase();
+      const cleanStopHacName = String((stop as any).hacName || "").replace(/[^A-Z0-9]/g, "").toUpperCase();
+      hacObj = masters.hacs.find(h => {
+        if (!h || !h.hac) return false;
+        const cleanH = String(h.hac).replace(/[^A-Z0-9]/g, "").toUpperCase();
+        return cleanH === cleanStopHacId || cleanH === cleanStopHacName;
+      });
+    }
+
+    // Find back the Cause object from the masters in an ultra-robust way
+    let causeObj = masters.causes.find(c => c && c.id && stop.causeId && String(c.id).trim().toUpperCase() === String(stop.causeId).trim().toUpperCase());
+    
+    if (!causeObj) {
+      causeObj = masters.causes.find(c => {
+        if (!c) return false;
+        const stopCauseText = String(stop.causeId || "").trim().toUpperCase();
+        const cText = String(c.text || (c as any).descripcion || "").trim().toUpperCase();
+        return cText === stopCauseText;
+      });
+    }
+
+    if (!causeObj && (stop as any).causeText) {
+      causeObj = masters.causes.find(c => {
+        if (!c) return false;
+        const stopCauseText = String((stop as any).causeText || "").trim().toUpperCase();
+        const cText = String(c.text || (c as any).descripcion || "").trim().toUpperCase();
+        return cText === stopCauseText;
+      });
+    }
     
     setFormData({
       materialId: stop.materialId,
       startTime: stop.startTime,
       endTime: stop.endTime || '',
-      hacId: hacObj?.hac || '',
-      causeId: stop.causeId,
+      hacId: hacObj?.hac || stop.hacId || (stop as any).hacName || '',
+      causeId: causeObj?.id || stop.causeId || '',
       noticeText: stop.symptomText || '' 
     });
     setError(null);
