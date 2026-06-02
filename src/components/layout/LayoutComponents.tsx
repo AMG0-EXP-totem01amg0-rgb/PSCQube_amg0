@@ -274,12 +274,20 @@ export function Header({
         <div className="flex items-center justify-between sm:justify-start sm:gap-6 h-10 sm:h-16 shrink-0">
           <div className="flex items-center gap-3">
             <div className="flex flex-col">
-              <h1 className={cn(
-                "font-black uppercase tracking-tighter leading-none transition-all logo-glow text-text-main",
-                isCollapsed ? "text-base" : "text-lg md:text-xl"
-              )}>
-                PSCQube
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className={cn(
+                  "font-black uppercase tracking-tighter leading-none transition-all logo-glow text-text-main",
+                  isCollapsed ? "text-base" : "text-lg md:text-xl"
+                )}>
+                  PSCQube
+                </h1>
+                {currentUser?.name && (
+                  <span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-widest bg-primary/10 border border-primary/20 px-2.5 py-0.5 rounded-full ml-1 select-none">
+                    <UserIcon size={11} className="text-primary shrink-0" />
+                    {currentUser.name}
+                  </span>
+                )}
+              </div>
                {!isCollapsed && (
                  <div className="mt-0.5 relative group cursor-pointer" onClick={handleDateClick}>
                    <div 
