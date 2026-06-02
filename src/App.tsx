@@ -716,6 +716,12 @@ export default function App() {
     syncTableToSheets("PRODUCCIONV2", nextReports).then(res => {
       if (res.success) {
         addToast(exists ? "Producción actualizada con éxito" : "Producción guardada con éxito", "success");
+        // FETCH the updated table from Sheets/Supabase to get exact recalculated metrics and nested fields!
+        fetchTableFromSheets("PRODUCCIONV2", true).then(pRes => {
+          if (pRes.success && pRes.data) {
+            setProductionReports(pRes.data);
+          }
+        });
       } else {
         addToast("Guardada localmente. Error al sincronizar con base de datos.", "warning");
       }
@@ -732,6 +738,12 @@ export default function App() {
     syncTableToSheets("PRODUCCIONV2", nextReports).then(res => {
       if (res.success) {
         addToast("Reporte de producción eliminado de base de datos", "success");
+        // FETCH the updated table from Sheets/Supabase to keep frontend state perfectly synchronized
+        fetchTableFromSheets("PRODUCCIONV2", true).then(pRes => {
+          if (pRes.success && pRes.data) {
+            setProductionReports(pRes.data);
+          }
+        });
       } else {
         addToast("Eliminado localmente. Error al sincronizar con base de datos.", "warning");
       }
