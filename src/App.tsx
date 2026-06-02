@@ -1260,6 +1260,7 @@ export default function App() {
                         shiftId={userContext.selectedShiftId} 
                         selectedDate={userContext.selectedDate}
                         history={stops.filter(s => s && s.date === userContext.selectedDate && isStopForMachine(s, userContext.selectedPalletizerId, masters) && isStopForShift(s, userContext.selectedShiftId, masters))}
+                        allStops={stops}
                     />
                   )}
                   {prodTab === 'PRODUCCION' && (
