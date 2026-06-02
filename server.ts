@@ -292,6 +292,16 @@ function mapItemForSupabase(tableName: string, item: any): Record<string, any> {
         strictMapped[col] = tempPayload[col];
       }
     }
+
+    // Explicit override for PAROS_BOQUILLASV2 so it maps production ID to id_produccion for Supabase
+    if (upperTable === "PAROS_BOQUILLASV2") {
+      const prodIdVal = item.productionId || item.produccion_id || item.id_produccion || tempPayload["produccion_id"];
+      if (prodIdVal !== undefined && prodIdVal !== null) {
+        strictMapped["id_produccion"] = prodIdVal;
+        strictMapped["produccion_id"] = prodIdVal;
+      }
+    }
+
     return strictMapped;
   }
 
@@ -367,6 +377,13 @@ function mapSupabaseRowToClient(tableName: string, dbRow: any): any {
     }
     if (clientObj.nozzleNumber !== undefined) {
       clientObj.nozzleNumber = Number(clientObj.nozzleNumber) || 0;
+    }
+    // Correctly reconstruct productionId from whichever database column fields contain it
+    if (clientObj.productionId === undefined) {
+      const pId = dbRow.id_produccion || dbRow.produccion_id;
+      if (pId !== undefined && pId !== null) {
+        clientObj.productionId = processValue(pId);
+      }
     }
   }
 
