@@ -2816,6 +2816,10 @@ function areNozzleNewsListsEqual(listA: any[], listB: any[]): boolean {
   const sortedA = [...arrA].sort((a, b) => (Number(a.nozzleNumber) || 0) - (Number(b.nozzleNumber) || 0));
   const sortedB = [...arrB].sort((a, b) => (Number(a.nozzleNumber) || 0) - (Number(b.nozzleNumber) || 0));
   
+  const normBool = (val: any) => {
+    return val === true || val === "true" || val === "SI" || val === "TRUE" || val === 1;
+  };
+
   for (let i = 0; i < sortedA.length; i++) {
     const a = sortedA[i];
     const b = sortedB[i];
@@ -2823,7 +2827,7 @@ function areNozzleNewsListsEqual(listA: any[], listB: any[]): boolean {
       Number(a.nozzleNumber) !== Number(b.nozzleNumber) ||
       String(a.startTime || "").trim() !== String(b.startTime || "").trim() ||
       String(a.endTime || "").trim() !== String(b.endTime || "").trim() ||
-      Boolean(a.isAllShift) !== Boolean(b.isAllShift) ||
+      normBool(a.isAllShift) !== normBool(b.isAllShift) ||
       String(a.observation || "").trim() !== String(b.observation || "").trim()
     ) {
       return false;
@@ -3226,7 +3230,9 @@ async function enrichProductionReportsWithNozzleNews(sheets: any, spreadsheetId:
   try {
     const nozzleList = await readTableData(sheets, spreadsheetId, "PAROS_BOQUILLASV2");
     list.forEach((item: any) => {
-      item.nozzleNews = nozzleList.filter((n: any) => n.productionId === item.id);
+      item.nozzleNews = nozzleList.filter((n: any) => 
+        String(n.productionId || n.produccion_id || n.id_produccion || "").trim() === String(item.id || "").trim()
+      );
     });
   } catch (err) {
     console.error("Error fetching PAROS_BOQUILLASV2 on read:", err);

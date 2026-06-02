@@ -903,7 +903,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
               onClick={addNozzleNews}
               disabled={!tempNews.nozzleNumber || (!tempNews.isAllShift && (!tempNews.startTime || !tempNews.endTime))}
             >
-              Agregar
+              {editingNozzleId ? "Guardar" : "Agregar"}
             </GlassButton>
           </div>
         </div>
