@@ -140,7 +140,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
       const inicio = formatToHhMmSs(stop.startTime);
       const fechaFin = formatToSpanishDate(stop.finishDate || stop.date);
       const fin = formatToHhMmSs(stop.endTime || '');
-      const maqAfectada = stop.machineName || '';
+      const maqAfectada = stop.machineHacText || stop.machineId || '';
       const gpoCodObjeto = stop.gpoCodObjeto || hacObj?.gpoCodObjeto || '';
       const parteObjeto = stop.partObject || causeObj?.partObject || '';
       const gpoCodSintoma = stop.symptomGroup || causeObj?.symptomGroup || '';
