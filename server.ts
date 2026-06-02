@@ -2656,7 +2656,9 @@ async function updateRecord(sheets: any, spreadsheetId: string, tableName: strin
 async function deleteNozzlesForProduction(sheets: any, spreadsheetId: string, productionId: string) {
   try {
     const list = await readTableData(sheets, spreadsheetId, "PAROS_BOQUILLASV2");
-    const matching = list.filter((n: any) => n.productionId === productionId);
+    const matching = list.filter((n: any) => 
+      String(n.productionId || n.produccion_id || n.id_produccion || "").trim() === String(productionId || "").trim()
+    );
     for (const match of matching) {
       await deleteRecord(sheets, spreadsheetId, "PAROS_BOQUILLASV2", match.id);
     }
@@ -2704,10 +2706,10 @@ async function deleteRecord(sheets: any, spreadsheetId: string, tableName: strin
   const supabase = getSupabaseClient();
   if (supabase) {
     try {
-      await deleteFromSupabase(tableName, clientKey, targetId);
       if (upperTable === "PRODUCCIONV2") {
         await deleteNozzlesForProduction(sheets, spreadsheetId, targetId);
       }
+      await deleteFromSupabase(tableName, clientKey, targetId);
       console.log(`[Database log: DELETE via Supabase] Table '${tableName}' deleted directly in Supabase. Skipping Google Sheets write.`);
       delete readCache[upperTable];
       if (upperTable === "PRODUCCIONV2") {
