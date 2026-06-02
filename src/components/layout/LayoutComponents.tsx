@@ -282,8 +282,8 @@ export function Header({
                   PSCQube
                 </h1>
                 {currentUser?.name && (
-                  <span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-widest bg-primary/10 border border-primary/20 px-2.5 py-0.5 rounded-full ml-1 select-none">
-                    <UserIcon size={11} className="text-primary shrink-0" />
+                  <span className="hidden sm:inline-flex items-center gap-2 text-xs font-semibold tracking-wide text-slate-500 dark:text-white border-l border-border pl-3.5 ml-2 mr-1 select-none transition-colors">
+                    <UserIcon size={12} className="text-slate-400 dark:text-slate-300 shrink-0" />
                     {currentUser.name}
                   </span>
                 )}
