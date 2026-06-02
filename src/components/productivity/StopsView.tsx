@@ -275,7 +275,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
 
     const machineObj = masters.palletizers.find(p => p.id === palletizerId) || masters.baggers.find(b => b.id === palletizerId);
     const machineName = machineObj?.name || palletizerId || '';
-    const machineHacText = machineName; // machineName directly determines 'máquina afectada' column
+    const machineHacText = machineObj?.hacId || machineName; // 'máquina afectada' column stores the machine's hac_id
     const shiftName = selectedShift?.name || '';
 
     onSave({

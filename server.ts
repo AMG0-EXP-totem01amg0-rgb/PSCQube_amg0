@@ -2427,9 +2427,9 @@ async function enrichParos(sheets: any, spreadsheetId: string, data: any[]) {
         const pal = dbPalletizers.find((p: any) => p && (safeMatch(p.id, item.machineId) || safeMatch(p.name, item.machineId) || safeMatch(p.nombre, item.machineId))) || 
                     dbBaggers.find((b: any) => b && (safeMatch(b.id, item.machineId) || safeMatch(b.name, item.machineId) || safeMatch(b.nombre, item.machineId)));
         const hacPal = dbHacs.find((h: any) => h && (safeMatch(h.id, pal?.hacId) || safeMatch(h.hac, pal?.hacId) || safeHacMatch(h.hac, pal?.hacId)));
-        // If there is no HAC related to this machine, use the machine's ID so we can map it back perfectly on read
-        item.machineHacText = item.machineHacText || (hacPal ? hacPal.hac : (pal?.id || item.machineId));
-        item["máquina afectada"] = item.machineHacText;
+        const targetHacId = pal?.hacId || pal?.hac_id || (hacPal ? hacPal.hac : (pal?.id || item.machineId));
+        item.machineHacText = targetHacId;
+        item["máquina afectada"] = targetHacId;
       }
 
       const matId = item.materialId || item.material_id;
