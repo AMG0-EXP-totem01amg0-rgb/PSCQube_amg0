@@ -636,9 +636,11 @@ export default function AdminView({
         : activeTab === "USERS"
           ? list.some((i) => String(i.dni).trim() === String(item.dni).trim())
           : list.some(
-              (i) =>
-                (i.id !== undefined && i.id !== null && String(i.id).trim().toUpperCase() === String(item.id).trim().toUpperCase()) ||
-                (i.ID !== undefined && i.ID !== null && String(i.ID).trim().toUpperCase() === String(item.id).trim().toUpperCase())
+              (i) => {
+                const iId = String(i.id || i.ID || "").trim().toUpperCase();
+                const itemId = String(item.id || item.ID || "").trim().toUpperCase();
+                return iId !== "" && iId === itemId;
+              }
             );
 
     if (isEdit) {
@@ -2250,7 +2252,7 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
     let finalData = { ...formData };
 
     // Auto-generate ID if missing for all types
-    if (!finalData.id && type !== "USERS") {
+    if (!finalData.id && !finalData.ID && type !== "USERS") {
       const prefix =
         type === "CAPACITIES" ? "CAP" : type.substring(0, 3).toUpperCase();
       finalData.id =
