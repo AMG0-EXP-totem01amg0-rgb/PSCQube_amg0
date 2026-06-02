@@ -113,6 +113,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
     isAllShift: false,
     observation: ''
   });
+  const [editingNozzleId, setEditingNozzleId] = useState<string | null>(null);
 
   const selectedShiftObj = useMemo(() => 
     masters.shifts.find(s => s.id === shiftId), 
@@ -189,6 +190,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       hsMarchaTis: ''
     });
     setTempNews({ nozzleNumber: '', startTime: '', endTime: '', isAllShift: false, observation: '' });
+    setEditingNozzleId(null);
     setIsModalOpen(true);
   };
 
@@ -210,27 +212,59 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       hsMarchaTis: item.hsMarchaTis?.toString() || ''
     });
     setTempNews({ nozzleNumber: '', startTime: '', endTime: '', isAllShift: false, observation: '' });
+    setEditingNozzleId(null);
     setIsModalOpen(true);
+  };
+
+  const handleEditNozzleNews = (news: NozzleNews) => {
+    setEditingNozzleId(news.id);
+    setTempNews({
+      nozzleNumber: news.nozzleNumber.toString(),
+      startTime: news.startTime || '',
+      endTime: news.endTime || '',
+      isAllShift: !!news.isAllShift,
+      observation: news.observation || ''
+    });
+    setIsNozzleModalOpen(true);
   };
 
   const addNozzleNews = () => {
     if (!tempNews.nozzleNumber || (!tempNews.isAllShift && (!tempNews.startTime || !tempNews.endTime))) return;
     
-    const news: NozzleNews = {
-      id: Math.random().toString(36).substr(2, 9),
-      nozzleNumber: parseInt(tempNews.nozzleNumber),
-      startTime: tempNews.isAllShift ? (selectedShiftObj?.startTime || '') : tempNews.startTime,
-      endTime: tempNews.isAllShift ? (selectedShiftObj?.endTime || '') : tempNews.endTime,
-      isAllShift: tempNews.isAllShift,
-      observation: tempNews.observation
-    };
+    if (editingNozzleId) {
+      setFormData(prev => ({
+        ...prev,
+        nozzleNews: prev.nozzleNews.map(n => 
+          n.id === editingNozzleId 
+            ? {
+                ...n,
+                nozzleNumber: parseInt(tempNews.nozzleNumber),
+                startTime: tempNews.isAllShift ? (selectedShiftObj?.startTime || '') : tempNews.startTime,
+                endTime: tempNews.isAllShift ? (selectedShiftObj?.endTime || '') : tempNews.endTime,
+                isAllShift: tempNews.isAllShift,
+                observation: tempNews.observation
+              }
+            : n
+        )
+      }));
+    } else {
+      const news: NozzleNews = {
+        id: Math.random().toString(36).substr(2, 9),
+        nozzleNumber: parseInt(tempNews.nozzleNumber),
+        startTime: tempNews.isAllShift ? (selectedShiftObj?.startTime || '') : tempNews.startTime,
+        endTime: tempNews.isAllShift ? (selectedShiftObj?.endTime || '') : tempNews.endTime,
+        isAllShift: tempNews.isAllShift,
+        observation: tempNews.observation
+      };
 
-    setFormData(prev => ({
-      ...prev,
-      nozzleNews: [...prev.nozzleNews, news]
-    }));
+      setFormData(prev => ({
+        ...prev,
+        nozzleNews: [...prev.nozzleNews, news]
+      }));
+    }
 
     setTempNews({ nozzleNumber: '', startTime: '', endTime: '', isAllShift: false, observation: '' });
+    setEditingNozzleId(null);
     setIsNozzleModalOpen(false);
   };
 
@@ -239,6 +273,9 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       ...prev,
       nozzleNews: prev.nozzleNews.filter(n => n.id !== id)
     }));
+    if (editingNozzleId === id) {
+      setEditingNozzleId(null);
+    }
   };
 
   const handleSave = () => {
@@ -488,10 +525,11 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       )
     },
     {
-      header: '',
+      header: 'Acciones',
       align: 'right',
       accessor: (row) => (
         <TableActions 
+          onEdit={() => handleEditNozzleNews(row)}
           onDelete={() => removeNozzleNews(row.id)}
         />
       )
@@ -741,7 +779,11 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                 type="button"
                 variant="secondary"
                 disabled={!formData.baggerId}
-                onClick={() => setIsNozzleModalOpen(true)}
+                onClick={() => {
+                  setEditingNozzleId(null);
+                  setTempNews({ nozzleNumber: '', startTime: '', endTime: '', isAllShift: false, observation: '' });
+                  setIsNozzleModalOpen(true);
+                }}
                 className="h-9 px-4 text-xs font-bold bg-primary/10 hover:bg-primary text-primary hover:text-white border-primary/20"
               >
                 <Plus size={14} className="mr-1" />
@@ -798,7 +840,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       <Modal
         isOpen={isNozzleModalOpen}
         onClose={() => setIsNozzleModalOpen(false)}
-        title="Registrar Novedad de Boquilla"
+        title={editingNozzleId ? "Editar Novedad de Boquilla" : "Registrar Novedad de Boquilla"}
         isSubModal={true}
         className="max-w-md"
       >
