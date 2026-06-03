@@ -1320,6 +1320,7 @@ export default function App() {
                         onDelete={handleDeletePalletClass}
                         selectedShiftId={userContext.selectedShiftId}
                         selectedDate={userContext.selectedDate}
+                        isDark={isDark}
                     />
                   )}
                   {prodTab === 'CHANGE' && (
@@ -1354,6 +1355,7 @@ export default function App() {
                         onDelete={handleDeleteFuelLoad}
                         selectedShiftId={userContext.selectedShiftId}
                         selectedDate={userContext.selectedDate}
+                        isDark={isDark}
                     />
                   )}
                   {prodTab === 'MANTENIMIENTO' && (

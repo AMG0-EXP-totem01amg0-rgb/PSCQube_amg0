@@ -17,6 +17,7 @@ interface Props {
   allEntries?: PalletClassification[];
   selectedShiftId: string | null;
   selectedDate: string;
+  isDark?: boolean;
 }
 
 const PALLET_COLORS = ['#3b82f6', '#10b981', '#06b6d4', '#8b5cf6', '#eab308', '#ec4899', '#f97316'];
@@ -29,7 +30,8 @@ export default function PalletClassificationView({
   entries, 
   allEntries = [],
   selectedShiftId, 
-  selectedDate 
+  selectedDate,
+  isDark = true
 }: Props) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -277,39 +279,39 @@ export default function PalletClassificationView({
             <div className="h-64 w-full mt-4">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartTypeData} margin={{ top: 10, right: 15, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.06)"} />
                   <XAxis 
                     dataKey="date" 
-                    stroke="rgba(255, 255, 255, 0.4)" 
+                    stroke={isDark ? "rgba(255, 255, 255, 0.6)" : "rgba(0, 0, 0, 0.8)"} 
                     fontSize={10}
                     tickLine={false}
                   />
                   <YAxis 
-                    stroke="rgba(255, 255, 255, 0.4)" 
+                    stroke={isDark ? "rgba(255, 255, 255, 0.6)" : "rgba(0, 0, 0, 0.8)"} 
                     fontSize={10}
                     tickLine={false}
                   />
                   <Tooltip 
                     contentStyle={{ 
-                      backgroundColor: '#161920', 
-                      borderColor: 'rgba(255,255,255,0.1)',
+                      backgroundColor: isDark ? '#161920' : '#ffffff', 
+                      borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
                       borderRadius: '12px',
-                      color: '#f3f4f6'
+                      color: isDark ? '#f3f4f6' : '#1f2937'
                     }}
-                    itemStyle={{ color: '#ffffff' }}
-                    labelStyle={{ color: '#9ca3af', fontWeight: 'bold' }}
+                    itemStyle={{ color: isDark ? '#ffffff' : '#111827' }}
+                    labelStyle={{ color: isDark ? '#9ca3af' : '#4b5563', fontWeight: 'bold' }}
                   />
-                  <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: 10 }} />
+                  <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: 10, color: isDark ? '#f3f4f6' : '#111827' }} />
                   {uniquePalletTypesInChart.map((pallet, idx) => (
                     <Line 
-                      key={pallet}
-                      type="monotone"
-                      dataKey={pallet}
-                      name={pallet}
-                      stroke={PALLET_COLORS[idx % PALLET_COLORS.length]}
-                      strokeWidth={2.5}
-                      dot={{ r: 3, strokeWidth: 1, fill: '#161920' }}
-                      activeDot={{ r: 6 }}
+                       key={pallet}
+                       type="monotone"
+                       dataKey={pallet}
+                       name={pallet}
+                       stroke={PALLET_COLORS[idx % PALLET_COLORS.length]}
+                       strokeWidth={2.5}
+                       dot={{ r: 3, strokeWidth: 1, fill: isDark ? '#161920' : '#ffffff' }}
+                       activeDot={{ r: 6 }}
                     />
                   ))}
                 </LineChart>
@@ -336,29 +338,29 @@ export default function PalletClassificationView({
             <div className="h-64 w-full mt-4">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartShiftData} margin={{ top: 10, right: 15, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.06)"} />
                   <XAxis 
                     dataKey="shiftName" 
-                    stroke="rgba(255, 255, 255, 0.4)" 
+                    stroke={isDark ? "rgba(255, 255, 255, 0.6)" : "rgba(0, 0, 0, 0.8)"} 
                     fontSize={10}
                     tickLine={false}
                   />
                   <YAxis 
-                    stroke="rgba(255, 255, 255, 0.4)" 
+                    stroke={isDark ? "rgba(255, 255, 255, 0.6)" : "rgba(0, 0, 0, 0.8)"} 
                     fontSize={10}
                     tickLine={false}
                   />
                   <Tooltip 
                     contentStyle={{ 
-                      backgroundColor: '#161920', 
-                      borderColor: 'rgba(255,255,255,0.1)',
+                      backgroundColor: isDark ? '#161920' : '#ffffff', 
+                      borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
                       borderRadius: '12px',
-                      color: '#f3f4f6'
+                      color: isDark ? '#f3f4f6' : '#1f2937'
                     }}
-                    itemStyle={{ color: '#ffffff' }}
-                    labelStyle={{ color: '#9ca3af', fontWeight: 'bold' }}
+                    itemStyle={{ color: isDark ? '#ffffff' : '#111827' }}
+                    labelStyle={{ color: isDark ? '#9ca3af' : '#4b5563', fontWeight: 'bold' }}
                   />
-                  <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: 10 }} />
+                  <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: 10, color: isDark ? '#f3f4f6' : '#111827' }} />
                   {uniquePalletTypesInShiftChart.map((pallet, index) => (
                     <Bar 
                       key={pallet} 

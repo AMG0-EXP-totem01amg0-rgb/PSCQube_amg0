@@ -16,11 +16,12 @@ interface Props {
   allFuelLoads: FuelLoad[];
   selectedShiftId: string | null;
   selectedDate: string;
+  isDark?: boolean;
 }
 
 const LINE_COLORS = ['#f97316', '#10b981', '#06b6d4', '#8b5cf6', '#3b82f6', '#f59e0b', '#ec4899'];
 
-export default function FuelView({ masters, currentUser, onSave, onDelete, history, allFuelLoads, selectedShiftId, selectedDate }: Props) {
+export default function FuelView({ masters, currentUser, onSave, onDelete, history, allFuelLoads, selectedShiftId, selectedDate, isDark = true }: Props) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<FuelLoad | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -228,15 +229,15 @@ export default function FuelView({ masters, currentUser, onSave, onDelete, histo
           <div className="h-64 w-full mt-4">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 10, right: 15, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" />
+                <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.06)"} />
                 <XAxis 
                   dataKey="date" 
-                  stroke="rgba(255, 255, 255, 0.4)" 
+                  stroke={isDark ? "rgba(255, 255, 255, 0.6)" : "rgba(0, 0, 0, 0.8)"} 
                   fontSize={10}
                   tickLine={false}
                 />
                 <YAxis 
-                  stroke="rgba(255, 255, 255, 0.4)" 
+                  stroke={isDark ? "rgba(255, 255, 255, 0.6)" : "rgba(0, 0, 0, 0.8)"} 
                   fontSize={10}
                   tickLine={false}
                   axisLine={false}
@@ -244,15 +245,17 @@ export default function FuelView({ masters, currentUser, onSave, onDelete, histo
                 />
                 <Tooltip 
                   contentStyle={{ 
-                    backgroundColor: '#161920', 
-                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    backgroundColor: isDark ? '#161920' : '#ffffff', 
+                    borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
                     borderRadius: '12px',
                     fontSize: '11px',
-                    color: '#f3f4f6'
+                    color: isDark ? '#f3f4f6' : '#1f2937'
                   }}
+                  itemStyle={{ color: isDark ? '#ffffff' : '#111827' }}
+                  labelStyle={{ color: isDark ? '#9ca3af' : '#4b5563', fontWeight: 'bold' }}
                 />
                 <Legend 
-                  wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }}
+                  wrapperStyle={{ fontSize: '10px', paddingTop: '10px', color: isDark ? '#f3f4f6' : '#111827' }}
                   iconType="circle"
                 />
                 {uniqueVehiclesInChart.map((v, idx) => (
@@ -263,7 +266,7 @@ export default function FuelView({ masters, currentUser, onSave, onDelete, histo
                     name={v}
                     stroke={LINE_COLORS[idx % LINE_COLORS.length]}
                     strokeWidth={2.5}
-                    dot={{ r: 3, strokeWidth: 1, fill: '#161920' }}
+                    dot={{ r: 3, strokeWidth: 1, fill: isDark ? '#161920' : '#ffffff' }}
                     activeDot={{ r: 6 }}
                   />
                 ))}
