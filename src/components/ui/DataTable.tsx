@@ -1,6 +1,5 @@
 import React from 'react';
 import { cn } from '../../lib/utils';
-import { motion, AnimatePresence } from 'motion/react';
 import { PlusCircle, Pencil, Trash2 } from 'lucide-react';
 
 export interface Column<T> {
@@ -108,19 +107,14 @@ export function DataTable<T>({
               </tr>
             </thead>
             <tbody className="divide-y divide-border/40">
-              <AnimatePresence mode="popLayout">
-                {data.length > 0 ? data.map((row) => (
-                  <motion.tr 
-                    layout
-                    key={keyExtractor(row)} 
-                    initial={{ opacity: 0 }} 
-                    animate={{ opacity: 1 }} 
-                    exit={{ opacity: 0 }}
-                    className={cn(
-                      "transition-all group hover:bg-bg/40 h-14",
-                      typeof rowClassName === 'function' ? rowClassName(row) : rowClassName
-                    )}
-                  >
+              {data.length > 0 ? data.map((row) => (
+                <tr 
+                  key={keyExtractor(row)} 
+                  className={cn(
+                    "transition-all group hover:bg-bg/40 h-14",
+                    typeof rowClassName === 'function' ? rowClassName(row) : rowClassName
+                  )}
+                >
                   {columns.map((col, cIdx) => (
                     <td 
                       key={cIdx} 
@@ -136,7 +130,7 @@ export function DataTable<T>({
                         : (row as any)[col.accessor as string]}
                     </td>
                   ))}
-                </motion.tr>
+                </tr>
               )) : (
                 <tr>
                   <td colSpan={columns.length} className="p-16 text-center">
@@ -154,8 +148,7 @@ export function DataTable<T>({
                   </td>
                 </tr>
               )}
-            </AnimatePresence>
-          </tbody>
+            </tbody>
         </table>
       </div>
     </div>

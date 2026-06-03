@@ -35,11 +35,6 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
         return true;
       }
 
-      // Filter by shift if applicable
-      if (selectedShiftId && item.shiftId !== selectedShiftId) {
-        return false;
-      }
-
       // Filter by date range or single date
       if (dateFrom && dateTo) {
         try {
@@ -51,6 +46,10 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
           return true;
         }
       } else {
+        // Filter by shift if applicable
+        if (selectedShiftId && String(item.shiftId || '').trim().toUpperCase() !== String(selectedShiftId).trim().toUpperCase()) {
+          return false;
+        }
         return item.date === selectedDate;
       }
     });

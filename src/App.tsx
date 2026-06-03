@@ -1282,7 +1282,7 @@ export default function App() {
                         currentUser={currentUser}
                         onSave={handleSaveDaterControl}
                         onDelete={handleDeleteDaterControl}
-                        history={daterControls.filter(c => c && String(c.shiftId || '').trim().toUpperCase() === String(userContext.selectedShiftId || '').trim().toUpperCase() && c.date === userContext.selectedDate)}
+                        history={daterControls}
                         selectedShiftId={userContext.selectedShiftId}
                         selectedDate={userContext.selectedDate}
                     />
@@ -1293,7 +1293,7 @@ export default function App() {
                         currentUser={currentUser}
                         onSave={handleSaveScaleControl}
                         onDelete={handleDeleteScaleControl}
-                        history={scaleControls.filter(c => c && String(c.shiftId || '').trim().toUpperCase() === String(userContext.selectedShiftId || '').trim().toUpperCase() && c.date === userContext.selectedDate)}
+                        history={scaleControls}
                         selectedShiftId={userContext.selectedShiftId}
                         selectedDate={userContext.selectedDate}
                     />

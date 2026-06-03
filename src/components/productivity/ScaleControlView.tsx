@@ -44,13 +44,14 @@ export default function ScaleControlView({ masters, currentUser, onSave, onDelet
   // Filter HACS to only show Scales based on the new isScale flag
   const scaleHacs = masters.hacs.filter(h => h.isScale);
 
-  // Filter history based on range or selectedDate
+  // Filter history based on range or selectedDate and shift
   const filteredHistory = useMemo(() => {
     if (dateFrom && dateTo) {
       try {
         const start = startOfDay(parseISO(dateFrom));
         const end = endOfDay(parseISO(dateTo));
         return history.filter(item => {
+          if (!item) return false;
           const itemDate = parseISO(item.date);
           return isWithinInterval(itemDate, { start, end });
         });
@@ -58,8 +59,13 @@ export default function ScaleControlView({ masters, currentUser, onSave, onDelet
         return history;
       }
     }
-    return history;
-  }, [history, dateFrom, dateTo]);
+    return history.filter(item => {
+      if (!item) return false;
+      const isSameDate = item.date === selectedDate;
+      const isSameShift = !selectedShiftId || String(item.shiftId || '').trim().toUpperCase() === String(selectedShiftId).trim().toUpperCase();
+      return isSameDate && isSameShift;
+    });
+  }, [history, dateFrom, dateTo, selectedDate, selectedShiftId]);
 
   // Computed fields
   const computed = useMemo(() => {
