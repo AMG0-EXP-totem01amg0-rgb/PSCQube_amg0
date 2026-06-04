@@ -57,10 +57,10 @@ const isStopForMachine = (stop: any, machineId: string | null | undefined, maste
   const cleanStopId = stopMachineId.replace(/[^A-Z0-9]/g, '');
   const cleanStopName = stopMachineName.replace(/[^A-Z0-9]/g, '');
   const cleanStopHac = stopMachineHacText.replace(/[^A-Z0-9]/g, '');
+  const cleanMacHac = macHacId.replace(/[^A-Z0-9]/g, '');
   
   if (cleanMacName && (cleanStopId === cleanMacName || cleanStopName === cleanMacName || cleanStopHac === cleanMacName)) return true;
-  if (cleanMacName && cleanStopName && (cleanMacName.includes(cleanStopName) || cleanStopName.includes(cleanMacName))) return true;
-  if (cleanMacName && cleanStopHac && (cleanMacName.includes(cleanStopHac) || cleanStopHac.includes(cleanMacName))) return true;
+  if (cleanMacHac && (cleanStopId === cleanMacHac || cleanStopHac === cleanMacHac || cleanStopName === cleanMacHac)) return true;
 
   return false;
 };

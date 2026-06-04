@@ -79,17 +79,15 @@ const isStopForMachine = (stop: MachineStop | null | undefined, machine: any, ma
   // 3. HAC-based match
   if (macHacId && (stopMachineId === macHacId || stopMachineHacText === macHacId)) return true;
   
-  // 4. Loose alphanumeric name comparison
+  // 4. Loose exact alphanumeric comparison (no partial includes)
   const cleanMacName = macName.replace(/[^A-Z0-9]/g, '');
   const cleanStopId = stopMachineId.replace(/[^A-Z0-9]/g, '');
   const cleanStopName = stopMachineName.replace(/[^A-Z0-9]/g, '');
   const cleanStopHac = stopMachineHacText.replace(/[^A-Z0-9]/g, '');
+  const cleanMacHac = macHacId.replace(/[^A-Z0-9]/g, '');
   
   if (cleanMacName && (cleanStopId === cleanMacName || cleanStopName === cleanMacName || cleanStopHac === cleanMacName)) return true;
-  
-  // 5. Containment match
-  if (cleanMacName && cleanStopName && (cleanMacName.includes(cleanStopName) || cleanStopName.includes(cleanMacName))) return true;
-  if (cleanMacName && cleanStopHac && (cleanMacName.includes(cleanStopHac) || cleanStopHac.includes(cleanMacName))) return true;
+  if (cleanMacHac && (cleanStopId === cleanMacHac || cleanStopHac === cleanMacHac || cleanStopName === cleanMacHac)) return true;
 
   return false;
 };

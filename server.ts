@@ -3282,13 +3282,14 @@ async function enrichParosOnRead(sheets: any, spreadsheetId: string, list: any[]
 
       let pal = null;
 
-      // Tier 1: Case-insensitive name or ID match
+      // Tier 1: Case-insensitive name, ID or HAC ID match
       if (!pal) {
         pal = allMachines.find((p: any) => {
           if (!p) return false;
           const pId = String(p.id || "").trim().toUpperCase();
           const pName = String(p.name || p.nombre || "").trim().toUpperCase();
-          return pId === targetMachineText || pName === targetMachineText;
+          const pHacId = String(p.hacId || p.hac_id || "").trim().toUpperCase();
+          return pId === targetMachineText || pName === targetMachineText || (pHacId && pHacId === targetMachineText);
         });
       }
 
@@ -3299,7 +3300,8 @@ async function enrichParosOnRead(sheets: any, spreadsheetId: string, list: any[]
           if (!p) return false;
           const cleanId = String(p.id || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
           const cleanName = String(p.name || p.nombre || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-          return cleanId === cleanTarget || cleanName === cleanTarget;
+          const cleanHacId = String(p.hacId || p.hac_id || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+          return cleanId === cleanTarget || cleanName === cleanTarget || (cleanHacId && cleanHacId === cleanTarget);
         });
       }
 
