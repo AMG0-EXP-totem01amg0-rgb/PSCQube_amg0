@@ -477,7 +477,12 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
                 <Clock size={16} />
               </div>
               <div>
-                 <h4 className="text-[10px] font-bold text-text-muted uppercase tracking-[0.2em]">Línea de Tiempo Operativa</h4>
+                 <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="text-[10px] font-bold text-text-muted uppercase tracking-[0.2em]">Línea de Tiempo Operativa</h4>
+                    <span className="inline-flex items-center px-1.5 py-0.5 text-[8px] font-extrabold rounded-full bg-danger/10 text-danger border border-danger/20 leading-none">
+                      {history?.length || 0} {(history?.length || 0) === 1 ? 'PARO' : 'PAROS'}
+                    </span>
+                 </div>
                  <p className="text-[9px] text-text-muted font-bold uppercase tracking-wider">{selectedShift.name} ({selectedShift.startTime} - {selectedShift.endTime})</p>
               </div>
             </div>
