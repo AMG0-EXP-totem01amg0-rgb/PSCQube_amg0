@@ -62,34 +62,67 @@ const MaterialStatCard = ({ item }: { item: any; key?: React.Key }) => {
 const isStopForMachine = (stop: MachineStop | null | undefined, machine: any, mastersAvailable: any) => {
   if (!stop || !machine) return false;
   
-  const macId = String(machine.id).trim().toUpperCase();
-  const macName = String(machine.name || machine.nombre || "").trim().toUpperCase();
-  const macHacId = String(machine.hacId || machine.hac_id || "").trim().toUpperCase();
+  // 1. Get the targetId helper
+  let targetId = "";
+  if (typeof machine === 'object' && machine !== null) {
+    targetId = String(machine.id || machine.hacId || machine.hac_id || machine.name || machine.nombre || "").trim().toUpperCase();
+  } else {
+    targetId = String(machine).trim().toUpperCase();
+  }
   
+  if (!targetId) return false;
+
+  // 2. Find the selected machine object in palletizers or baggers
+  const selectedMac: any = (mastersAvailable.palletizers || []).find((p: any) => p && (
+    String(p.id).trim().toUpperCase() === targetId ||
+    String(p.hacId || p.hac_id || "").trim().toUpperCase() === targetId ||
+    String(p.name || p.nombre || "").trim().toUpperCase() === targetId
+  )) || (mastersAvailable.baggers || []).find((b: any) => b && (
+    String(b.id).trim().toUpperCase() === targetId ||
+    String(b.hacId || b.hac_id || "").trim().toUpperCase() === targetId ||
+    String(b.name || b.nombre || "").trim().toUpperCase() === targetId
+  ));
+
+  // Stop's fields
   const stopMachineId = String(stop.machineId || "").trim().toUpperCase();
   const stopMachineName = String(stop.machineName || "").trim().toUpperCase();
   const stopMachineHacText = String(stop.machineHacText || "").trim().toUpperCase();
   const stopHacName = String(stop.hacName || (stop as any).hac || "").trim().toUpperCase();
-  
-  // 1. Direct ID map match or HAC match
-  if (stopMachineId === macId || stopHacName === macHacId || stopMachineHacText === macHacId) return true;
-  
-  // 2. Direct name match
-  if (macName && (stopMachineName === macName || stopMachineHacText === macName || stopMachineId === macName || stopHacName === macName)) return true;
-  
-  // 3. HAC-based match
-  if (macHacId && (stopMachineId === macHacId || stopMachineHacText === macHacId || stopHacName === macHacId || stopHacName.includes(macHacId) || macHacId.includes(stopHacName))) return true;
-  
-  // 4. Loose exact alphanumeric comparison (no partial includes)
-  const cleanMacName = macName.replace(/[^A-Z0-9]/g, '');
-  const cleanStopId = stopMachineId.replace(/[^A-Z0-9]/g, '');
-  const cleanStopName = stopMachineName.replace(/[^A-Z0-9]/g, '');
-  const cleanStopHac = stopMachineHacText.replace(/[^A-Z0-9]/g, '');
-  const cleanStopHacName = stopHacName.replace(/[^A-Z0-9]/g, '');
-  const cleanMacHac = macHacId.replace(/[^A-Z0-9]/g, '');
-  
-  if (cleanMacName && (cleanStopId === cleanMacName || cleanStopName === cleanMacName || cleanStopHac === cleanMacName || cleanStopHacName === cleanMacName)) return true;
-  if (cleanMacHac && (cleanStopId === cleanMacHac || cleanStopHac === cleanMacHac || cleanStopName === cleanMacHac || cleanStopHacName === cleanMacHac)) return true;
+
+  if (!selectedMac) {
+    // If we can't find reference in master tables, check if stop's fields strictly equal targetId
+    return stopMachineId === targetId || stopMachineHacText === targetId || stopMachineName === targetId || stopHacName === targetId;
+  }
+
+  // Machine's fields
+  const macId = String(selectedMac.id).trim().toUpperCase();
+  const macName = String(selectedMac.name || selectedMac.nombre || "").trim().toUpperCase();
+  const macHacId = String(selectedMac.hacId || selectedMac.hac_id || "").trim().toUpperCase();
+
+  // Strict match among any of the stop and mac fields
+  const stopFields = [stopMachineId, stopMachineName, stopMachineHacText, stopHacName].filter(Boolean);
+  const macFields = [macId, macName, macHacId].filter(Boolean);
+
+  for (const sField of stopFields) {
+    for (const mField of macFields) {
+      if (sField === mField) return true;
+    }
+  }
+
+  // Double check loose comparison (ignoring punctuation / space / special characters)
+  const cleanStr = (val: string) => val.replace(/[^A-Z0-9]/g, '');
+  const cleanStopFields = stopFields.map(cleanStr).filter(Boolean);
+  const cleanMacFields = macFields.map(cleanStr).filter(Boolean);
+
+  for (const sClean of cleanStopFields) {
+    for (const mClean of cleanMacFields) {
+      if (sClean === mClean) return true;
+    }
+  }
+
+  // Special inclusion match if they contain HAC ID (e.g. "MG.673-PZ1")
+  if (macHacId && (stopMachineHacText.includes(macHacId) || macHacId.includes(stopMachineHacText))) return true;
+  if (macHacId && (stopHacName.includes(macHacId) || macHacId.includes(stopHacName))) return true;
 
   return false;
 };
