@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Package, Plus, Trash2, History, Pencil, TrendingUp, Filter, BarChart3, Clock, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Package, Plus, Trash2, History, Pencil, TrendingUp, Filter, BarChart3, Clock, AlertCircle, ShieldCheck, Check, X } from 'lucide-react';
 import { format, parse, differenceInMinutes } from 'date-fns';
 import { GlassCard, GlassInput, GlassSelect, GlassButton, ConfirmModal, Modal } from '../ui/GlassUI';
 import { DataTable, Column, TableActions } from '../ui/DataTable';
@@ -149,6 +149,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
     discardedBagsVentocheck: '0',
     discardedBagsTransport: '0'
   });
+  const [editingDetailId, setEditingDetailId] = useState<string | null>(null);
 
   // Local state for adding nozzle news
   const [tempNews, setTempNews] = useState({
@@ -213,23 +214,47 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
     const matObj = masters.materials.find(m => m.id === activeDetail.materialId);
     if (!matObj) return;
 
-    const newDetail = {
-      id: Math.random().toString(36).substr(2, 9),
-      materialId: activeDetail.materialId,
-      materialDescription: matObj.name,
-      bagsProduced: parseInt(activeDetail.bags) || 0,
-      tonsProduced: parseFloat(activeDetail.tons) || 0,
-      bdp: 100,
-      discardedBagsBagger: parseInt(activeDetail.discardedBagsBagger) || 0,
-      notNozzledBags: parseInt(activeDetail.notNozzledBags) || 0,
-      discardedBagsVentocheck: parseInt(activeDetail.discardedBagsVentocheck) || 0,
-      discardedBagsTransport: parseInt(activeDetail.discardedBagsTransport) || 0
-    };
+    if (editingDetailId) {
+      // Edit mode: replace/update in state
+      setFormData(prev => ({
+        ...prev,
+        materialsDetails: (prev.materialsDetails || []).map(d => 
+          d.id === editingDetailId 
+            ? {
+                ...d,
+                materialId: activeDetail.materialId,
+                materialDescription: matObj.name,
+                bagsProduced: parseInt(activeDetail.bags) || 0,
+                tonsProduced: parseFloat(activeDetail.tons) || 0,
+                discardedBagsBagger: parseInt(activeDetail.discardedBagsBagger) || 0,
+                notNozzledBags: parseInt(activeDetail.notNozzledBags) || 0,
+                discardedBagsVentocheck: parseInt(activeDetail.discardedBagsVentocheck) || 0,
+                discardedBagsTransport: parseInt(activeDetail.discardedBagsTransport) || 0
+              }
+            : d
+        )
+      }));
+      setEditingDetailId(null);
+    } else {
+      // Add mode
+      const newDetail = {
+        id: Math.random().toString(36).substr(2, 9),
+        materialId: activeDetail.materialId,
+        materialDescription: matObj.name,
+        bagsProduced: parseInt(activeDetail.bags) || 0,
+        tonsProduced: parseFloat(activeDetail.tons) || 0,
+        bdp: 100,
+        discardedBagsBagger: parseInt(activeDetail.discardedBagsBagger) || 0,
+        notNozzledBags: parseInt(activeDetail.notNozzledBags) || 0,
+        discardedBagsVentocheck: parseInt(activeDetail.discardedBagsVentocheck) || 0,
+        discardedBagsTransport: parseInt(activeDetail.discardedBagsTransport) || 0
+      };
 
-    setFormData(prev => ({
-      ...prev,
-      materialsDetails: [...(prev.materialsDetails || []), newDetail]
-    }));
+      setFormData(prev => ({
+        ...prev,
+        materialsDetails: [...(prev.materialsDetails || []), newDetail]
+      }));
+    }
 
     // Reset inputs
     setActiveDetail({
@@ -244,10 +269,35 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
   };
 
   const removeMaterialDetail = (id: string) => {
+    if (editingDetailId === id) {
+      setEditingDetailId(null);
+      setActiveDetail({
+        materialId: '',
+        bags: '',
+        tons: '',
+        discardedBagsBagger: '0',
+        notNozzledBags: '0',
+        discardedBagsVentocheck: '0',
+        discardedBagsTransport: '0'
+      });
+    }
     setFormData(prev => ({
       ...prev,
       materialsDetails: (prev.materialsDetails || []).filter(d => d.id !== id)
     }));
+  };
+
+  const startEditMaterialDetail = (det: any) => {
+    setEditingDetailId(det.id);
+    setActiveDetail({
+      materialId: det.materialId || '',
+      bags: (det.bagsProduced || '').toString(),
+      tons: (det.tonsProduced || '').toString(),
+      discardedBagsBagger: (det.discardedBagsBagger || 0).toString(),
+      notNozzledBags: (det.notNozzledBags || 0).toString(),
+      discardedBagsVentocheck: (det.discardedBagsVentocheck || 0).toString(),
+      discardedBagsTransport: (det.discardedBagsTransport || 0).toString()
+    });
   };
 
   // Calculate active running hours (hs de marcha) computed by the app
@@ -280,6 +330,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
 
   const handleOpenAdd = () => {
     setEditingItem(null);
+    setEditingDetailId(null);
     const defaultBagProvider = masters.bagSuppliers && masters.bagSuppliers.length > 0
       ? masters.bagSuppliers[0].nombre
       : '';
@@ -314,6 +365,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
 
   const handleOpenEdit = (item: ProductionReport) => {
     setEditingItem(item);
+    setEditingDetailId(null);
     const defaultBagProvider = item.bagProvider || (masters.bagSuppliers && masters.bagSuppliers.length > 0 ? masters.bagSuppliers[0].nombre : '');
     
     // Auto-create migration details array if not present
@@ -880,34 +932,78 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
 
             <div className="bg-bg-input/60 p-4 rounded-xl border border-border/50 space-y-4">
               {/* Form to enter a material position */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-4 border-b border-border/30">
-                <GlassSelect 
-                  label="Material / Producto" 
-                  options={masters.materials.filter((m: any) => !!m.isProductive).map((m: any) => ({label: m.name, value: m.id}))} 
-                  value={activeDetail.materialId} 
-                  onChange={e => setActiveDetail({...activeDetail, materialId: (e.target as HTMLSelectElement).value})} 
-                />
-                <GlassInput 
-                  label="Bolsas Producidas" 
-                  type="number" 
-                  value={activeDetail.bags} 
-                  onChange={e => setActiveDetail({...activeDetail, bags: (e.target as HTMLInputElement).value})} 
-                  placeholder="0"
-                />
-                
-                <div className="flex flex-col justify-end">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 pb-4 border-b border-border/30 items-end">
+                <div className="md:col-span-5">
+                  <GlassSelect 
+                    label="Material / Producto" 
+                    options={masters.materials.filter((m: any) => !!m.isProductive).map((m: any) => ({label: m.name, value: m.id}))} 
+                    value={activeDetail.materialId} 
+                    onChange={e => setActiveDetail({...activeDetail, materialId: (e.target as HTMLSelectElement).value})} 
+                  />
+                </div>
+                <div className="md:col-span-4 relative">
+                  <GlassInput 
+                    label="Bolsas Producidas" 
+                    type="number" 
+                    value={activeDetail.bags} 
+                    onChange={e => setActiveDetail({...activeDetail, bags: (e.target as HTMLInputElement).value})} 
+                    placeholder="0"
+                  />
                   {activeDetail.tons && (
-                    <div className="flex items-center gap-2 px-3 py-2.5 h-[42px] bg-emerald-500/10 border border-emerald-500/20 rounded-lg justify-center">
-                      <TrendingUp size={12} className="text-emerald-500" />
-                      <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">
-                        Calculado: {parseFloat(activeDetail.tons).toFixed(2)} TN
+                    <div className="absolute right-3 top-1 pointer-events-none">
+                      <span className="text-[9px] font-black tracking-wide text-emerald-400 bg-emerald-500/20 border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono uppercase">
+                        {parseFloat(activeDetail.tons).toFixed(2)} TN
                       </span>
                     </div>
                   )}
                 </div>
+                
+                <div className="md:col-span-3 flex gap-2">
+                  <GlassButton
+                    type="button"
+                    variant="primary"
+                    onClick={addMaterialDetail}
+                    disabled={!activeDetail.materialId || !activeDetail.bags || parseInt(activeDetail.bags) <= 0}
+                    className="flex-1 h-[42px] text-xs font-black uppercase tracking-wider"
+                  >
+                    {editingDetailId ? (
+                      <>
+                        <Check size={14} className="mr-1 inline" />
+                        Actualizar
+                      </>
+                    ) : (
+                      <>
+                        <Plus size={14} className="mr-1 inline" />
+                        Registrar
+                      </>
+                    )}
+                  </GlassButton>
+                  {editingDetailId && (
+                    <GlassButton
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        setEditingDetailId(null);
+                        setActiveDetail({
+                          materialId: '',
+                          bags: '',
+                          tons: '',
+                          discardedBagsBagger: '0',
+                          notNozzledBags: '0',
+                          discardedBagsVentocheck: '0',
+                          discardedBagsTransport: '0'
+                        });
+                      }}
+                      className="h-[42px] px-3 font-black text-xs text-text-muted hover:text-white bg-white/[0.05] border-white/10"
+                      title="Cancelar edición"
+                    >
+                      <X size={14} />
+                    </GlassButton>
+                  )}
+                </div>
 
                 {/* Bag Waste for this material */}
-                <div className="md:col-span-3 space-y-2 pt-2">
+                <div className="md:col-span-12 space-y-2 pt-2">
                   <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest block">Bolsas Descartadas (Para este producto)</span>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <GlassInput 
@@ -936,19 +1032,6 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                     />
                   </div>
                 </div>
-
-                <div className="md:col-span-3 pt-2 text-right">
-                  <GlassButton
-                    type="button"
-                    variant="primary"
-                    onClick={addMaterialDetail}
-                    disabled={!activeDetail.materialId || !activeDetail.bags || parseInt(activeDetail.bags) <= 0}
-                    className="h-9 px-4 text-xs font-black uppercase tracking-wider"
-                  >
-                    <Plus size={14} className="mr-1" />
-                    Registrar Material
-                  </GlassButton>
-                </div>
               </div>
 
               {/* Grid of already registered material details */}
@@ -963,11 +1046,22 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                                             (Number(det.notNozzledBags) || 0) + 
                                             (Number(det.discardedBagsVentocheck) || 0) + 
                                             (Number(det.discardedBagsTransport) || 0);
+                      const isEditing = editingDetailId === det.id;
 
                       return (
-                        <div key={det.id || idx} className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/5 hover:border-primary/20 transition-all gap-4">
+                        <div 
+                          key={det.id || idx} 
+                          className={cn(
+                            "flex items-center justify-between p-3 rounded-lg transition-all gap-4 border", 
+                            isEditing 
+                              ? "border-primary bg-primary/10 shadow-lg shadow-primary/5" 
+                              : "border-white/5 bg-white/[0.02] hover:border-primary/20"
+                          )}
+                        >
                           <div className="flex-1">
-                            <span className="text-xs font-bold text-text-main block uppercase">{matName}</span>
+                            <span className="text-xs font-bold text-text-main block uppercase">
+                              {matName} {isEditing && <span className="text-[10px] text-primary lowercase">(editando...)</span>}
+                            </span>
                             <span className="text-[10px] text-primary/80 font-bold tracking-wide">
                               {det.bagsProduced} bolsas — {Number(det.tonsProduced).toFixed(2)} TN
                             </span>
@@ -980,21 +1074,31 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                             </span>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => removeMaterialDetail(det.id)}
-                            className="p-1.5 text-red-500 hover:text-white hover:bg-red-500/20 rounded transition-colors"
-                            title="Eliminar Material"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => startEditMaterialDetail(det)}
+                              className="p-1.5 text-primary hover:text-white hover:bg-primary/20 rounded transition-colors"
+                              title="Editar Material"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeMaterialDetail(det.id)}
+                              className="p-1.5 text-red-500 hover:text-white hover:bg-red-500/20 rounded transition-colors"
+                              title="Eliminar Material"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
                   </div>
                 ) : (
                   <div className="text-center py-6 text-xs text-text-muted/60 bg-white/[0.01] border border-dashed border-white/5 rounded-xl">
-                    No se han cargado posiciones de material aún. Configura una y pulsa "Registrar Material" arriba.
+                    No se han cargado posiciones de material aún. Configura una y pulsa "Registrar" arriba.
                   </div>
                 )}
               </div>
@@ -1127,7 +1231,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
             <GlassButton 
               className="w-full sm:flex-1"
               onClick={handleSave}
-              disabled={!formData.baggerId || !formData.materialId || !formData.tons}
+              disabled={!formData.baggerId || (formData.materialsDetails || []).length === 0}
             >
               {editingItem ? 'Actualizar Reporte' : 'Guardar Reporte Operativo'}
             </GlassButton>
