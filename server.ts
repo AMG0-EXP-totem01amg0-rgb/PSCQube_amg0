@@ -19,11 +19,14 @@ function getSupabaseClient() {
     const supabaseKey = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (supabaseUrl && supabaseKey) {
       // Auto-sanitize the URL to prevent /rest/v1/ invalid path errors
-      supabaseUrl = supabaseUrl.trim().replace(/\/+$/, ""); // Remove trailing slashes
-      if (supabaseUrl.toLowerCase().endsWith("/rest/v1")) {
-        supabaseUrl = supabaseUrl.slice(0, -8);
+      supabaseUrl = supabaseUrl.trim();
+      try {
+        const parsed = new URL(supabaseUrl);
+        supabaseUrl = parsed.protocol + "//" + parsed.host;
+      } catch (e) {
+        // Fallback regex sanitization
+        supabaseUrl = supabaseUrl.replace(/\/rest\/v1\/?$/i, "").replace(/\/+$/, "");
       }
-      supabaseUrl = supabaseUrl.trim().replace(/\/+$/, ""); // Remove trailing slashes again
 
       if (supabaseUrl.includes("/dashboard") || supabaseUrl.includes("/project/")) {
         console.error(`
@@ -1743,9 +1746,10 @@ const calculateDurationTime = (startStr: string, endStr: string): string => {
   }
 };
 
-const durationMinutesFromHHMMSS = (timeStr: string | undefined): number => {
-  if (!timeStr) return 0;
-  const parts = timeStr.split(":").map(Number);
+const durationMinutesFromHHMMSS = (timeStr: any): number => {
+  if (!timeStr && timeStr !== 0) return 0;
+  const str = String(timeStr).trim();
+  const parts = str.split(":").map(Number);
   if (parts.length >= 2) {
     const h = parts[0] || 0;
     const m = parts[1] || 0;
@@ -2495,7 +2499,7 @@ async function insertRecord(sheets: any, spreadsheetId: string, tableName: strin
       return; // Bypasses Google Sheets write completely!
     } catch (supaErr) {
       console.error(`[Supabase Insert Record Error] table ${tableName}: ${formatSupabaseError(supaErr)}`);
-      console.warn(`[Supabase Error Fallback] Retrying write in Google Sheets...`);
+      throw supaErr;
     }
   }
 
@@ -2570,7 +2574,7 @@ async function updateRecord(sheets: any, spreadsheetId: string, tableName: strin
       return; // Bypasses Google Sheets write completely!
     } catch (supaErr) {
       console.error(`[Supabase Update Record Error] table ${tableName}: ${formatSupabaseError(supaErr)}`);
-      console.warn(`[Supabase Error Fallback] Retrying update in Google Sheets...`);
+      throw supaErr;
     }
   }
 
@@ -2720,7 +2724,7 @@ async function deleteRecord(sheets: any, spreadsheetId: string, tableName: strin
       return true; // Bypasses Google Sheets write completely!
     } catch (supaErr) {
       console.error(`[Supabase Delete Record Error] table ${tableName}: ${formatSupabaseError(supaErr)}`);
-      console.warn(`[Supabase Error Fallback] Retrying delete in Google Sheets...`);
+      throw supaErr;
     }
   }
 
@@ -3110,9 +3114,12 @@ async function readTableData(sheets: any, spreadsheetId: string, table: string):
 
         readCache[upperTable] = { timestamp: Date.now(), data: dbList };
         return dbList;
+      } else {
+        throw new Error(`La tabla '${table}' no se encontró o no tiene registros en Supabase.`);
       }
     } catch (supaErr) {
-      console.error(`[Supabase Read Failback to Sheets] table ${table} read failed, trying Sheets: ${formatSupabaseError(supaErr)}`);
+      console.error(`[Supabase Read Error] table ${table} failed: ${formatSupabaseError(supaErr)}`);
+      throw supaErr;
     }
   }
 
@@ -3363,7 +3370,7 @@ async function enrichParosOnRead(sheets: any, spreadsheetId: string, list: any[]
       }
 
       // 3. Material
-      const mat = materials.find((m: any) => m.name === item.materialDescription);
+      const mat = materials.find((m: any) => m && m.name === item.materialDescription);
       if (mat) {
         item.materialId = mat.id;
       } else {
@@ -3371,7 +3378,7 @@ async function enrichParosOnRead(sheets: any, spreadsheetId: string, list: any[]
       }
 
       // 4. HAC
-      const hacObj = hacs.find((h: any) => h.hac && safeHacMatch(h.hac, item.hacName));
+      const hacObj = hacs.find((h: any) => h && h.hac && safeHacMatch(h.hac, item.hacName));
       if (hacObj) {
         item.hacId = hacObj.id;
       } else {
@@ -3379,7 +3386,7 @@ async function enrichParosOnRead(sheets: any, spreadsheetId: string, list: any[]
       }
 
       // 5. Cause
-      const causeObj = causes.find((c: any) => c.text === item.causeText || c.descripcion === item.causeText);
+      const causeObj = causes.find((c: any) => c && (c.text === item.causeText || c.descripcion === item.causeText));
       if (causeObj) {
         item.causeId = causeObj.id;
       } else {
