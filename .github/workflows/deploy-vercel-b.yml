@@ -13,8 +13,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Reflejar cambios en Cuenta B
         run: |
-          REMOTE_REPO="https://x-access-token:${{ secrets.CUENTA_B_TOKEN }}@github.com/AMG0-EXP-totem01amg0-rgb/PSCQube_amg0.git"
+          REMOTE_REPO="https://${{ secrets.CUENTA_B_TOKEN }}@github.com/AMG0-EXP-totem01amg0-rgb/PSCQube_amg0.git"
           git push --mirror "$REMOTE_REPO"
