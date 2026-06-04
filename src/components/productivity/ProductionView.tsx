@@ -192,6 +192,13 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
     return filtered.map((m: any) => ({ label: m.name, value: m.id }));
   }, [masters.materials, formData.materialsDetails, editingDetailId]);
 
+  const modalTotals = useMemo(() => {
+    const details = formData.materialsDetails || [];
+    const totalBags = details.reduce((sum, d) => sum + (Number(d.bagsProduced) || 0), 0);
+    const totalTons = details.reduce((sum, d) => sum + (Number(d.tonsProduced) || 0), 0);
+    return { totalBags, totalTons };
+  }, [formData.materialsDetails]);
+
   // Auto-calculate TN based on Bags and Material weight for fallback
   React.useEffect(() => {
     if (selectedMaterialObj && formData.bags) {
@@ -910,9 +917,18 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
         <div className="space-y-8 max-h-[70vh] overflow-y-auto no-scrollbar pr-1">
           {/* Section 1: Basic Info */}
           <div className="space-y-4">
-            <div className="flex items-center gap-2 text-primary">
-              <TrendingUp size={16} />
-              <h4 className="text-xs font-black uppercase tracking-widest">Información de Ensacadora</h4>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-2">
+              <div className="flex items-center gap-2 text-primary">
+                <TrendingUp size={16} />
+                <h4 className="text-xs font-black uppercase tracking-widest">Información de Ensacadora</h4>
+              </div>
+              {modalTotals.totalBags > 0 && (
+                <div className="flex items-center gap-2 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-md shrink-0">
+                  <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest font-mono">
+                    Total Reportado: {modalTotals.totalTons.toFixed(2)} TN ({modalTotals.totalBags} Bolsas)
+                  </span>
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-bg-input/60 p-4 rounded-xl border border-border/50">
               <GlassSelect 
@@ -934,10 +950,15 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
 
           {/* Section 1b: Materiales Producidos */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-2">
               <div className="flex items-center gap-2 text-primary">
                 <Package size={16} />
                 <h4 className="text-xs font-black uppercase tracking-widest">Materiales Producidos</h4>
+                {activeDetail.tons && (
+                  <span className="text-[10px] font-extrabold text-emerald-400 bg-emerald-500/15 border border-emerald-500/25 px-2 py-0.5 rounded-md font-mono select-none">
+                    + {parseFloat(activeDetail.tons).toFixed(2)} TN (Ingreso)
+                  </span>
+                )}
               </div>
             </div>
 
@@ -952,27 +973,17 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                     onChange={e => setActiveDetail({...activeDetail, materialId: (e.target as HTMLSelectElement).value})} 
                   />
                 </div>
-                <div className="md:col-span-3 flex flex-col justify-end">
-                  <div className="relative">
-                    <GlassInput 
-                      label="Bolsas Producidas" 
-                      type="number" 
-                      value={activeDetail.bags} 
-                      onChange={e => setActiveDetail({...activeDetail, bags: (e.target as HTMLInputElement).value})} 
-                      placeholder="0"
-                    />
-                  </div>
-                  {activeDetail.tons && (
-                    <div className="flex items-center justify-between mt-1.5 px-1">
-                      <span className="text-[10px] font-bold text-text-muted">Equivalente:</span>
-                      <span className="text-xs font-black text-emerald-400 font-mono">
-                        {parseFloat(activeDetail.tons).toFixed(2)} TN
-                      </span>
-                    </div>
-                  )}
+                <div className="md:col-span-4">
+                  <GlassInput 
+                    label="Bolsas Producidas" 
+                    type="number" 
+                    value={activeDetail.bags} 
+                    onChange={e => setActiveDetail({...activeDetail, bags: (e.target as HTMLInputElement).value})} 
+                    placeholder="0"
+                  />
                 </div>
                 
-                <div className="md:col-span-4 flex gap-2 items-end">
+                <div className="md:col-span-3 flex gap-2 items-end">
                   <GlassButton
                     type="button"
                     variant="primary"

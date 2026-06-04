@@ -224,9 +224,40 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
 
       // 2. Tons per Material
       const tonsByMaterial = lineReports.reduce((acc, r) => {
-        acc[r.materialId] = (acc[r.materialId] || 0) + (Number(r.tonsProduced) || 0);
+        const details = r.materialsDetails || [];
+        if (details.length > 0) {
+          details.forEach((det: any) => {
+            const mId = det.materialId;
+            if (mId) {
+              acc[mId] = (acc[mId] || 0) + (Number(det.tonsProduced) || 0);
+            }
+          });
+        } else if (r.materialId) {
+          acc[r.materialId] = (acc[r.materialId] || 0) + (Number(r.tonsProduced) || 0);
+        }
         return acc;
       }, {} as Record<string, number>);
+
+      // 2b. Detailed grouping by Bagger and Material (Option B breakdown)
+      const prodByBaggerAndMaterial: Record<string, Record<string, number>> = {};
+      lineReports.forEach(r => {
+        const baggerName = masters.baggers.find((b: any) => b.id === r.baggerId)?.name || 'Ensacadora';
+        if (!prodByBaggerAndMaterial[baggerName]) {
+          prodByBaggerAndMaterial[baggerName] = {};
+        }
+
+        const details = r.materialsDetails || [];
+        if (details.length > 0) {
+          details.forEach((det: any) => {
+            const mId = det.materialId;
+            if (mId) {
+              prodByBaggerAndMaterial[baggerName][mId] = (prodByBaggerAndMaterial[baggerName][mId] || 0) + (Number(det.tonsProduced) || 0);
+            }
+          });
+        } else if (r.materialId) {
+          prodByBaggerAndMaterial[baggerName][r.materialId] = (prodByBaggerAndMaterial[baggerName][r.materialId] || 0) + (Number(r.tonsProduced) || 0);
+        }
+      });
 
       // 3. Operating Hours (Run time)
       const shiftTotalHours = selectedShift ? selectedShift.durationHours : 8;
@@ -276,15 +307,22 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
         palletizer: p,
         topStops,
         tonsByMaterial,
+        prodByBaggerAndMaterial,
         runHours,
         oee,
         availability,
         performance,
         activeNozzles,
-        totalTons: lineReports.reduce((sum, r) => sum + (Number(r.tonsProduced) || 0), 0)
+        totalTons: lineReports.reduce((sum, r) => {
+          const details = r.materialsDetails || [];
+          if (details.length > 0) {
+            return sum + details.reduce((s, det) => s + (Number(det.tonsProduced) || 0), 0);
+          }
+          return sum + (Number(r.tonsProduced) || 0);
+        }, 0)
       };
     });
-  }, [masters.palletizers, masters.materials, stops, productionReports, selectedShift]);
+  }, [masters.palletizers, masters.materials, masters.baggers, stops, productionReports, selectedShift]);
 
   // Group loading points by type
   const groupedLoadingPoints = React.useMemo(() => {
@@ -442,7 +480,7 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {palletizerData.map(({ palletizer, topStops, tonsByMaterial, runHours, oee, availability, performance, activeNozzles, totalTons }) => (
+          {palletizerData.map(({ palletizer, topStops, tonsByMaterial, prodByBaggerAndMaterial, runHours, oee, availability, performance, activeNozzles, totalTons }) => (
             <GlassCard key={palletizer.id} className="p-8 overflow-hidden border-primary/10 hover:border-primary/30 transition-all duration-500">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 border-b border-white/5 pb-4">
                 <h3 className="text-2xl font-black text-text-main uppercase tracking-tight">{palletizer.name}</h3>
@@ -501,18 +539,28 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
                 <div className="space-y-8">
                   <div className="space-y-4">
                     <h4 className="text-[11px] font-black text-text-muted uppercase tracking-[0.2em] flex items-center gap-2 border-l-4 border-emerald-500 pl-3">
-                       Producción por Material
+                       Producción por Ensacadora
                     </h4>
-                    <div className="space-y-0 relative">
-                      {Object.entries(tonsByMaterial).length > 0 ? Object.entries(tonsByMaterial).map(([mId, tons]) => {
-                        const t = tons as number;
-                        return (
-                          <div key={mId} className="flex items-center justify-between group py-2.5 border-b border-white/5 last:border-0 hover:bg-white/[0.02] px-2 -mx-2 rounded-lg transition-all">
-                            <span className="text-xs font-bold text-text-main group-hover:text-emerald-400 transition-colors uppercase">{masters.materials.find((m: any) => m.id === mId)?.name}</span>
-                            <span className="text-sm font-black text-text-main text-right font-mono">{t.toFixed(1)}t</span>
+                    <div className="space-y-3 relative">
+                      {Object.keys(prodByBaggerAndMaterial || {}).length > 0 ? Object.entries(prodByBaggerAndMaterial || {}).map(([baggerName, matTonsObj]) => (
+                        <div key={baggerName} className="bg-white/[0.02] border border-white/5 p-3 rounded-xl space-y-2 group transition-all duration-300 hover:border-emerald-500/10">
+                          <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest block border-b border-white/5 pb-1 select-none">
+                            Línea: {baggerName}
+                          </span>
+                          <div className="space-y-1">
+                            {Object.entries(matTonsObj).map(([mId, tons]) => {
+                              const t = tons as number;
+                              const mName = masters.materials.find((m: any) => m.id === mId)?.name || 'Material Desconocido';
+                              return (
+                                <div key={mId} className="flex items-center justify-between py-1 px-0.5 rounded transition-all">
+                                  <span className="text-xs font-bold text-text-main uppercase">{mName}</span>
+                                  <span className="text-xs font-black text-text-main font-mono text-right">{t.toFixed(1)} TN</span>
+                                </div>
+                              );
+                            })}
                           </div>
-                        );
-                      }) : (
+                        </div>
+                      )) : (
                         <p className="text-[10px] text-text-muted italic py-4">Sin producción registrada</p>
                       )}
                     </div>
