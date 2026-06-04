@@ -69,25 +69,27 @@ const isStopForMachine = (stop: MachineStop | null | undefined, machine: any, ma
   const stopMachineId = String(stop.machineId || "").trim().toUpperCase();
   const stopMachineName = String(stop.machineName || "").trim().toUpperCase();
   const stopMachineHacText = String(stop.machineHacText || "").trim().toUpperCase();
+  const stopHacName = String(stop.hacName || (stop as any).hac || "").trim().toUpperCase();
   
-  // 1. Direct ID map match
-  if (stopMachineId === macId) return true;
+  // 1. Direct ID map match or HAC match
+  if (stopMachineId === macId || stopHacName === macHacId || stopMachineHacText === macHacId) return true;
   
   // 2. Direct name match
-  if (macName && (stopMachineName === macName || stopMachineHacText === macName || stopMachineId === macName)) return true;
+  if (macName && (stopMachineName === macName || stopMachineHacText === macName || stopMachineId === macName || stopHacName === macName)) return true;
   
   // 3. HAC-based match
-  if (macHacId && (stopMachineId === macHacId || stopMachineHacText === macHacId)) return true;
+  if (macHacId && (stopMachineId === macHacId || stopMachineHacText === macHacId || stopHacName === macHacId || stopHacName.includes(macHacId) || macHacId.includes(stopHacName))) return true;
   
   // 4. Loose exact alphanumeric comparison (no partial includes)
   const cleanMacName = macName.replace(/[^A-Z0-9]/g, '');
   const cleanStopId = stopMachineId.replace(/[^A-Z0-9]/g, '');
   const cleanStopName = stopMachineName.replace(/[^A-Z0-9]/g, '');
   const cleanStopHac = stopMachineHacText.replace(/[^A-Z0-9]/g, '');
+  const cleanStopHacName = stopHacName.replace(/[^A-Z0-9]/g, '');
   const cleanMacHac = macHacId.replace(/[^A-Z0-9]/g, '');
   
-  if (cleanMacName && (cleanStopId === cleanMacName || cleanStopName === cleanMacName || cleanStopHac === cleanMacName)) return true;
-  if (cleanMacHac && (cleanStopId === cleanMacHac || cleanStopHac === cleanMacHac || cleanStopName === cleanMacHac)) return true;
+  if (cleanMacName && (cleanStopId === cleanMacName || cleanStopName === cleanMacName || cleanStopHac === cleanMacName || cleanStopHacName === cleanMacName)) return true;
+  if (cleanMacHac && (cleanStopId === cleanMacHac || cleanStopHac === cleanMacHac || cleanStopName === cleanMacHac || cleanStopHacName === cleanMacHac)) return true;
 
   return false;
 };
