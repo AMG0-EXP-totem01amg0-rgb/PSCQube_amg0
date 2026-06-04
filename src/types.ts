@@ -111,6 +111,22 @@ export interface NozzleNews {
   observation?: string;
 }
 
+export interface ProductionMaterialDetail {
+  id: string;
+  productionId?: string;
+  materialId: string;
+  materialDescription?: string;
+  bagsProduced: number;
+  tonsProduced: number;
+  bdp: number;
+  availableNozzlesShift?: number;
+  bagProvider?: string;
+  discardedBagsBagger?: number;
+  notNozzledBags?: number;
+  discardedBagsVentocheck?: number;
+  discardedBagsTransport?: number;
+}
+
 export interface ProductionReport {
   id: string;
   date: string;
@@ -133,6 +149,7 @@ export interface ProductionReport {
   hsMarchaTis?: number;
   machinistId?: string;
   machinistName?: string;
+  materialsDetails?: ProductionMaterialDetail[];
 }
 
 export interface DaterControl {

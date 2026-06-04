@@ -148,7 +148,8 @@ const TABLE_ALIASES: Record<string, string[]> = {
   "empresasv2": ["empresas", "empresa"],
   "proveedores_bolsav2": ["proveedores_bolsa", "proveedor_bolsa"],
   "vehiculosv2": ["vehiculos", "vehiculo"],
-  "capacidadesv2": ["capacidades", "capacidad"]
+  "capacidadesv2": ["capacidades", "capacidad"],
+  "detalles_produccionv2": ["detalles_produccion", "detalle_produccionv2", "detalle_produccion"]
 };
 
 function sanitizeValue(val: any): any {
@@ -1288,6 +1289,53 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
       hora_fin: "endTime",
       todo_el_turno: "isAllShift",
       observacion: "observation"
+    }
+  },
+  DETALLES_PRODUCCIONV2: {
+    sheetHeaders: [
+      "id",
+      "produccion_id",
+      "material_id",
+      "descripcion_material",
+      "bolsas_producidas",
+      "tn_producidas",
+      "bdp_teorico",
+      "boquillas_turno",
+      "proveedor_bolsa",
+      "bolsas_rech_ensacadora",
+      "bolsas_sin_boquilla",
+      "bolsas_rech_ventocheck",
+      "bolsas_rech_transporte"
+    ],
+    clientToSheet: {
+      id: "id",
+      productionId: "produccion_id",
+      materialId: "material_id",
+      materialDescription: "descripcion_material",
+      bagsProduced: "bolsas_producidas",
+      tonsProduced: "tn_producidas",
+      bdp: "bdp_teorico",
+      availableNozzlesShift: "boquillas_turno",
+      bagProvider: "proveedor_bolsa",
+      discardedBagsBagger: "bolsas_rech_ensacadora",
+      notNozzledBags: "bolsas_sin_boquilla",
+      discardedBagsVentocheck: "bolsas_rech_ventocheck",
+      discardedBagsTransport: "bolsas_rech_transporte"
+    },
+    sheetToClient: {
+      id: "id",
+      produccion_id: "productionId",
+      material_id: "materialId",
+      descripcion_material: "materialDescription",
+      bolsas_producidas: "bagsProduced",
+      tn_producidas: "tonsProduced",
+      bdp_teorico: "bdp",
+      boquillas_turno: "availableNozzlesShift",
+      proveedor_bolsa: "bagProvider",
+      bolsas_rech_ensacadora: "discardedBagsBagger",
+      bolsas_sin_boquilla: "notNozzledBags",
+      bolsas_rech_ventocheck: "discardedBagsVentocheck",
+      bolsas_rech_transporte: "discardedBagsTransport"
     }
   },
   CONTROL_FECHADORV2: {
@@ -2489,12 +2537,13 @@ async function insertRecord(sheets: any, spreadsheetId: string, tableName: strin
     try {
       await writeToSupabase(tableName, "insert", clientKey, idValue, item);
       if (upperTable === "PRODUCCIONV2") {
-        await syncProductionNozzles(sheets, spreadsheetId, item);
+        await syncProductionChildren(sheets, spreadsheetId, item);
       }
       console.log(`[Database log: CREATE via Supabase] Table '${tableName}' written directly to Supabase. Skipping Google Sheets write.`);
       delete readCache[upperTable];
       if (upperTable === "PRODUCCIONV2") {
         delete readCache["PAROS_BOQUILLASV2"];
+        delete readCache["DETALLES_PRODUCCIONV2"];
       }
       return; // Bypasses Google Sheets write completely!
     } catch (supaErr) {
@@ -2543,7 +2592,7 @@ async function insertRecord(sheets: any, spreadsheetId: string, tableName: strin
   }));
 
   if (upperTable === "PRODUCCIONV2") {
-    await syncProductionNozzles(sheets, spreadsheetId, item);
+    await syncProductionChildren(sheets, spreadsheetId, item);
   }
 
   console.log(`[Database log: CREATE] Selected append insertion in table ${tableName}. ID: ${item.id || item.dni || item.idctrlfechador || item.idctrlbalanza || item.idparo || 'unknown'}`);
@@ -2564,12 +2613,13 @@ async function updateRecord(sheets: any, spreadsheetId: string, tableName: strin
     try {
       await writeToSupabase(tableName, "update", clientKey, targetId, item);
       if (upperTable === "PRODUCCIONV2") {
-        await syncProductionNozzles(sheets, spreadsheetId, item);
+        await syncProductionChildren(sheets, spreadsheetId, item);
       }
       console.log(`[Database log: UPDATE via Supabase] Table '${tableName}' updated directly in Supabase. Skipping Google Sheets write.`);
       delete readCache[upperTable];
       if (upperTable === "PRODUCCIONV2") {
         delete readCache["PAROS_BOQUILLASV2"];
+        delete readCache["DETALLES_PRODUCCIONV2"];
       }
       return; // Bypasses Google Sheets write completely!
     } catch (supaErr) {
@@ -2581,6 +2631,7 @@ async function updateRecord(sheets: any, spreadsheetId: string, tableName: strin
   delete readCache[upperTable];
   if (upperTable === "PRODUCCIONV2") {
     delete readCache["PAROS_BOQUILLASV2"];
+    delete readCache["DETALLES_PRODUCCIONV2"];
   }
 
   const { sheetCol } = getIdColumnAndKey(tableName);
@@ -2650,7 +2701,7 @@ async function updateRecord(sheets: any, spreadsheetId: string, tableName: strin
   }));
 
   if (upperTable === "PRODUCCIONV2") {
-    await syncProductionNozzles(sheets, spreadsheetId, item);
+    await syncProductionChildren(sheets, spreadsheetId, item);
   }
 
   console.log(`[Database log: UPDATE] Updated row ${matchingRowIndex} in table ${tableName}. ID: ${targetId}`);
@@ -2695,13 +2746,88 @@ async function syncProductionNozzles(sheets: any, spreadsheetId: string, item: a
   }
 }
 
+// 8b. Delete nested production details linked with production report
+async function deleteDetailsForProduction(sheets: any, spreadsheetId: string, productionId: string) {
+  try {
+    const list = await readTableData(sheets, spreadsheetId, "DETALLES_PRODUCCIONV2").catch(() => []);
+    const matching = list.filter((d: any) => 
+      String(d.productionId || d.produccion_id || d.id_produccion || "").trim() === String(productionId || "").trim()
+    );
+    for (const match of matching) {
+      await deleteRecord(sheets, spreadsheetId, "DETALLES_PRODUCCIONV2", match.id);
+    }
+  } catch (err) {
+    console.error("Error deleting old details for productionId " + productionId + ":", err);
+  }
+}
+
+// 8c. Safely push/sync nested production detail entries to DETALLES_PRODUCCIONV2
+async function syncProductionDetails(sheets: any, spreadsheetId: string, item: any) {
+  if (!item.materialsDetails || !Array.isArray(item.materialsDetails)) return;
+  try {
+    const detailEntries = item.materialsDetails.map((det: any) => ({
+      id: det.id || Math.random().toString(36).substr(2, 9),
+      productionId: item.id,
+      materialId: det.materialId,
+      materialDescription: det.materialDescription || det.materialName || "",
+      bagsProduced: Number(det.bagsProduced || det.bags || 0),
+      tonsProduced: Number(det.tonsProduced || det.tons || 0),
+      bdp: Number(det.bdp || det.bdp_teorico || 0),
+      availableNozzlesShift: Number(det.availableNozzlesShift || 0),
+      bagProvider: det.bagProvider || "",
+      discardedBagsBagger: Number(det.discardedBagsBagger || 0),
+      notNozzledBags: Number(det.notNozzledBags || 0),
+      discardedBagsVentocheck: Number(det.discardedBagsVentocheck || 0),
+      discardedBagsTransport: Number(det.discardedBagsTransport || 0)
+    }));
+
+    await deleteDetailsForProduction(sheets, spreadsheetId, item.id);
+
+    for (const entry of detailEntries) {
+      await insertRecord(sheets, spreadsheetId, "DETALLES_PRODUCCIONV2", entry);
+    }
+  } catch (err) {
+    console.error("Error syncing production details:", err);
+  }
+}
+
+// 8d. Primary child tables sync coordinator
+async function syncProductionChildren(sheets: any, spreadsheetId: string, item: any) {
+  await syncProductionNozzles(sheets, spreadsheetId, item);
+  await syncProductionDetails(sheets, spreadsheetId, item);
+}
+
+// 8e. Primary child tables delete coordinator
+async function deleteProductionChildren(sheets: any, spreadsheetId: string, productionId: string) {
+  await deleteNozzlesForProduction(sheets, spreadsheetId, productionId);
+  await deleteDetailsForProduction(sheets, spreadsheetId, productionId);
+}
+
+// 8f. Enrich production reports with materials details on read
+async function enrichProductionReportsWithDetails(sheets: any, spreadsheetId: string, list: any[]) {
+  try {
+    const detailsList = await readTableData(sheets, spreadsheetId, "DETALLES_PRODUCCIONV2").catch(() => []);
+    list.forEach((item: any) => {
+      item.materialsDetails = detailsList.filter((d: any) => 
+        String(d.productionId || d.produccion_id || d.id_produccion || "").trim() === String(item.id || "").trim()
+      );
+    });
+  } catch (err) {
+    console.warn("Error fetching DETALLES_PRODUCCIONV2 on read:", err);
+    list.forEach((item: any) => {
+      item.materialsDetails = [];
+    });
+  }
+}
+
 // 9. Delete single record uniquely by original ID (Point 4)
 async function deleteRecord(sheets: any, spreadsheetId: string, tableName: string, targetId: string): Promise<boolean> {
   const upperTable = tableName.toUpperCase();
   delete readCache[upperTable];
   if (upperTable === "PRODUCCIONV2") {
     delete readCache["PAROS_BOQUILLASV2"];
-  } else if (upperTable === "PAROS_BOQUILLASV2") {
+    delete readCache["DETALLES_PRODUCCIONV2"];
+  } else if (upperTable === "PAROS_BOQUILLASV2" || upperTable === "DETALLES_PRODUCCIONV2") {
     delete readCache["PRODUCCIONV2"];
   }
 
@@ -2711,14 +2837,15 @@ async function deleteRecord(sheets: any, spreadsheetId: string, tableName: strin
   if (supabase) {
     try {
       if (upperTable === "PRODUCCIONV2") {
-        await deleteNozzlesForProduction(sheets, spreadsheetId, targetId);
+        await deleteProductionChildren(sheets, spreadsheetId, targetId);
       }
       await deleteFromSupabase(tableName, clientKey, targetId);
       console.log(`[Database log: DELETE via Supabase] Table '${tableName}' deleted directly in Supabase. Skipping Google Sheets write.`);
       delete readCache[upperTable];
       if (upperTable === "PRODUCCIONV2") {
         delete readCache["PAROS_BOQUILLASV2"];
-      } else if (upperTable === "PAROS_BOQUILLASV2") {
+        delete readCache["DETALLES_PRODUCCIONV2"];
+      } else if (upperTable === "PAROS_BOQUILLASV2" || upperTable === "DETALLES_PRODUCCIONV2") {
         delete readCache["PRODUCCIONV2"];
       }
       return true; // Bypasses Google Sheets write completely!
@@ -2729,7 +2856,7 @@ async function deleteRecord(sheets: any, spreadsheetId: string, tableName: strin
   }
 
   if (upperTable === "PRODUCCIONV2") {
-    await deleteNozzlesForProduction(sheets, spreadsheetId, targetId);
+    await deleteProductionChildren(sheets, spreadsheetId, targetId);
   }
 
   const response: any = await callWithRetry(() => sheets.spreadsheets.values.get({
@@ -3107,6 +3234,7 @@ async function readTableData(sheets: any, spreadsheetId: string, table: string):
         // Enrich data as required (e.g., nozzles reporting or shift data)
         if (upperTable === "PRODUCCIONV2") {
           await enrichProductionReportsWithNozzleNews(sheets, spreadsheetId, dbList);
+          await enrichProductionReportsWithDetails(sheets, spreadsheetId, dbList);
         }
         if (upperTable === "PAROSV2") {
           await enrichParosOnRead(sheets, spreadsheetId, dbList);
@@ -3216,6 +3344,7 @@ async function readTableData(sheets: any, spreadsheetId: string, table: string):
 
     if (upperTable === "PRODUCCIONV2") {
       await enrichProductionReportsWithNozzleNews(sheets, spreadsheetId, list);
+      await enrichProductionReportsWithDetails(sheets, spreadsheetId, list);
     }
 
     if (upperTable === "PAROSV2") {
