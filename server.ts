@@ -2547,8 +2547,8 @@ async function insertRecord(sheets: any, spreadsheetId: string, tableName: strin
       }
       return; // Bypasses Google Sheets write completely!
     } catch (supaErr) {
-      console.error(`[Supabase Insert Record Error] table ${tableName}: ${formatSupabaseError(supaErr)}`);
-      throw supaErr;
+      console.warn(`[Supabase Insert Record Warning] table ${tableName} failed: ${formatSupabaseError(supaErr)}. Falling back to Google Sheets...`);
+      // Fallback and write directly to Google Sheets
     }
   }
 
@@ -2623,8 +2623,8 @@ async function updateRecord(sheets: any, spreadsheetId: string, tableName: strin
       }
       return; // Bypasses Google Sheets write completely!
     } catch (supaErr) {
-      console.error(`[Supabase Update Record Error] table ${tableName}: ${formatSupabaseError(supaErr)}`);
-      throw supaErr;
+      console.warn(`[Supabase Update Record Warning] table ${tableName} failed: ${formatSupabaseError(supaErr)}. Falling back to Google Sheets...`);
+      // Fallback and write directly to Google Sheets
     }
   }
 
@@ -2850,8 +2850,8 @@ async function deleteRecord(sheets: any, spreadsheetId: string, tableName: strin
       }
       return true; // Bypasses Google Sheets write completely!
     } catch (supaErr) {
-      console.error(`[Supabase Delete Record Error] table ${tableName}: ${formatSupabaseError(supaErr)}`);
-      throw supaErr;
+      console.warn(`[Supabase Delete Record Warning] table ${tableName} failed: ${formatSupabaseError(supaErr)}. Falling back to Google Sheets...`);
+      // Fallback and write directly to Google Sheets
     }
   }
 
@@ -3243,11 +3243,10 @@ async function readTableData(sheets: any, spreadsheetId: string, table: string):
         readCache[upperTable] = { timestamp: Date.now(), data: dbList };
         return dbList;
       } else {
-        throw new Error(`La tabla '${table}' no se encontró o no tiene registros en Supabase.`);
+        console.warn(`[Supabase Read Warning] Table '${table}' returned null from Supabase. Falling back to Google Sheets...`);
       }
     } catch (supaErr) {
-      console.error(`[Supabase Read Error] table ${table} failed: ${formatSupabaseError(supaErr)}`);
-      throw supaErr;
+      console.warn(`[Supabase Read Warning] table ${table} failed: ${formatSupabaseError(supaErr)}. Falling back to Google Sheets...`);
     }
   }
 

@@ -188,6 +188,23 @@ CREATE TABLE IF NOT EXISTS paros_boquillasv2 (
     observacion TEXT
 );
 
+-- Tabla: detalles_produccionv2
+CREATE TABLE IF NOT EXISTS detalles_produccionv2 (
+    id TEXT PRIMARY KEY,
+    produccion_id TEXT,
+    material_id TEXT,
+    descripcion_material TEXT,
+    bolsas_producidas NUMERIC DEFAULT 0,
+    tn_producidas NUMERIC DEFAULT 0,
+    bdp_teorico NUMERIC DEFAULT 0,
+    boquillas_turno NUMERIC DEFAULT 0,
+    proveedor_bolsa TEXT,
+    bolsas_rech_ensacadora NUMERIC DEFAULT 0,
+    bolsas_sin_boquilla NUMERIC DEFAULT 0,
+    bolsas_rech_ventocheck NUMERIC DEFAULT 0,
+    bolsas_rech_transporte NUMERIC DEFAULT 0
+);
+
 -- 16. Tabla: control_fechadorv2
 CREATE TABLE IF NOT EXISTS control_fechadorv2 (
     idctrlfechador TEXT PRIMARY KEY,

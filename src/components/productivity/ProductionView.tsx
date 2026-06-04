@@ -181,6 +181,17 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
     [masters.materials, activeDetail.materialId]
   );
 
+  const availableMaterialsOptions = useMemo(() => {
+    const list = masters.materials.filter((m: any) => !!m.isProductive);
+    const filtered = list.filter((m: any) => {
+      const isAlreadyAdded = (formData.materialsDetails || []).some(
+        (d: any) => d.materialId === m.id && d.id !== editingDetailId
+      );
+      return !isAlreadyAdded;
+    });
+    return filtered.map((m: any) => ({ label: m.name, value: m.id }));
+  }, [masters.materials, formData.materialsDetails, editingDetailId]);
+
   // Auto-calculate TN based on Bags and Material weight for fallback
   React.useEffect(() => {
     if (selectedMaterialObj && formData.bags) {
@@ -936,45 +947,48 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                 <div className="md:col-span-5">
                   <GlassSelect 
                     label="Material / Producto" 
-                    options={masters.materials.filter((m: any) => !!m.isProductive).map((m: any) => ({label: m.name, value: m.id}))} 
+                    options={availableMaterialsOptions} 
                     value={activeDetail.materialId} 
                     onChange={e => setActiveDetail({...activeDetail, materialId: (e.target as HTMLSelectElement).value})} 
                   />
                 </div>
-                <div className="md:col-span-4 relative">
-                  <GlassInput 
-                    label="Bolsas Producidas" 
-                    type="number" 
-                    value={activeDetail.bags} 
-                    onChange={e => setActiveDetail({...activeDetail, bags: (e.target as HTMLInputElement).value})} 
-                    placeholder="0"
-                  />
+                <div className="md:col-span-3 flex flex-col justify-end">
+                  <div className="relative">
+                    <GlassInput 
+                      label="Bolsas Producidas" 
+                      type="number" 
+                      value={activeDetail.bags} 
+                      onChange={e => setActiveDetail({...activeDetail, bags: (e.target as HTMLInputElement).value})} 
+                      placeholder="0"
+                    />
+                  </div>
                   {activeDetail.tons && (
-                    <div className="absolute right-3 top-1 pointer-events-none">
-                      <span className="text-[9px] font-black tracking-wide text-emerald-400 bg-emerald-500/20 border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono uppercase">
+                    <div className="flex items-center justify-between mt-1.5 px-1">
+                      <span className="text-[10px] font-bold text-text-muted">Equivalente:</span>
+                      <span className="text-xs font-black text-emerald-400 font-mono">
                         {parseFloat(activeDetail.tons).toFixed(2)} TN
                       </span>
                     </div>
                   )}
                 </div>
                 
-                <div className="md:col-span-3 flex gap-2">
+                <div className="md:col-span-4 flex gap-2 items-end">
                   <GlassButton
                     type="button"
                     variant="primary"
                     onClick={addMaterialDetail}
                     disabled={!activeDetail.materialId || !activeDetail.bags || parseInt(activeDetail.bags) <= 0}
-                    className="flex-1 h-[42px] text-xs font-black uppercase tracking-wider"
+                    className="flex-grow h-[42px] px-2 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 min-w-0"
                   >
                     {editingDetailId ? (
                       <>
-                        <Check size={14} className="mr-1 inline" />
-                        Actualizar
+                        <Check size={14} className="shrink-0" />
+                        <span className="truncate">Actualizar</span>
                       </>
                     ) : (
                       <>
-                        <Plus size={14} className="mr-1 inline" />
-                        Registrar
+                        <Plus size={14} className="shrink-0" />
+                        <span className="truncate">Registrar</span>
                       </>
                     )}
                   </GlassButton>
@@ -994,10 +1008,11 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                           discardedBagsTransport: '0'
                         });
                       }}
-                      className="h-[42px] px-3 font-black text-xs text-text-muted hover:text-white bg-white/[0.05] border-white/10"
+                      className="h-[42px] px-3 font-black text-xs text-text-muted hover:text-white bg-white/[0.05] border-white/10 shrink-0 flex items-center justify-center gap-1"
                       title="Cancelar edición"
                     >
-                      <X size={14} />
+                      <X size={14} className="shrink-0" />
+                      <span className="hidden sm:inline">Cancelar</span>
                     </GlassButton>
                   )}
                 </div>
