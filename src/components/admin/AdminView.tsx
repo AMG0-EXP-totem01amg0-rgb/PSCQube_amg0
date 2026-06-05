@@ -27,6 +27,7 @@ import {
   Info,
   ExternalLink,
   AlertTriangle,
+  MapPin,
 } from "lucide-react";
 import {
   MasterData,
@@ -335,7 +336,7 @@ export default function AdminView({
       { key: "MACHINES", label: "Maquinas" },
       { key: "MATERIALS", label: "Materiales" },
       { key: "PROVEEDORES_BOLSA", label: "Proveedores Bolsa" },
-      { key: "PUNTOS_CARGA", label: "Puntos Carga" },
+      { key: "PUNTOS_CARGA", label: "Calles de Carga", icon: MapPin },
       { key: "SHIFTS", label: "Turnos" },
       { key: "USERS", label: "Usuarios" },
       { key: "VEHICULOS", label: "Vehículos" },
@@ -605,6 +606,35 @@ export default function AdminView({
       })
       .sort((a, b) => a.hac.localeCompare(b.hac, "es", { sensitivity: "base" }));
   }, [filteredData, activeTab, masters.hacs]);
+
+  const groupedLoadingPoints = useMemo(() => {
+    if (activeTab !== "PUNTOS_CARGA" && activeTab !== "LOADING_POINTS") return [];
+
+    const types = Array.from(
+      new Set(filteredData.filter(Boolean).map((lp: any) => String(lp.type || "BOLSA").toUpperCase().trim()))
+    );
+
+    const groups = types.map((t) => {
+      const items = filteredData.filter((lp: any) => String(lp.type || "BOLSA").toUpperCase().trim() === t);
+      // Sort alphabetically by name
+      items.sort((a, b) => {
+        const nameA = String(a.name || "").trim();
+        const nameB = String(b.name || "").trim();
+        return nameA.localeCompare(nameB, "es", { sensitivity: "base", numeric: true });
+      });
+      return {
+        type: t,
+        loadingPoints: items,
+      };
+    });
+
+    // Sort groups alphabetically by type name
+    groups.sort((a: any, b: any) =>
+      a.type.localeCompare(b.type, "es", { sensitivity: "base" })
+    );
+
+    return groups;
+  }, [filteredData, activeTab]);
 
   const handleDelete = () => {
     if (!deletingId) return;
@@ -1170,6 +1200,7 @@ export default function AdminView({
                   active={activeTab === sec.key}
                   onClick={() => onTabChange(sec.key)}
                   label={sec.label}
+                  icon={(sec as any).icon}
                 />
               ) : null
             )}
@@ -2170,13 +2201,44 @@ export default function AdminView({
             )}
             {(activeTab === "PUNTOS_CARGA" ||
               activeTab === "LOADING_POINTS") && (
-              <DataTable
-                title="Puntos de Carga"
-                countLabel="puntos"
-                columns={loadingPointColumns}
-                data={filteredData}
-                keyExtractor={(r) => r.id}
-              />
+              <div className="space-y-6 animate-fade-in">
+                {groupedLoadingPoints.map((group) => (
+                  <div
+                    key={group.type}
+                    className="border border-border rounded-xl bg-surface/15 overflow-hidden shadow-sm"
+                  >
+                    <div className="bg-surface/80 border-b border-border px-5 py-3 flex justify-between items-center bg-gradient-to-r from-bg to-transparent">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={cn(
+                            "px-2.5 py-0.5 rounded-full text-[9px] font-black tracking-widest border uppercase",
+                            group.type === "GRANEL"
+                              ? "border-amber-500/30 text-amber-500 bg-amber-500/5"
+                              : "border-blue-500/30 text-blue-500 bg-blue-500/5",
+                          )}
+                        >
+                          {group.type}
+                        </span>
+                        <h4 className="text-xs font-black text-text-main uppercase tracking-wider">
+                          Calles de Carga ({group.loadingPoints.length})
+                        </h4>
+                      </div>
+                    </div>
+                    <div className="p-4 bg-bg-input/10">
+                      <DataTable
+                        columns={loadingPointColumns.filter((col) => col.header !== "Tipo")}
+                        data={group.loadingPoints}
+                        keyExtractor={(r) => r.id}
+                      />
+                    </div>
+                  </div>
+                ))}
+                {groupedLoadingPoints.length === 0 && (
+                  <div className="p-8 text-center text-xs text-text-muted bg-surface rounded-xl border border-border">
+                    No se encontraron calles de carga.
+                  </div>
+                )}
+              </div>
             )}
             {activeTab === "PROVEEDORES_BOLSA" && (
               <DataTable
@@ -3283,19 +3345,20 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
   );
 }
 
-function AdminSubTab({ active, label, onClick }: any) {
+function AdminSubTab({ active, label, onClick, icon: Icon }: any) {
   return (
     <button
       onClick={onClick}
       data-active={active}
       className={cn(
-        "px-4 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-widest transition-all shrink-0",
+        "px-4 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-widest transition-all shrink-0 flex items-center justify-center gap-1.5",
         active
           ? "btn-active-highlight"
           : "text-text-muted hover:text-text-main hover:bg-bg",
       )}
     >
-      {label}
+      {Icon && <Icon size={12} className={cn("transition-colors", active ? "text-primary" : "text-text-muted/70")} />}
+      <span>{label}</span>
     </button>
   );
 }
