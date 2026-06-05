@@ -1069,16 +1069,18 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
     }
   },
   PUNTOS_CARGAV2: {
-    sheetHeaders: ["id", "nombre", "tipo"],
+    sheetHeaders: ["id", "nombre", "tipo", "materiales"],
     clientToSheet: {
       id: "id",
       name: "nombre",
-      type: "tipo"
+      type: "tipo",
+      materialIds: "materiales"
     },
     sheetToClient: {
       id: "id",
       nombre: "name",
-      tipo: "type"
+      tipo: "type",
+      materiales: "materialIds"
     }
   },
   EMPRESASV2: {
@@ -1967,7 +1969,7 @@ const PREDEFINED_HEADERS: Record<string, string[]> = {
   PROVEEDORES_BOLSAV2: ["id", "nombre", "direccion", "telefono", "email"],
   VEHICULOSV2: ["id", "marca", "identificación", "tipo", "carga_maxima"],
   CARGA_COMBUSTIBLEV2: ["id", "fecha", "unidad_movil", "id_operario", "descripcion_operario", "litros_combustible"],
-  PUNTOS_CARGAV2: ["id", "nombre", "tipo"],
+  PUNTOS_CARGAV2: ["id", "nombre", "tipo", "materiales"],
   DESPACHOSV2: [
     "id", "fecha", "turno_id", "descripcion_turno", "material_id", "descripcion_material", "toneladas", "usuario_id", "usuario_nombre"
   ],
