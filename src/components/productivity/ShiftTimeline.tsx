@@ -53,12 +53,28 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
       // 2. STOP SEGMENT
       const cause = masters.causes.find(c => c.id === stop.causeId);
       const stopTypeResolved = String(stop.stopType || cause?.stopType || 'INTERNO').toUpperCase();
+      
+      const hacObj = (masters.hacs || []).find(h => {
+        if (!h) return false;
+        const hId = h.id ? String(h.id).trim().toUpperCase() : '';
+        const hHac = h.hac ? String(h.hac).trim().toUpperCase() : '';
+        const stopHacId = stop.hacId ? String(stop.hacId).trim().toUpperCase() : '';
+        const stopHacName = stop.hacName ? String(stop.hacName).trim().toUpperCase() : '';
+        return (hId && stopHacId && hId === stopHacId) || 
+               (hHac && stopHacId && hHac === stopHacId) || 
+               (hHac && stopHacName && hHac === stopHacName);
+      });
+      const hacText = hacObj 
+        ? `${hacObj.hac} - ${hacObj.detail}` 
+        : (stop.hacDetail ? `${stop.hacName || ''} - ${stop.hacDetail}` : (stop.hacName || 'S/D'));
+
       list.push({
         type: stopTypeResolved === 'EXTERNO' ? 'EXTERNAL' : 'INTERNAL',
         duration: stopDuration,
         startTime: stop.startTime,
         endTime: stop.endTime,
-        cause: cause?.text,
+        cause: cause?.text || stop.causeText || 'Sin Causa',
+        hac: hacText,
         stop: stop
       });
 
@@ -124,24 +140,50 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
               onClick={() => !readOnly && seg.stop && onEdit?.(seg.stop)}
             >
               {/* Tooltip on Hover */}
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-52 bg-surface border border-border p-3 rounded-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-all z-50 shadow-2xl translate-y-2 group-hover:translate-y-0 text-left">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[9px] font-black text-text-muted uppercase tracking-widest">
-                    {seg.startTime} - {seg.endTime}
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 bg-surface/95 border border-border p-3.5 rounded-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-all z-50 shadow-2xl translate-y-2 group-hover:translate-y-0 text-left backdrop-blur-md">
+                <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-white/5">
+                  <span className="text-[9px] font-black text-text-muted uppercase tracking-wider">
+                    ⏱️ {seg.startTime} - {seg.endTime}
                   </span>
-                  <span className="text-[9px] font-black text-primary">
-                    {seg.duration} MIN
+                  <span className="text-[9.5px] font-black text-primary uppercase tracking-widest">
+                    ⚡ {seg.duration} MIN
                   </span>
                 </div>
-                <div className="text-[11px] font-bold text-text-main uppercase leading-tight">
-                  {isOperative ? 'SISTEMA OPERATIVO' : seg.cause}
-                </div>
-                {!isOperative && (
-                   <div className="mt-2 pt-2 border-t border-border text-[8px] font-bold text-text-muted uppercase tracking-tighter">
-                     TIPO: {seg.type === 'INTERNAL' ? 'PARO INTERNO' : 'PARO EXTERNO'}
-                   </div>
+                
+                {isOperative ? (
+                  <div className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1.5 py-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Sistema Operativo
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    <div>
+                      <div className="text-[8px] font-black text-text-muted uppercase tracking-widest mb-0.5">HAC IMPLICADO</div>
+                      <div className="text-[11px] font-bold text-text-main leading-snug uppercase">
+                        {seg.hac}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div className="text-[8px] font-black text-text-muted uppercase tracking-widest mb-0.5">CAUSA DEL PARO</div>
+                      <div className="text-[11px] font-bold text-text-main leading-snug uppercase">
+                        {seg.cause}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                      <span className={cn(
+                        "px-2 py-0.5 rounded text-[8px] font-black tracking-widest border uppercase",
+                        seg.type === 'INTERNAL' 
+                          ? "bg-red-500/10 border-red-500/20 text-red-400" 
+                          : "bg-zinc-500/10 text-text-main border-zinc-500/20"
+                      )}>
+                        {seg.type === 'INTERNAL' ? 'PARO INTERNO' : 'PARO EXTERNO'}
+                      </span>
+                    </div>
+                  </div>
                 )}
-                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-surface border-r border-b border-border rotate-45" />
+                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-surface/95 border-r border-b border-border rotate-45" />
               </div>
             </div>
           );
