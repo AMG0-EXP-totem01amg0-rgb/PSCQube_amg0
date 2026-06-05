@@ -9,7 +9,7 @@ import { format, parse, differenceInMinutes } from 'date-fns';
 import { 
   AlertTriangle, Package, ClipboardList, Fuel, Wrench,
   Activity, PlusCircle, ShieldCheck, Settings, Bot,
-  ChevronLeft, ChevronRight, Truck, Droplet, Layers
+  ChevronLeft, ChevronRight, Truck, Droplet, Layers, MapPin
 } from 'lucide-react';
 
 // Modules
@@ -1232,7 +1232,7 @@ export default function App() {
                             ref={subNavRef}
                             className="flex items-center gap-2 no-scrollbar py-1 scroll-smooth px-4 touch-horizontal touch-pan-x overscroll-x-contain overflow-x-auto"
                           >
-                            {canView('LOADING_LANES') && <ProductivitySubTab active={prodTab === 'LOADING_LANES'} onClick={() => setProdTab('LOADING_LANES')} icon={null} label="Calles Carga" />}
+                            {canView('LOADING_LANES') && <ProductivitySubTab active={prodTab === 'LOADING_LANES'} onClick={() => setProdTab('LOADING_LANES')} icon={<MapPin size={14} />} label="Calles Carga" />}
                             {canView('CHANGE') && <ProductivitySubTab active={prodTab === 'CHANGE'} onClick={() => setProdTab('CHANGE')} icon={<Bot size={14} />} label="Cambio Producto" />}
                             {canView('PALLET_CLASS') && <ProductivitySubTab active={prodTab === 'PALLET_CLASS'} onClick={() => setProdTab('PALLET_CLASS')} icon={<Layers size={14} />} label="Clasificación Pallets" />}
                             {canView('GASOIL') && <ProductivitySubTab active={prodTab === 'GASOIL'} onClick={() => setProdTab('GASOIL')} icon={<Droplet size={14} />} label="Combustible" />}

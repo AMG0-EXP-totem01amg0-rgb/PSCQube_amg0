@@ -27,6 +27,37 @@ export default function LoadingLanesView({ masters, currentUser, history, onSave
     return perm ? perm.level === 'EDIT' : false;
   }, [currentUser]);
 
+  const groupedAndSortedLanes = React.useMemo(() => {
+    const types = Array.from(
+      new Set(
+        (masters.loadingPoints || [])
+          .filter(Boolean)
+          .map((lp) => String(lp.type || "BOLSA").toUpperCase().trim())
+      )
+    );
+
+    const groups = types.map((t) => {
+      const items = (masters.loadingPoints || []).filter(
+        (lp) => String(lp.type || "BOLSA").toUpperCase().trim() === t
+      );
+      // Sort items alphabetically by name
+      items.sort((a, b) => {
+        const nameA = String(a.name || "").trim();
+        const nameB = String(b.name || "").trim();
+        return nameA.localeCompare(nameB, "es", { sensitivity: "base", numeric: true });
+      });
+      return {
+        type: t,
+        items,
+      };
+    });
+
+    // Sort groups alphabetically by type name
+    groups.sort((a, b) => a.type.localeCompare(b.type, "es", { sensitivity: "base" }));
+
+    return groups;
+  }, [masters.loadingPoints]);
+
   const lastSyncKeyRef = React.useRef<string>("");
 
   // Fix: Sync status when history, shift or date changes
@@ -146,102 +177,112 @@ export default function LoadingLanesView({ masters, currentUser, history, onSave
             exit={{ opacity: 0, y: -10 }}
             className="space-y-6"
           >
-            <GlassCard className="overflow-hidden">
-               <div className="overflow-x-auto">
-                 <table className="w-full text-left border-collapse">
-                   <thead className="bg-white/5 border-b border-white/5">
-                     <tr>
-                       <th className="px-6 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Calle</th>
-                       <th className="px-6 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Tipo</th>
-                       <th className="px-6 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Habilitación</th>
-                       <th className="px-6 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Materiales / Observaciones</th>
-                     </tr>
-                   </thead>
-                   <tbody className="divide-y divide-white/5">
-                     {masters.loadingPoints.map(lp => {
-                        const laneMaterials = lp.materialIds && lp.materialIds.length > 0
-                          ? masters.materials.filter(m => lp.materialIds?.includes(m.id))
-                          : productiveMaterials;
-                       const lane = selectedLanes[lp.id] || { isEnabled: true, materialIds: [], observation: '' };
-                       return (
-                         <tr key={lp.id} className={cn("transition-colors", !lane.isEnabled && "bg-red-500/[0.02]")}>
-                           <td className="px-6 py-4">
-                             <span className="text-sm font-bold text-text-main uppercase">{lp.name}</span>
-                           </td>
-                           <td className="px-6 py-4">
-                             <span className={cn(
-                               "px-2 py-0.5 rounded text-[9px] font-black border uppercase",
-                               lp.type === 'BOLSA' ? "border-blue-500/20 text-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.1)]" : "border-amber-500/20 text-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.1)]"
-                             )}>
-                               {lp.type}
-                             </span>
-                           </td>
-                           <td className="px-6 py-4">
-                             <div className="flex items-center gap-3">
-                               <label className={cn("relative inline-flex items-center", canEdit ? "cursor-pointer" : "cursor-not-allowed opacity-60")}>
-                                  <input 
-                                      type="checkbox" disabled={!canEdit} checked={lane.isEnabled}
-                                      onChange={() => handleToggle(lp.id)}
-                                      className="sr-only peer" 
-                                  />
-                                  <div className="w-11 h-6 bg-surface border border-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-muted after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary/20 peer-checked:border-primary/30 peer-checked:after:bg-primary"></div>
-                               </label>
-                               <span className={cn(
-                                  "text-[10px] font-bold uppercase",
-                                  lane.isEnabled ? "text-emerald-500" : "text-red-500"
-                               )}>
-                                  {lane.isEnabled ? 'OK' : 'OFF'}
-                               </span>
-                             </div>
-                           </td>
-                           <td className="px-6 py-4 min-w-[300px]">
-                              {lane.isEnabled ? (
-                                <div className="flex flex-wrap gap-1.5">
-                                  {laneMaterials.map(m => (
-                                    <button
-                                      key={m.id}
-                                      disabled={!canEdit}
-                                      onClick={() => handleMaterialToggle(lp.id, m.id)}
-                                      className={cn(
-                                        "px-2 py-1 rounded text-[9px] font-bold border transition-all",
-                                        lane.materialIds?.includes(m.id)
-                                          ? "bg-primary/10 border-primary text-primary"
-                                          : "bg-bg/40 border-border text-text-muted hover:border-text-main"
-                                      )}
-                                    >
-                                      {m.name}
-                                    </button>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="flex gap-2">
-                                  <textarea
-                                    value={lane.observation || ''}
-                                    disabled={!canEdit}
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      setSelectedLanes(prev => {
-                                        const laneObj = prev[lp.id];
-                                        if (!laneObj) return prev;
-                                        return {
-                                          ...prev,
-                                          [lp.id]: { ...laneObj, observation: val }
-                                        };
-                                      });
-                                    }}
-                                    placeholder={canEdit ? "Motivo de deshabilitación..." : "Registro No Habilitado (Sin motivo)"}
-                                    className="w-full h-10 bg-bg-input border border-border rounded-lg p-2 text-[11px] text-text-main outline-none focus:border-red-500/50 transition-all resize-none disabled:opacity-60 disabled:cursor-not-allowed"
-                                  />
-                                </div>
-                              )}
-                           </td>
+            {groupedAndSortedLanes.map((group) => (
+              <div key={group.type} className="space-y-3">
+                <div className="flex items-center gap-2 px-1">
+                  <span
+                    className={cn(
+                      "px-2.5 py-0.5 rounded-full text-[9px] font-black tracking-widest border uppercase",
+                      group.type === "GRANEL"
+                        ? "border-amber-500/30 text-amber-500 bg-amber-500/5"
+                        : "border-blue-500/30 text-blue-500 bg-blue-500/5",
+                    )}
+                  >
+                    {group.type}
+                  </span>
+                  <h4 className="text-xs font-black text-text-main uppercase tracking-wider">
+                    Calles de Carga ({group.items.length})
+                  </h4>
+                </div>
+                <GlassCard className="overflow-hidden">
+                   <div className="overflow-x-auto">
+                     <table className="w-full text-left border-collapse">
+                       <thead className="bg-white/5 border-b border-white/5">
+                         <tr>
+                           <th className="px-6 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest col-span-2">Calle</th>
+                           <th className="px-6 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Habilitación</th>
+                           <th className="px-6 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Materiales / Observaciones</th>
                          </tr>
-                       );
-                     })}
-                   </tbody>
-                 </table>
-               </div>
-            </GlassCard>
+                       </thead>
+                       <tbody className="divide-y divide-white/5">
+                         {group.items.map(lp => {
+                            const laneMaterials = lp.materialIds && lp.materialIds.length > 0
+                              ? masters.materials.filter(m => lp.materialIds?.includes(m.id))
+                              : productiveMaterials;
+                           const lane = selectedLanes[lp.id] || { isEnabled: true, materialIds: [], observation: '' };
+                           return (
+                             <tr key={lp.id} className={cn("transition-colors", !lane.isEnabled && "bg-red-500/[0.02]")}>
+                               <td className="px-6 py-4">
+                                 <span className="text-sm font-bold text-text-main uppercase">{lp.name}</span>
+                               </td>
+                               <td className="px-6 py-4">
+                                 <div className="flex items-center gap-3">
+                                   <label className={cn("relative inline-flex items-center", canEdit ? "cursor-pointer" : "cursor-not-allowed opacity-60")}>
+                                      <input 
+                                          type="checkbox" disabled={!canEdit} checked={lane.isEnabled}
+                                          onChange={() => handleToggle(lp.id)}
+                                          className="sr-only peer" 
+                                      />
+                                      <div className="w-11 h-6 bg-surface border border-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-muted after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary/20 peer-checked:border-primary/30 peer-checked:after:bg-primary"></div>
+                                   </label>
+                                   <span className={cn(
+                                      "text-[10px] font-bold uppercase",
+                                      lane.isEnabled ? "text-emerald-500" : "text-red-500"
+                                   )}>
+                                      {lane.isEnabled ? 'OK' : 'OFF'}
+                                   </span>
+                                 </div>
+                               </td>
+                               <td className="px-6 py-4 min-w-[300px]">
+                                  {lane.isEnabled ? (
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {laneMaterials.map(m => (
+                                        <button
+                                          key={m.id}
+                                          disabled={!canEdit}
+                                          onClick={() => handleMaterialToggle(lp.id, m.id)}
+                                          className={cn(
+                                            "px-2 py-1 rounded text-[9px] font-bold border transition-all",
+                                            lane.materialIds?.includes(m.id)
+                                              ? "bg-primary/10 border-primary text-primary"
+                                              : "bg-bg/40 border-border text-text-muted hover:border-text-main"
+                                          )}
+                                        >
+                                          {m.name}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="flex gap-2">
+                                      <textarea
+                                        value={lane.observation || ''}
+                                        disabled={!canEdit}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          setSelectedLanes(prev => {
+                                            const laneObj = prev[lp.id];
+                                            if (!laneObj) return prev;
+                                            return {
+                                              ...prev,
+                                              [lp.id]: { ...laneObj, observation: val }
+                                            };
+                                          });
+                                        }}
+                                        placeholder={canEdit ? "Motivo de deshabilitación..." : "Registro No Habilitado (Sin motivo)"}
+                                        className="w-full h-10 bg-bg-input border border-border rounded-lg p-2 text-[11px] text-text-main outline-none focus:border-red-500/50 transition-all resize-none disabled:opacity-60 disabled:cursor-not-allowed"
+                                      />
+                                    </div>
+                                  )}
+                               </td>
+                             </tr>
+                           );
+                         })}
+                       </tbody>
+                     </table>
+                   </div>
+                </GlassCard>
+              </div>
+            ))}
 
             {canEdit && (
               <div className="flex justify-center pt-4 w-full">
