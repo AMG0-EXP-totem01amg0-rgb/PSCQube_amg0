@@ -2246,6 +2246,13 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
 
   const [productivityExpanded, setProductivityExpanded] = useState(true);
   const [adminExpanded, setAdminExpanded] = useState(false);
+  const [materialSearch, setMaterialSearch] = useState("");
+
+  const filteredMaterials = useMemo(() => {
+    return masters.materials.filter((m: any) =>
+      String(m.name || "").toLowerCase().includes(materialSearch.toLowerCase())
+    );
+  }, [masters.materials, materialSearch]);
 
   const typeNames: Record<string, { name: string; female?: boolean }> = {
     SHIFTS: { name: "Turno", female: false },
@@ -3114,11 +3121,23 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                     />
                   </div>
                   <div className="md:col-span-2 space-y-2 pt-2">
-                    <label className="text-[10px] text-text-muted uppercase tracking-wider font-extrabold block select-none">
-                      Materiales Habilitados para este Punto de Carga
-                    </label>
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="text-[10px] text-text-muted uppercase tracking-wider font-extrabold block select-none">
+                        Materiales Habilitados para este Punto de Carga
+                      </label>
+                      <div className="relative w-44">
+                        <input
+                          type="text"
+                          placeholder="Buscar material..."
+                          value={materialSearch}
+                          onChange={(e) => setMaterialSearch(e.target.value)}
+                          className="w-full bg-bg-input/20 border border-border/40 hover:border-border/60 focus:border-primary/50 text-[10px] rounded-lg px-2 py-1 pr-6 outline-none transition-colors text-text-main placeholder-text-muted font-bold"
+                        />
+                        <Search size={10} className="absolute right-2 top-2 text-text-muted/70 pointer-events-none" />
+                      </div>
+                    </div>
                     <div className="p-3 border border-border/40 bg-bg-input/30 rounded-xl max-h-48 overflow-y-auto space-y-1.5 no-scrollbar">
-                      {masters.materials.map((m: any) => {
+                      {filteredMaterials.map((m: any) => {
                         const isChecked = (formData.materialIds || []).includes(m.id);
                         return (
                           <div 
@@ -3141,6 +3160,11 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                           </div>
                         );
                       })}
+                      {filteredMaterials.length === 0 && (
+                        <div className="text-center py-4 text-[10px] text-text-muted italic">
+                          No se encontraron materiales.
+                        </div>
+                      )}
                     </div>
                     <span className="text-[9px] text-text-muted italic block leading-relaxed">
                       * Nota: Si no seleccionas ningún material, se considerarán habilitados TODOS los materiales tradicionales en el panel operativo.
