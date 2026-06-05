@@ -111,7 +111,7 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
   return (
     <div className="w-full space-y-4">
       {/* Segmented Bar */}
-      <div className="relative h-12 w-full rounded-lg overflow-hidden border border-border flex bg-bg">
+      <div className="relative h-12 w-full rounded-lg border border-border flex bg-bg">
         {segments.map((seg, idx) => {
           const width = (seg.duration / totalMinutes) * 100;
           
@@ -134,7 +134,9 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
                 bgColorClass,
                 showDivider && "border-l border-white/40",
                 !readOnly && !isOperative && "cursor-pointer hover:filter hover:brightness-110",
-                readOnly && "cursor-default"
+                readOnly && "cursor-default",
+                idx === 0 && "rounded-l-[7px]",
+                idx === segments.length - 1 && "rounded-r-[7px]"
               )}
               style={{ width: `${width}%` }}
               onClick={() => !readOnly && seg.stop && onEdit?.(seg.stop)}
