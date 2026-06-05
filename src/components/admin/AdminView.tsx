@@ -336,11 +336,10 @@ export default function AdminView({
       { key: "MACHINES", label: "Maquinas" },
       { key: "MATERIALS", label: "Materiales" },
       { key: "PROVEEDORES_BOLSA", label: "Proveedores Bolsa" },
-      { key: "PUNTOS_CARGA", label: "Calles de Carga", icon: MapPin },
+      { key: "PUNTOS_CARGA", label: "Calles de Carga" },
       { key: "SHIFTS", label: "Turnos" },
       { key: "USERS", label: "Usuarios" },
       { key: "VEHICULOS", label: "Vehículos" },
-      { key: "SHEETS", label: "Conexión Sheets v2" },
     ].sort((a, b) => a.label.localeCompare(b.label, "es", { sensitivity: "base" }));
   }, []);
 
