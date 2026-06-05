@@ -285,6 +285,7 @@ export interface LoadingPoint {
   id: string;
   name: string;
   type: 'BOLSA' | 'GRANEL';
+  materialIds?: string[];
 }
 
 export interface LaneShiftStatus {

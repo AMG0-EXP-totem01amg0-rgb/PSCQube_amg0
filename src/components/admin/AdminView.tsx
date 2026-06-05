@@ -948,6 +948,19 @@ export default function AdminView({
         </span>
       ),
     },
+    {
+      header: "Materiales Habilitados",
+      accessor: (row) => {
+        const materialNames = (row.materialIds || [])
+          .map((id: string) => masters.materials.find((m: any) => m.id === id)?.name)
+          .filter(Boolean);
+        return (
+          <span className="text-[10px] text-text-muted font-bold block max-w-xs truncate uppercase">
+            {materialNames.length > 0 ? materialNames.join(", ") : "Todos"}
+          </span>
+        );
+      },
+    },
     actionsColumn(),
   ];
 
@@ -2223,6 +2236,14 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
     },
   );
 
+  const handleMaterialToggle = (materialId: string) => {
+    const currentList = formData.materialIds || [];
+    const newList = currentList.includes(materialId)
+      ? currentList.filter((id: string) => id !== materialId)
+      : [...currentList, materialId];
+    setFormData({ ...formData, materialIds: newList });
+  };
+
   const [productivityExpanded, setProductivityExpanded] = useState(true);
   const [adminExpanded, setAdminExpanded] = useState(false);
 
@@ -2274,6 +2295,8 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
           "w-full bg-surface-elevated border border-border rounded-2xl shadow-2xl overflow-hidden z-[201]",
           type === "USERS"
             ? "max-w-4xl max-h-[90vh] overflow-y-auto"
+            : type === "PUNTOS_CARGA" || type === "LOADING_POINTS"
+            ? "max-w-2xl max-h-[90vh] overflow-y-auto"
             : "max-w-lg",
         )}
       >
@@ -3089,6 +3112,39 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                         setFormData({ ...formData, type: e.target.value })
                       }
                     />
+                  </div>
+                  <div className="md:col-span-2 space-y-2 pt-2">
+                    <label className="text-[10px] text-text-muted uppercase tracking-wider font-extrabold block select-none">
+                      Materiales Habilitados para este Punto de Carga
+                    </label>
+                    <div className="p-3 border border-border/40 bg-bg-input/30 rounded-xl max-h-48 overflow-y-auto space-y-1.5 no-scrollbar">
+                      {masters.materials.map((m: any) => {
+                        const isChecked = (formData.materialIds || []).includes(m.id);
+                        return (
+                          <div 
+                            key={m.id} 
+                            onClick={() => handleMaterialToggle(m.id)}
+                            className={cn(
+                              "flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all border text-left",
+                              isChecked
+                                ? "bg-primary/10 border-primary text-text-main"
+                                : "bg-bg/25 border-transparent text-text-muted hover:border-border hover:text-text-main"
+                            )}
+                          >
+                            <span className="text-xs font-bold uppercase">{m.name}</span>
+                            <div className={cn(
+                              "w-4 h-4 rounded flex items-center justify-center border transition-all shrink-0",
+                              isChecked ? "bg-primary border-primary text-white" : "border-border"
+                            )}>
+                              {isChecked && <Check size={10} strokeWidth={4} />}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <span className="text-[9px] text-text-muted italic block leading-relaxed">
+                      * Nota: Si no seleccionas ningún material, se considerarán habilitados TODOS los materiales tradicionales en el panel operativo.
+                    </span>
                   </div>
                 </>
               )}

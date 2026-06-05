@@ -27,8 +27,16 @@ export default function LoadingLanesView({ masters, currentUser, history, onSave
     return perm ? perm.level === 'EDIT' : false;
   }, [currentUser]);
 
+  const lastSyncKeyRef = React.useRef<string>("");
+
   // Fix: Sync status when history, shift or date changes
   useEffect(() => {
+    const historySignature = `${selectedShiftId}-${selectedDate}-${JSON.stringify(history)}`;
+    if (lastSyncKeyRef.current === historySignature) {
+      return;
+    }
+    lastSyncKeyRef.current = historySignature;
+
     const initialState = masters.loadingPoints.reduce((acc, lp) => {
       const existing = history.find(h => h.loadingPointId === lp.id);
       acc[lp.id] = existing || {
@@ -151,6 +159,9 @@ export default function LoadingLanesView({ masters, currentUser, history, onSave
                    </thead>
                    <tbody className="divide-y divide-white/5">
                      {masters.loadingPoints.map(lp => {
+                        const laneMaterials = lp.materialIds && lp.materialIds.length > 0
+                          ? masters.materials.filter(m => lp.materialIds?.includes(m.id))
+                          : productiveMaterials;
                        const lane = selectedLanes[lp.id] || { isEnabled: true, materialIds: [], observation: '' };
                        return (
                          <tr key={lp.id} className={cn("transition-colors", !lane.isEnabled && "bg-red-500/[0.02]")}>
@@ -186,7 +197,7 @@ export default function LoadingLanesView({ masters, currentUser, history, onSave
                            <td className="px-6 py-4 min-w-[300px]">
                               {lane.isEnabled ? (
                                 <div className="flex flex-wrap gap-1.5">
-                                  {productiveMaterials.map(m => (
+                                  {laneMaterials.map(m => (
                                     <button
                                       key={m.id}
                                       disabled={!canEdit}
