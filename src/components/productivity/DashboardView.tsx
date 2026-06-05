@@ -156,11 +156,21 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
       const isUnitary = m.isPallet || m.isSupply || m.isBigBag;
       
       const productionVal = m.isProductive 
-        ? productionReports.filter(r => r.materialId === m.id)
-            .reduce((sum, r) => {
+        ? (productionReports || []).reduce((sum, r) => {
+            const details = r.materialsDetails || [];
+            if (details.length > 0) {
+              const matchedDetails = details.filter((det: any) => det.materialId === m.id);
+              const subSum = matchedDetails.reduce((dSum: number, det: any) => {
+                const val = isUnitary ? (det.bagsProduced || 0) : (det.tonsProduced || 0);
+                return dSum + (Number(val) || 0);
+              }, 0);
+              return sum + subSum;
+            } else if (r.materialId === m.id) {
               const val = isUnitary ? (r.bagsProduced || 0) : (r.tonsProduced || 0);
               return sum + (Number(val) || 0);
-            }, 0)
+            }
+            return sum;
+          }, 0)
         : 0;
 
       const dispatchVal = (m.isProductive || m.isBigBag || m.isPallet)
@@ -168,8 +178,8 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
             .reduce((sum, d) => sum + (Number(d.tons) || 0), 0)
         : 0;
 
-      // Only show if there is actual activity or a count record
-      if (materialEntries.length > 0 || productionVal > 0 || dispatchVal > 0) {
+      // Always show productive materials individually, otherwise check for actual activity or records
+      if (m.isProductive || materialEntries.length > 0 || productionVal > 0 || dispatchVal > 0) {
         const item = {
           id: m.id,
           name: m.name,
