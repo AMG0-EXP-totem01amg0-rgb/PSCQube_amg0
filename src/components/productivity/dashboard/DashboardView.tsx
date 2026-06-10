@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Package, Truck, Activity, Share2 } from 'lucide-react';
-import { GlassCard, GlassButton } from '../ui/GlassUI';
-import { cn } from '../../lib/utils';
-import { Shift, MachineStop } from '../../types';
+import { GlassCard, GlassButton } from '../../ui/GlassUI';
+import { cn } from '../../../lib/utils';
+import { Shift, MachineStop } from '../../../types';
 import DashboardShareModal from './DashboardShareModal';
 
 interface Props {

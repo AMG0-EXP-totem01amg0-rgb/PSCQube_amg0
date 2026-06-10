@@ -2,10 +2,10 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Package, Plus, Trash2, History, Pencil, TrendingUp, Filter, BarChart3, Clock, AlertCircle, ShieldCheck, Check, X } from 'lucide-react';
 import { format, parse, differenceInMinutes } from 'date-fns';
-import { GlassCard, GlassInput, GlassSelect, GlassButton, ConfirmModal, Modal } from '../ui/GlassUI';
-import { DataTable, Column, TableActions } from '../ui/DataTable';
-import { MasterData, ProductionReport, NozzleNews, AppUser, MachineStop } from '../../types';
-import { cn } from '../../lib/utils';
+import { GlassCard, GlassInput, GlassSelect, GlassButton, ConfirmModal, Modal } from '../../ui/GlassUI';
+import { DataTable, Column, TableActions } from '../../ui/DataTable';
+import { MasterData, ProductionReport, NozzleNews, AppUser, MachineStop } from '../../../types';
+import { cn } from '../../../lib/utils';
 
 // Helper function to check if stop is for shift
 const isStopForShift = (stop: any, shiftId: string | null | undefined, mastersAvailable: MasterData) => {

@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Truck, Search, History, Plus, Save, Trash2, Edit2, Check, AlertCircle } from 'lucide-react';
-import { MasterData, AppUser, DispatchEntry, Material } from '../../types';
-import { cn } from '../../lib/utils';
-import { GlassCard, GlassInput, GlassButton } from '../ui/GlassUI';
+import { MasterData, AppUser, DispatchEntry, Material } from '../../../types';
+import { cn } from '../../../lib/utils';
+import { GlassCard, GlassInput, GlassButton } from '../../ui/GlassUI';
 import { format } from 'date-fns';
 
 interface Props {

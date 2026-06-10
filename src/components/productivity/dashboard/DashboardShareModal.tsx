@@ -6,8 +6,8 @@ import {
   Package, Activity, Truck
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
-import { Shift, MasterData } from '../../types';
-import { cn } from '../../lib/utils';
+import { Shift, MasterData } from '../../../types';
+import { cn } from '../../../lib/utils';
 
 interface Props {
   isOpen: boolean;

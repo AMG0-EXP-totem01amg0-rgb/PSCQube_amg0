@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PlusCircle, Box, Trash2, Save, ChevronDown, ChevronUp, Package, Calculator, ClipboardList } from 'lucide-react';
-import { MasterData, InventoryEntry, ProductionReport, AppUser } from '../../types';
-import { DataTable, Column, TableActions } from '../ui/DataTable';
-import { GlassCard, GlassButton, GlassInput, GlassSelect, ConfirmModal } from '../ui/GlassUI';
-import { cn } from '../../lib/utils';
+import { MasterData, InventoryEntry, ProductionReport, AppUser } from '../../../types';
+import { DataTable, Column, TableActions } from '../../ui/DataTable';
+import { GlassCard, GlassButton, GlassInput, GlassSelect, ConfirmModal } from '../../ui/GlassUI';
+import { cn } from '../../../lib/utils';
 import { format, parseISO } from 'date-fns';
 
 interface Props {

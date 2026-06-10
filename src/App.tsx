@@ -15,17 +15,17 @@ import {
 // Modules
 import { Header, BottomNav } from './components/layout/LayoutComponents';
 import { ConfirmModal } from './components/ui/GlassUI';
-import DashboardView from './components/productivity/DashboardView';
-import StopsView from './components/productivity/StopsView';
-import ProductionView from './components/productivity/ProductionView';
-import LoadingLanesView from './components/productivity/LoadingLanesView';
-import DaterControlView from './components/productivity/DaterControlView';
-import ProductChangeView from './components/productivity/ProductChangeView';
-import ScaleControlView from './components/productivity/ScaleControlView';
-import InventoryView from './components/productivity/InventoryView';
-import PalletClassificationView from './components/productivity/PalletClassificationView';
-import DespachosView from './components/productivity/DespachosView';
-import FuelView from './components/productivity/FuelView';
+import { DashboardView } from './components/productivity/dashboard';
+import { StopsView } from './components/productivity/stops';
+import { ProductionView } from './components/productivity/production';
+import { LoadingLanesView } from './components/productivity/loading-lanes';
+import { DaterControlView } from './components/productivity/dater-control';
+import { ProductChangeView } from './components/productivity/product-change';
+import { ScaleControlView } from './components/productivity/scale-control';
+import { InventoryView } from './components/productivity/inventory';
+import { PalletClassificationView } from './components/productivity/pallet-classification';
+import { DespachosView } from './components/productivity/despachos';
+import { FuelView } from './components/productivity/fuel';
 import AdminView from './components/admin/AdminView';
 import PlaceholderView from './components/PlaceholderView';
 import WelcomeScreen from './components/auth/WelcomeScreen';

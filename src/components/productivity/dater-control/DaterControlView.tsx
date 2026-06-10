@@ -1,48 +1,49 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Activity, Plus, Trash2, Save, Scale, Calendar, FilterX } from 'lucide-react';
-import { MasterData, ScaleControl, AppUser } from '../../types';
-import { DataTable, Column, TableActions } from '../ui/DataTable';
-import { GlassCard, GlassButton, GlassInput, GlassSelect, ConfirmModal } from '../ui/GlassUI';
-import { cn } from '../../lib/utils';
+import { ClipboardList, Plus, Trash2, Save, Printer, Calendar, FilterX } from 'lucide-react';
+import { MasterData, DaterControl, AppUser } from '../../../types';
+import { DataTable, Column, TableActions } from '../../ui/DataTable';
+import { GlassCard, GlassButton, GlassInput, GlassSelect, ConfirmModal } from '../../ui/GlassUI';
+import { cn } from '../../../lib/utils';
 import { format, isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 
 interface Props {
   masters: MasterData;
   currentUser: AppUser;
-  onSave: (report: ScaleControl) => void;
+  onSave: (report: DaterControl) => void;
   onDelete: (id: string) => void;
-  history: ScaleControl[];
+  history: DaterControl[];
   selectedShiftId: string | null;
   selectedDate: string;
 }
 
-export default function ScaleControlView({ masters, currentUser, onSave, onDelete, history, selectedShiftId, selectedDate }: Props) {
+export default function DaterControlView({ masters, currentUser, onSave, onDelete, history, selectedShiftId, selectedDate }: Props) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const canEdit = useMemo(() => {
     if (currentUser?.profile === 'Administrador') return true;
-    const perm = currentUser?.permissions?.find(p => p.viewId === 'SCALE');
+    const perm = currentUser?.permissions?.find(p => p.viewId === 'DATER');
     return perm ? perm.level === 'EDIT' : false;
   }, [currentUser]);
   
-  // Range for audits
+  // Date range for audits
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
 
-  const [formData, setFormData] = useState<Partial<ScaleControl>>({
-    hac: '',
-    weight1: 0,
-    weight2: 0,
-    weight3: 0,
-    patternWeight: 50, // Default pattern weight
+  const [formData, setFormData] = useState<Partial<DaterControl>>({
+    purge: 'SI',
+    containerLevel: 'COMPLETO',
+    printQuality: 'BUENO',
+    inkStock: 0,
+    solventStock: 0,
+    headsStock: 0,
     observations: ''
   });
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Filter HACS to only show Scales based on the new isScale flag
-  const scaleHacs = masters.hacs.filter(h => h.isScale);
+  // Filter HACS to only show Daters based on the new isDater flag
+  const daterHacs = masters.hacs.filter(h => h.isDater);
 
   // Filter history based on range or selectedDate and shift
   const filteredHistory = useMemo(() => {
@@ -67,49 +68,32 @@ export default function ScaleControlView({ masters, currentUser, onSave, onDelet
     });
   }, [history, dateFrom, dateTo, selectedDate, selectedShiftId]);
 
-  // Computed fields
-  const computed = useMemo(() => {
-    const p1 = Number(formData.weight1) || 0;
-    const p2 = Number(formData.weight2) || 0;
-    const p3 = Number(formData.weight3) || 0;
-    const pPatron = Number(formData.patternWeight) || 0;
-
-    const average = (p1 + p2 + p3) / 3;
-    const bias = pPatron - average;
-    const range = Math.max(p1, p2, p3) - Math.min(p1, p2, p3);
-
-    return { average, bias, range };
-  }, [formData.weight1, formData.weight2, formData.weight3, formData.patternWeight]);
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.hac) return;
-
-    const report: ScaleControl = {
-      id: editingId || `BAL-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+    const report: DaterControl = {
+      id: editingId || `CTRL-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
       date: selectedDate,
       userId: editingId ? (formData.userId || currentUser?.dni || '') : (currentUser?.dni || ''),
       userName: editingId ? (formData.userName || currentUser?.name || '') : (currentUser?.name || ''),
       shiftId: selectedShiftId || '',
       hac: formData.hac || '',
-      weight1: Number(formData.weight1) || 0,
-      weight2: Number(formData.weight2) || 0,
-      weight3: Number(formData.weight3) || 0,
-      patternWeight: Number(formData.patternWeight) || 0,
-      average: computed.average,
-      bias: computed.bias,
-      range: computed.range,
+      purge: formData.purge as 'SI' | 'NO',
+      containerLevel: formData.containerLevel as any,
+      printQuality: formData.printQuality as any,
+      inkStock: Number(formData.inkStock),
+      solventStock: Number(formData.solventStock),
+      headsStock: Number(formData.headsStock),
       observations: formData.observations || ''
     };
 
     onSave(report);
     setIsFormOpen(false);
     setEditingId(null);
-    setFormData({ weight1: 0, weight2: 0, weight3: 0, patternWeight: 50, observations: '' });
+    setFormData({ purge: 'SI', containerLevel: 'COMPLETO', printQuality: 'BUENO', inkStock: 0, solventStock: 0, headsStock: 0, observations: '' });
   };
 
-  const columns: Column<ScaleControl>[] = [
+  const columns: Column<DaterControl>[] = [
     { header: 'Fecha', accessor: (row) => <span className="text-[10px] opacity-70">{format(parseISO(row.date), 'dd/MM/yyyy')}</span> },
     { header: 'HAC', accessor: (row) => <span className="font-bold text-primary">{row.hac}</span> },
     {
@@ -127,23 +111,27 @@ export default function ScaleControlView({ masters, currentUser, onSave, onDelet
         </div>
       )
     },
-    { header: 'P1', accessor: (row) => row.weight1.toFixed(2) },
-    { header: 'P2', accessor: (row) => row.weight2.toFixed(2) },
-    { header: 'P3', accessor: (row) => row.weight3.toFixed(2) },
-    { header: 'Patrón', accessor: (row) => row.patternWeight.toFixed(2) },
-    { header: 'Media', accessor: (row) => <span className="font-bold">{row.average.toFixed(2)}</span> },
+    { header: 'Purga', accessor: (row) => <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold", row.purge === 'SI' ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500")}>{row.purge}</span> },
+    { header: 'Nivel', accessor: 'containerLevel' },
+    { header: 'Calidad', accessor: 'printQuality' },
     { 
-      header: 'Bias', 
+      header: 'Stocks (T | S | C)', 
+      align: 'center',
       accessor: (row) => (
-        <span className={cn(
-          "font-mono font-bold",
-          Math.abs(row.bias) > 0.5 ? "text-red-500" : "text-green-500"
-        )}>
-          {row.bias.toFixed(2)}
-        </span>
+        <div className="inline-flex flex-col items-center min-w-[90px] bg-bg/30 py-1 px-2 rounded-lg border border-white/5">
+          <div className="grid grid-cols-3 w-full text-[8px] font-black text-text-muted border-b border-white/10 pb-1 mb-1">
+             <div className="text-blue-400">T</div>
+             <div className="text-cyan-400 border-x border-white/10">S</div>
+             <div className="text-purple-400">C</div>
+          </div>
+          <div className="grid grid-cols-3 w-full font-mono text-[11px] leading-none">
+             <div className={cn(row.inkStock < 2 ? "text-red-400 font-bold" : "text-text-main")}>{row.inkStock}</div>
+             <div className={cn("border-x border-white/10 px-1", row.solventStock < 2 ? "text-red-400 font-bold" : "text-text-main")}>{row.solventStock}</div>
+             <div className={cn(row.headsStock < 1 ? "text-red-400 font-bold" : "text-text-main")}>{row.headsStock}</div>
+          </div>
+        </div>
       )
     },
-    { header: 'Rango', accessor: (row) => row.range.toFixed(2) },
     { 
       header: 'Acciones', 
       align: 'right',
@@ -167,11 +155,11 @@ export default function ScaleControlView({ masters, currentUser, onSave, onDelet
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface/50 p-4 rounded-2xl border border-border">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
-            <Scale size={24} />
+            <Printer size={24} />
           </div>
           <div>
-            <h2 className="text-xl font-bold tracking-tight">Control de Balanzas</h2>
-            <p className="text-xs text-text-muted">Verificación de precisión y exactitud</p>
+            <h2 className="text-xl font-bold tracking-tight">Control de Fechadores</h2>
+            <p className="text-xs text-text-muted">Registro diario de estado y consumibles</p>
           </div>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
@@ -205,7 +193,7 @@ export default function ScaleControlView({ masters, currentUser, onSave, onDelet
             {(dateFrom || dateTo) && (
               <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="p-1 hover:text-danger ml-1 shrink-0">
                 <FilterX size={14} />
-               </button>
+              </button>
             )}
           </div>
           {!isFormOpen && canEdit && (
@@ -221,80 +209,66 @@ export default function ScaleControlView({ masters, currentUser, onSave, onDelet
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
             <GlassCard className="p-6 overflow-hidden">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-sm font-bold uppercase tracking-widest">{editingId ? 'Editar' : 'Nuevo'} Control de Balanza</h3>
+                <h3 className="text-sm font-bold uppercase tracking-widest">{editingId ? 'Editar' : 'Nuevo'} Control de Fechador</h3>
                 <button onClick={() => setIsFormOpen(false)} className="text-text-muted hover:text-text-main transition-colors"><Plus className="rotate-45" size={20} /></button>
               </div>
               
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  <GlassSelect 
-                    label="HAC (Balanza)" 
-                    options={scaleHacs.map(h => ({ label: `${h.hac} - ${h.detail}`, value: h.hac }))}
-                    value={formData.hac}
-                    onChange={e => setFormData({...formData, hac: e.target.value})}
-                    required
-                  />
+              <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <GlassSelect 
+                  label="HAC (Fechador)" 
+                  options={daterHacs.map(h => ({ label: `${h.hac} - ${h.detail}`, value: h.hac }))}
+                  value={formData.hac}
+                  onChange={e => setFormData({...formData, hac: e.target.value})}
+                  required
+                />
+                <GlassSelect 
+                  label="Purga" 
+                  options={[{label: 'SI', value: 'SI'}, {label: 'NO', value: 'NO'}]}
+                  value={formData.purge}
+                  onChange={e => setFormData({...formData, purge: e.target.value as any})}
+                />
+                <GlassSelect 
+                  label="Nivel Recipiente" 
+                  options={[{label: 'COMPLETO', value: 'COMPLETO'}, {label: 'MEDIO', value: 'MEDIO'}, {label: 'VACÍO', value: 'VACÍO'}]}
+                  value={formData.containerLevel}
+                  onChange={e => setFormData({...formData, containerLevel: e.target.value as any})}
+                />
+                <GlassSelect 
+                  label="Calidad Impresión" 
+                  options={[{label: 'BUENO', value: 'BUENO'}, {label: 'REGULAR', value: 'REGULAR'}, {label: 'DEFICIENTE', value: 'DEFICIENTE'}]}
+                  value={formData.printQuality}
+                  onChange={e => setFormData({...formData, printQuality: e.target.value as any})}
+                />
+                <GlassInput 
+                  type="number" 
+                  label="Stock Tinta" 
+                  value={formData.inkStock} 
+                  onChange={e => setFormData({...formData, inkStock: e.target.value})} 
+                />
+                <GlassInput 
+                  type="number" 
+                  label="Stock Solvente" 
+                  value={formData.solventStock} 
+                  onChange={e => setFormData({...formData, solventStock: e.target.value})} 
+                />
+                <GlassInput 
+                  type="number" 
+                  label="Stock Cabezales" 
+                  value={formData.headsStock} 
+                  onChange={e => setFormData({...formData, headsStock: e.target.value})} 
+                />
+                <div className="md:col-span-2">
                   <GlassInput 
-                    type="number" 
-                    step="0.01"
-                    label="Peso #1 (kg)" 
-                    value={formData.weight1} 
-                    onChange={e => setFormData({...formData, weight1: e.target.value})} 
+                    label="Observaciones" 
+                    value={formData.observations} 
+                    onChange={e => setFormData({...formData, observations: e.target.value})} 
                   />
-                  <GlassInput 
-                    type="number" 
-                    step="0.01"
-                    label="Peso #2 (kg)" 
-                    value={formData.weight2} 
-                    onChange={e => setFormData({...formData, weight2: e.target.value})} 
-                  />
-                  <GlassInput 
-                    type="number" 
-                    step="0.01"
-                    label="Peso #3 (kg)" 
-                    value={formData.weight3} 
-                    onChange={e => setFormData({...formData, weight3: e.target.value})} 
-                  />
-                  <GlassInput 
-                    type="number" 
-                    step="0.01"
-                    label="Peso Patrón (kg)" 
-                    value={formData.patternWeight} 
-                    onChange={e => setFormData({...formData, patternWeight: e.target.value})} 
-                  />
-                  
-                  <div className="bg-bg/50 p-4 rounded-xl border border-border flex flex-col justify-center">
-                    <span className="text-[10px] uppercase font-bold text-text-muted mb-1">Media (Promedio)</span>
-                    <span className="text-xl font-mono font-bold text-primary">{computed.average.toFixed(2)}</span>
-                  </div>
-                  
-                  <div className="bg-bg/50 p-4 rounded-xl border border-border flex flex-col justify-center">
-                    <span className="text-[10px] uppercase font-bold text-text-muted mb-1">Bias (Error)</span>
-                    <span className={cn("text-xl font-mono font-bold", Math.abs(computed.bias) > 0.5 ? "text-red-400" : "text-green-400")}>
-                      {computed.bias.toFixed(2)}
-                    </span>
-                  </div>
-
-                  <div className="bg-bg/50 p-4 rounded-xl border border-border flex flex-col justify-center">
-                    <span className="text-[10px] uppercase font-bold text-text-muted mb-1">Rango (Dispersion)</span>
-                    <span className="text-xl font-mono font-bold text-text-main">{computed.range.toFixed(2)}</span>
-                  </div>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="md:col-span-2">
-                    <GlassInput 
-                      label="Observaciones" 
-                      value={formData.observations} 
-                      onChange={e => setFormData({...formData, observations: e.target.value})} 
-                    />
-                  </div>
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2">
-                    <GlassButton variant="secondary" type="button" onClick={() => setIsFormOpen(false)} className="w-full sm:flex-1 h-10">Cancelar</GlassButton>
-                    <GlassButton type="submit" className="w-full sm:flex-1 h-10">
-                      <Save size={16} className="shrink-0" /> Guardar
-                    </GlassButton>
-                  </div>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 md:col-span-1">
+                  <GlassButton variant="secondary" type="button" onClick={() => setIsFormOpen(false)} className="w-full sm:flex-1 h-10">Cancelar</GlassButton>
+                  <GlassButton type="submit" className="w-full sm:flex-1 h-10">
+                    <Save size={16} className="shrink-0" /> Guardar
+                  </GlassButton>
                 </div>
               </form>
             </GlassCard>
@@ -311,7 +285,7 @@ export default function ScaleControlView({ masters, currentUser, onSave, onDelet
         onClose={() => setDeletingId(null)} 
         onConfirm={() => { deletingId && onDelete(deletingId); setDeletingId(null); }}
         title="Eliminar Registro"
-        message="¿Estás seguro de eliminar este control de balanza?"
+        message="¿Estás seguro de eliminar este control de fechador?"
       />
     </motion.div>
   );

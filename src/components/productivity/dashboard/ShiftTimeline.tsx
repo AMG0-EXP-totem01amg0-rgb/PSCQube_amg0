@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { format, parse, differenceInMinutes, addMinutes } from 'date-fns';
-import { MachineStop, Shift, MasterData } from '../../types';
-import { cn } from '../../lib/utils';
+import { MachineStop, Shift, MasterData } from '../../../types';
+import { cn } from '../../../lib/utils';
 
 interface Props {
   shift: Shift;

@@ -2,11 +2,11 @@ import React, { useState, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { AlertTriangle, Pencil, Trash2, XCircle, Clock, ShieldAlert, Download, FileSpreadsheet } from 'lucide-react';
 import { format, parse, differenceInMinutes, isBefore, isAfter, isEqual } from 'date-fns';
-import { GlassCard, GlassInput, GlassSelect, GlassButton, ConfirmModal, GlassSearchableSelect, Modal } from '../ui/GlassUI';
-import ShiftTimeline from './ShiftTimeline';
-import { MasterData, MachineStop, Shift, AppUser } from '../../types';
-import { cn } from '../../lib/utils';
-import { DataTable, Column, TableActions } from '../ui/DataTable';
+import { GlassCard, GlassInput, GlassSelect, GlassButton, ConfirmModal, GlassSearchableSelect, Modal } from '../../ui/GlassUI';
+import { ShiftTimeline } from '../dashboard';
+import { MasterData, MachineStop, Shift, AppUser } from '../../../types';
+import { cn } from '../../../lib/utils';
+import { DataTable, Column, TableActions } from '../../ui/DataTable';
 import * as XLSX from 'xlsx';
 
 interface Props {
