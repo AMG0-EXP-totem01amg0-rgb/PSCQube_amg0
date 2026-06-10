@@ -108,12 +108,28 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
     return lbls;
   }, [shift, totalMinutes]);
 
+  // Compute precise percentages for each segment relative to the entire timeline
+  const segmentsWithPlacements = useMemo(() => {
+    let currentLeft = 0;
+    return segments.map((seg) => {
+      const segWidth = (seg.duration / totalMinutes) * 100;
+      const placement = {
+        ...seg,
+        startPercent: currentLeft,
+        segmentWidth: segWidth,
+        centerPercent: currentLeft + (segWidth / 2)
+      };
+      currentLeft += segWidth;
+      return placement;
+    });
+  }, [segments, totalMinutes]);
+
   return (
     <div className="w-full space-y-4">
       {/* Segmented Bar */}
       <div className="relative h-12 w-full rounded-lg border border-border flex bg-bg">
-        {segments.map((seg, idx) => {
-          const width = (seg.duration / totalMinutes) * 100;
+        {segmentsWithPlacements.map((seg, idx) => {
+          const width = seg.segmentWidth;
           
           let bgColorClass = "bg-success"; // OPERATIVE
           if (seg.type === 'INTERNAL') bgColorClass = "bg-danger"; // INTERNAL
@@ -122,9 +138,13 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
           const isOperative = seg.type === 'OPERATIVE';
           
           const isStop = seg.type === 'INTERNAL' || seg.type === 'EXTERNAL';
-          const prevSeg = idx > 0 ? segments[idx - 1] : null;
+          const prevSeg = idx > 0 ? segmentsWithPlacements[idx - 1] : null;
           const hasPrevStop = prevSeg && (prevSeg.type === 'INTERNAL' || prevSeg.type === 'EXTERNAL');
           const showDivider = isStop && hasPrevStop;
+
+          // Slide the translation from 6% (far left) to 94% (far right) dynamically tracking the segment's center.
+          // This keeps the tooltip perfectly centered or pushes it inside screen boundaries in extreme cases.
+          const clampedX = Math.max(6, Math.min(94, seg.centerPercent));
 
           return (
             <div 
@@ -136,56 +156,72 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
                 !readOnly && !isOperative && "cursor-pointer hover:filter hover:brightness-110",
                 readOnly && "cursor-default",
                 idx === 0 && "rounded-l-[7px]",
-                idx === segments.length - 1 && "rounded-r-[7px]"
+                idx === segmentsWithPlacements.length - 1 && "rounded-r-[7px]"
               )}
               style={{ width: `${width}%` }}
               onClick={() => !readOnly && seg.stop && onEdit?.(seg.stop)}
             >
-              {/* Tooltip on Hover */}
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 bg-surface/95 border border-border p-3.5 rounded-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-all z-50 shadow-2xl translate-y-2 group-hover:translate-y-0 text-left backdrop-blur-md">
-                <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-white/5">
-                  <span className="text-[9px] font-black text-text-muted uppercase tracking-wider">
-                    ⏱️ {seg.startTime} - {seg.endTime}
-                  </span>
-                  <span className="text-[9.5px] font-black text-primary uppercase tracking-widest">
-                    ⚡ {seg.duration} MIN
-                  </span>
-                </div>
-                
-                {isOperative ? (
-                  <div className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1.5 py-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Sistema Operativo
+              {/* Tooltip on Hover - Dual wrapper structure prevents transform clashing */}
+              <div 
+                className="absolute bottom-full pointer-events-none group-hover:pointer-events-auto z-50 mb-3"
+                style={{
+                  left: '50%',
+                  transform: `translateX(-${clampedX}%)`,
+                  width: '16rem', // equivalent to w-64 (256px)
+                }}
+              >
+                <div className="relative bg-surface/95 border border-border p-3.5 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-2xl translate-y-2 group-hover:translate-y-0 text-left backdrop-blur-md">
+                  <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-white/5">
+                    <span className="text-[9px] font-black text-text-muted uppercase tracking-wider">
+                      ⏱️ {seg.startTime} - {seg.endTime}
+                    </span>
+                    <span className="text-[9.5px] font-black text-primary uppercase tracking-widest">
+                      ⚡ {seg.duration} MIN
+                    </span>
                   </div>
-                ) : (
-                  <div className="space-y-2.5">
-                    <div>
-                      <div className="text-[8px] font-black text-text-muted uppercase tracking-widest mb-0.5">HAC IMPLICADO</div>
-                      <div className="text-[11px] font-bold text-text-main leading-snug uppercase">
-                        {seg.hac}
-                      </div>
+                  
+                  {isOperative ? (
+                    <div className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1.5 py-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Sistema Operativo
                     </div>
-                    
-                    <div>
-                      <div className="text-[8px] font-black text-text-muted uppercase tracking-widest mb-0.5">CAUSA DEL PARO</div>
-                      <div className="text-[11px] font-bold text-text-main leading-snug uppercase">
-                        {seg.cause}
+                  ) : (
+                    <div className="space-y-2.5">
+                      <div>
+                        <div className="text-[8px] font-black text-text-muted uppercase tracking-widest mb-0.5">HAC IMPLICADO</div>
+                        <div className="text-[11px] font-bold text-text-main leading-snug uppercase">
+                          {seg.hac}
+                        </div>
                       </div>
-                    </div>
+                      
+                      <div>
+                        <div className="text-[8px] font-black text-text-muted uppercase tracking-widest mb-0.5">CAUSA DEL PARO</div>
+                        <div className="text-[11px] font-bold text-text-main leading-snug uppercase">
+                          {seg.cause}
+                        </div>
+                      </div>
 
-                    <div className="pt-2 border-t border-white/5 flex items-center justify-between">
-                      <span className={cn(
-                        "px-2 py-0.5 rounded text-[8px] font-black tracking-widest border uppercase",
-                        seg.type === 'INTERNAL' 
-                          ? "bg-red-500/10 border-red-500/20 text-red-400" 
-                          : "bg-zinc-500/10 text-text-main border-zinc-500/20"
-                      )}>
-                        {seg.type === 'INTERNAL' ? 'PARO INTERNO' : 'PARO EXTERNO'}
-                      </span>
+                      <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                        <span className={cn(
+                          "px-2 py-0.5 rounded text-[8px] font-black tracking-widest border uppercase",
+                          seg.type === 'INTERNAL' 
+                            ? "bg-red-500/10 border-red-500/20 text-red-400" 
+                            : "bg-zinc-500/10 text-text-main border-zinc-500/20"
+                        )}>
+                          {seg.type === 'INTERNAL' ? 'PARO INTERNO' : 'PARO EXTERNO'}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                )}
-                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-surface/95 border-r border-b border-border rotate-45" />
+                  )}
+                  {/* Arrow points precisely to segment center */}
+                  <div 
+                    className="absolute -bottom-1 w-2 h-2 bg-surface/95 border-r border-b border-border"
+                    style={{
+                      left: `${clampedX}%`,
+                      transform: 'translateX(-50%) rotate(45deg)'
+                    }}
+                  />
+                </div>
               </div>
             </div>
           );
