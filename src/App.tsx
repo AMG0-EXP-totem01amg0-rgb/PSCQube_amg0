@@ -161,6 +161,67 @@ export default function App() {
   }, [isDark]);
 
   useEffect(() => {
+    const handleBackgroundUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const { tableName, data } = customEvent.detail;
+      if (!data || !Array.isArray(data)) return;
+
+      console.log(`[Background Revalidation Sync] Received fresh data for ${tableName}. updating React state.`);
+      const upper = tableName.toUpperCase();
+      if (upper === "PAROSV2" || upper === "PAROS") {
+        setStops(data);
+      } else if (upper === "PRODUCCIONV2" || upper === "PRODUCCION") {
+        setProductionReports(data);
+      } else if (upper === "CONTROL_FECHADORV2" || upper === "CONTROL_FECHADOR") {
+        setDaterControls(data);
+      } else if (upper === "CONTROL_BALANZAV2" || upper === "CONTROL_BALANZA") {
+        setScaleControls(data);
+      } else if (upper === "INVENTARIO_FISICOV2" || upper === "INVENTARIO_FISICO") {
+        setInventoryEntries(data);
+      } else if (upper === "CLASISFICACION_PALLETSV2" || upper === "CLASISFICACION_PALLETS") {
+        setPalletClassifications(data);
+      } else if (upper === "CAMBIO_PRODUCTOV2" || upper === "CAMBIO_PRODUCTO") {
+        setProductChanges(data);
+      } else if (upper === "DESPACHOSV2" || upper === "DESPACHOS") {
+        setDispatchEntries(data);
+      } else if (upper === "ESTADO_CALLESV2" || upper === "ESTADO_CALLES") {
+        setLaneStatuses(data);
+      } else if (upper === "TURNOSV2" || upper === "TURNOS") {
+        setShifts(data);
+      } else if (upper === "PALETIZADORAV2" || upper === "PALETIZADORA") {
+        setPalletizers(data);
+      } else if (upper === "ENSACADORAV2" || upper === "ENSACADORA") {
+        setBaggers(data);
+      } else if (upper === "HACSV2" || upper === "HACS") {
+        setHacs(data);
+      } else if (upper === "CAUSASV2" || upper === "CAUSAS") {
+        setCauses(data);
+      } else if (upper === "MATERIALESV2" || upper === "MATERIALES") {
+        setMaterials(data);
+      } else if (upper === "CAPACIDADESV2" || upper === "CAPACIDADES") {
+        setCapacities(data);
+      } else if (upper === "USUARIOSV2" || upper === "USUARIOS") {
+        setUsers(data);
+      } else if (upper === "EMPRESASV2" || upper === "EMPRESAS") {
+        setCompanies(data);
+      } else if (upper === "PUNTOS_CARGAV2" || upper === "PUNTOS_CARGA") {
+        setLoadingPoints(data);
+      } else if (upper === "PROVEEDORES_BOLSAV2" || upper === "PROVEEDORES_BOLSA") {
+        setBagSuppliers(data);
+      } else if (upper === "VEHICULOSV2" || upper === "VEHICULOS") {
+        setVehicles(data);
+      } else if (upper === "CARGA_COMBUSTIBLEV2" || upper === "CARGA_COMBUSTIBLE") {
+        setFuelLoads(data);
+      }
+    };
+
+    window.addEventListener('table-data-updated' as any, handleBackgroundUpdate);
+    return () => {
+      window.removeEventListener('table-data-updated' as any, handleBackgroundUpdate);
+    };
+  }, []);
+
+  useEffect(() => {
     const el = subNavRef.current;
     if (!el) return;
 
@@ -692,7 +753,13 @@ export default function App() {
     syncTableToSheets("PAROSV2", nextStops).then(res => {
       if (res.success) {
         addToast(exists ? "Paro actualizado con éxito" : "Paro registrado con éxito", "success");
-        fetchTableFromSheets("PRODUCCIONV2").then(pRes => {
+        // Re-read both PAROSV2 and PRODUCCIONV2 with explicit bypassCache = true
+        fetchTableFromSheets("PAROSV2", true).then(sRes => {
+          if (sRes.success && sRes.data) {
+            setStops(sRes.data);
+          }
+        });
+        fetchTableFromSheets("PRODUCCIONV2", true).then(pRes => {
           if (pRes.success && pRes.data) {
             setProductionReports(pRes.data);
           }
@@ -714,7 +781,13 @@ export default function App() {
     syncTableToSheets("PAROSV2", nextStops).then(res => {
       if (res.success) {
         addToast("Paro eliminado", "success");
-        fetchTableFromSheets("PRODUCCIONV2").then(pRes => {
+        // Re-read both PAROSV2 and PRODUCCIONV2 with explicit bypassCache = true
+        fetchTableFromSheets("PAROSV2", true).then(sRes => {
+          if (sRes.success && sRes.data) {
+            setStops(sRes.data);
+          }
+        });
+        fetchTableFromSheets("PRODUCCIONV2", true).then(pRes => {
           if (pRes.success && pRes.data) {
             setProductionReports(pRes.data);
           }

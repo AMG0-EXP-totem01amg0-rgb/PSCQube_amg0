@@ -185,6 +185,9 @@ export async function fetchTableFromSheets(tableName: string, forceBypass = fals
           console.log(`- registros leídos desde caché: ${parsedData.length}`);
           console.log(`- registros consultados a Supabase: 0`);
           console.log(`- total final disponible en masters.causes: ${parsedData.length}`);
+          
+          triggerBackgroundRevalidation(sheetName, parsedData);
+          
           return { success: true, data: parsedData };
         }
       } catch (e) {
@@ -194,6 +197,9 @@ export async function fetchTableFromSheets(tableName: string, forceBypass = fals
       const cached = getCachedData(sheetName);
       if (cached) {
         console.log(`[Client Cache Hit] Loaded table ${sheetName} from sessionStorage`);
+        
+        triggerBackgroundRevalidation(sheetName, cached);
+        
         return { success: true, data: cached };
       }
     }
@@ -371,3 +377,56 @@ Para que la aplicación funcione en tiempo real con Google Sheets, debes agregar
 
 ⚠️ **IMPORTANTE:** Recuerda compartir tu documento de Google Sheet con el correo de la cuenta de servicio (\`GOOGLE_SERVICE_ACCOUNT_EMAIL\`) con permisos de **Editor** para que el sistema pueda leer y escribir.
 `;
+
+/**
+ * Triggers an asynchronous background revalidation of a table's data.
+ * If the fresh data differs from the cached data, the cache is updated and a custom
+ * window event is dispatched so React state can synchronize seamlessly.
+ */
+function triggerBackgroundRevalidation(sheetName: string, cachedData: any[]) {
+  setTimeout(async () => {
+    try {
+      const url = `/api/sheets?table=${sheetName}&bypassCache=true`;
+      const response = await fetch(url);
+      if (!response.ok) return;
+      
+      const result = await response.json();
+      if (result.success && Array.isArray(result.data)) {
+        let different = false;
+        if (cachedData.length !== result.data.length) {
+          different = true;
+        } else {
+          try {
+            different = JSON.stringify(cachedData) !== JSON.stringify(result.data);
+          } catch {
+            different = true;
+          }
+        }
+
+        if (different) {
+          console.log(`[Background Revalidation] Cache out of date for ${sheetName}. Refreshing Cache and dispatching event...`);
+          
+          if (sheetName === "CAUSASV2") {
+            try {
+              localStorage.setItem("app_causas_v2_local_cache", JSON.stringify(result.data));
+              localStorage.setItem("app_causas_v2_local_cache_time", String(Date.now()));
+            } catch (e) {
+              console.warn("Error writing causas localStorage cache in background:", e);
+            }
+          } else {
+            setCachedData(sheetName, result.data);
+          }
+
+          // Emit global custom event so React registers the fresh updates
+          window.dispatchEvent(new CustomEvent('table-data-updated', {
+            detail: { tableName: sheetName, data: result.data }
+          }));
+        } else {
+          console.log(`[Background Revalidation] Cache is up-to-date for ${sheetName}.`);
+        }
+      }
+    } catch (e) {
+      console.warn("[Background Revalidation Error]", e);
+    }
+  }, 100); // small delay to give thread breathing room
+}

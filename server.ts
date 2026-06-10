@@ -602,19 +602,25 @@ async function writeToSupabase(tableName: string, action: 'insert' | 'update' | 
     try {
       let query;
       if (action === 'insert') {
-        query = supabase.from(currentTable).insert([payload]);
+        query = supabase.from(currentTable).insert([payload]).select();
       } else if (action === 'update') {
         const cleanIdVal = typeof idVal === 'string' ? idVal.trim() : idVal;
         
         // We will perform the query using the DB column name
-        query = supabase.from(currentTable).update(payload).eq(dbIdCol, cleanIdVal);
+        query = supabase.from(currentTable).update(payload).eq(dbIdCol, cleanIdVal).select();
       } else {
-        query = supabase.from(currentTable).upsert([payload], { onConflict: dbIdCol });
+        query = supabase.from(currentTable).upsert([payload], { onConflict: dbIdCol }).select();
       }
 
       const { data, error } = await query;
 
       if (!error) {
+        if (action === 'update') {
+          if (!data || data.length === 0) {
+            const cleanIdVal = typeof idVal === 'string' ? idVal.trim() : idVal;
+            throw new Error(`No se actualizó ningún registro en ${currentTable} con ${dbIdCol}=${cleanIdVal}`);
+          }
+        }
         console.log(`[Supabase Write] Successfully completed ${action} in ${currentTable} after ${attempt} attempts.`);
         return data;
       }
@@ -623,7 +629,7 @@ async function writeToSupabase(tableName: string, action: 'insert' | 'update' | 
       let errStr = error.message || "";
       if (errStr.includes("<!DOCTYPE") || errStr.includes("<html")) {
         console.error(`🚨 [Supabase Error] Received an HTML response page instead of JSON API response. This occurs when SUPABASE_URL is configured to the browser's Studio dashboard webpage instead of the REST API Endpoint URL.`);
-        break; // Stop retrying on HTML responses to avoid spamming
+        throw error; // Stop retrying and throw immediately on HTML configuration errors
       }
 
       console.warn(`[Supabase Error Attempt ${attempt}] table ${currentTable}: ${formatSupabaseError(error)}`);
@@ -731,10 +737,11 @@ async function writeToSupabase(tableName: string, action: 'insert' | 'update' | 
 
     } catch (err: any) {
       console.error(`[Supabase Write Failure] table ${currentTable} failed completely: ${formatSupabaseError(err)}`);
-      // If we exceed max attempts, we continue to prevent blocking Google Sheets backup write
-      break;
+      // Propagate the error so writeToSupabase never exits with undefined on complete failure
+      throw err;
     }
   }
+  throw new Error(`No se pudo completar la escritura en Supabase para la tabla ${tableName} tras ${maxAttempts} intentos.`);
 }
 
 async function deleteFromSupabase(tableName: string, idKey: string, idVal: any): Promise<any> {
@@ -2549,8 +2556,8 @@ async function insertRecord(sheets: any, spreadsheetId: string, tableName: strin
       }
       return; // Bypasses Google Sheets write completely!
     } catch (supaErr) {
-      console.warn(`[Supabase Insert Record Warning] table ${tableName} failed: ${formatSupabaseError(supaErr)}. Falling back to Google Sheets...`);
-      // Fallback and write directly to Google Sheets
+      console.error(`[Supabase Insert Record Error] table ${tableName} failed: ${formatSupabaseError(supaErr)}`);
+      throw supaErr;
     }
   }
 
@@ -2625,8 +2632,8 @@ async function updateRecord(sheets: any, spreadsheetId: string, tableName: strin
       }
       return; // Bypasses Google Sheets write completely!
     } catch (supaErr) {
-      console.warn(`[Supabase Update Record Warning] table ${tableName} failed: ${formatSupabaseError(supaErr)}. Falling back to Google Sheets...`);
-      // Fallback and write directly to Google Sheets
+      console.error(`[Supabase Update Record Error] table ${tableName} failed: ${formatSupabaseError(supaErr)}`);
+      throw supaErr;
     }
   }
 
@@ -2852,8 +2859,8 @@ async function deleteRecord(sheets: any, spreadsheetId: string, tableName: strin
       }
       return true; // Bypasses Google Sheets write completely!
     } catch (supaErr) {
-      console.warn(`[Supabase Delete Record Warning] table ${tableName} failed: ${formatSupabaseError(supaErr)}. Falling back to Google Sheets...`);
-      // Fallback and write directly to Google Sheets
+      console.error(`[Supabase Delete Record Error] table ${tableName} failed: ${formatSupabaseError(supaErr)}`);
+      throw supaErr;
     }
   }
 
@@ -2970,7 +2977,7 @@ function areNozzleNewsListsEqual(listA: any[], listB: any[]): boolean {
 }
 
 // 10. Intelligent row-by-row reconciliation for fallback or bulk sync calls (Point 5, 8)
-async function reconcileTableData(sheets: any, spreadsheetId: string, tableName: string, incomingData: any[]): Promise<void> {
+async function reconcileTableData(sheets: any, spreadsheetId: string, tableName: string, incomingData: any[], allowDeleteMissing: boolean = false): Promise<void> {
   const upperTable = tableName.toUpperCase();
   delete readCache[upperTable];
   if (upperTable === "PRODUCCIONV2") {
@@ -3026,13 +3033,19 @@ async function reconcileTableData(sheets: any, spreadsheetId: string, tableName:
   }
 
   // Safely execute deletions against incoming state
-  for (const dbItem of dbData) {
-    if (!dbItem) continue;
-    const dbId = String(dbItem[clientKey]);
-    if (!incomingMap.has(dbId)) {
-      console.log(`[Reconciler] Item ${dbId} is deleted in client. Triggering single row deletion...`);
-      await deleteRecord(sheets, spreadsheetId, tableName, dbId);
+  if (upperTable === "PAROSV2") {
+    console.log(`[SAFE WRITE] Delete-missing reconciliation disabled for PAROSV2.`);
+  } else if (allowDeleteMissing) {
+    for (const dbItem of dbData) {
+      if (!dbItem) continue;
+      const dbId = String(dbItem[clientKey]);
+      if (!incomingMap.has(dbId)) {
+        console.log(`[Reconciler] Item ${dbId} is deleted in client. Triggering single row deletion...`);
+        await deleteRecord(sheets, spreadsheetId, tableName, dbId);
+      }
     }
+  } else {
+    console.log(`[SAFE WRITE] Delete-missing reconciliation disabled for ${tableName}.`);
   }
 }
 
@@ -3647,7 +3660,19 @@ app.post("/api/sheets", async (req, res) => {
         if (!data) {
           return res.status(400).json({ success: false, error: "Faltan los datos para la acción write" });
         }
-        await reconcileTableData(sheets, spreadsheetId, table, data);
+        const allowDeleteMissing = req.body.allowDeleteMissing === true;
+        await reconcileTableData(sheets, spreadsheetId, table, data, allowDeleteMissing);
+        
+        // Invalidate backend readCache immediately
+        const upper = table.toUpperCase();
+        delete readCache[upper];
+        if (upper === "PRODUCCIONV2") {
+          delete readCache["PAROS_BOQUILLASV2"];
+          delete readCache["DETALLES_PRODUCCIONV2"];
+        } else if (upper === "PAROS_BOQUILLASV2" || upper === "DETALLES_PRODUCCIONV2") {
+          delete readCache["PRODUCCIONV2"];
+        }
+
         if (table === "PAROSV2" || table === "PRODUCCIONV2") {
           await autoRecalculateProductionMetrics(sheets, spreadsheetId);
         }
@@ -3665,6 +3690,17 @@ app.post("/api/sheets", async (req, res) => {
           return res.status(400).json({ success: false, error: "Falta el parámetro 'item' para crear" });
         }
         await insertRecord(sheets, spreadsheetId, table, item);
+
+        // Invalidate backend readCache immediately
+        const upper = table.toUpperCase();
+        delete readCache[upper];
+        if (upper === "PRODUCCIONV2") {
+          delete readCache["PAROS_BOQUILLASV2"];
+          delete readCache["DETALLES_PRODUCCIONV2"];
+        } else if (upper === "PAROS_BOQUILLASV2" || upper === "DETALLES_PRODUCCIONV2") {
+          delete readCache["PRODUCCIONV2"];
+        }
+
         if (table === "PAROSV2" || table === "PRODUCCIONV2") {
           await autoRecalculateProductionMetrics(sheets, spreadsheetId);
         }
@@ -3682,6 +3718,17 @@ app.post("/api/sheets", async (req, res) => {
           return res.status(400).json({ success: false, error: "Faltan 'id' o 'item' para actualizar" });
         }
         await updateRecord(sheets, spreadsheetId, table, id, item);
+
+        // Invalidate backend readCache immediately
+        const upper = table.toUpperCase();
+        delete readCache[upper];
+        if (upper === "PRODUCCIONV2") {
+          delete readCache["PAROS_BOQUILLASV2"];
+          delete readCache["DETALLES_PRODUCCIONV2"];
+        } else if (upper === "PAROS_BOQUILLASV2" || upper === "DETALLES_PRODUCCIONV2") {
+          delete readCache["PRODUCCIONV2"];
+        }
+
         if (table === "PAROSV2" || table === "PRODUCCIONV2") {
           await autoRecalculateProductionMetrics(sheets, spreadsheetId);
         }
@@ -3699,6 +3746,17 @@ app.post("/api/sheets", async (req, res) => {
           return res.status(400).json({ success: false, error: "Falta el parámetro 'id' para eliminar" });
         }
         const isDeleted = await deleteRecord(sheets, spreadsheetId, table, id);
+
+        // Invalidate backend readCache immediately
+        const upper = table.toUpperCase();
+        delete readCache[upper];
+        if (upper === "PRODUCCIONV2") {
+          delete readCache["PAROS_BOQUILLASV2"];
+          delete readCache["DETALLES_PRODUCCIONV2"];
+        } else if (upper === "PAROS_BOQUILLASV2" || upper === "DETALLES_PRODUCCIONV2") {
+          delete readCache["PRODUCCIONV2"];
+        }
+
         if ((table === "PAROSV2" || table === "PRODUCCIONV2") && isDeleted) {
           await autoRecalculateProductionMetrics(sheets, spreadsheetId);
         }
