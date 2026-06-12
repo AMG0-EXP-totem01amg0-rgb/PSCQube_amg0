@@ -245,6 +245,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                 materialDescription: matObj.name,
                 bagsProduced: parseInt(activeDetail.bags) || 0,
                 tonsProduced: parseFloat(activeDetail.tons) || 0,
+                bagProvider: formData.bagProvider,
                 discardedBagsBagger: parseInt(activeDetail.discardedBagsBagger) || 0,
                 notNozzledBags: parseInt(activeDetail.notNozzledBags) || 0,
                 discardedBagsVentocheck: parseInt(activeDetail.discardedBagsVentocheck) || 0,
@@ -264,6 +265,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
         bagsProduced: parseInt(activeDetail.bags) || 0,
         tonsProduced: parseFloat(activeDetail.tons) || 0,
         bdp: 100,
+        bagProvider: formData.bagProvider,
         discardedBagsBagger: parseInt(activeDetail.discardedBagsBagger) || 0,
         notNozzledBags: parseInt(activeDetail.notNozzledBags) || 0,
         discardedBagsVentocheck: parseInt(activeDetail.discardedBagsVentocheck) || 0,
@@ -545,6 +547,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
             bagsProduced: parseInt(activeDetail.bags) || 0,
             tonsProduced: parseFloat(activeDetail.tons) || 0,
             bdp: 100,
+            bagProvider: formData.bagProvider,
             discardedBagsBagger: parseInt(activeDetail.discardedBagsBagger) || 0,
             notNozzledBags: parseInt(activeDetail.notNozzledBags) || 0,
             discardedBagsVentocheck: parseInt(activeDetail.discardedBagsVentocheck) || 0,
@@ -573,6 +576,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
         c.materialId === det.materialId
       )?.bdp || 100;
       det.bdp = bdpVal;
+      det.bagProvider = formData.bagProvider;
     });
 
     // Sum details together for header backward-compatibility
@@ -1053,6 +1057,39 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                   />
                 </div>
 
+                {/* Bolsas Descartadas (Para el material en edición/registro) */}
+                <div className="md:col-span-12 space-y-2 pt-2 border-t border-white/5">
+                  <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest block">
+                    Bolsas Descartadas (Para este producto)
+                  </span>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <GlassInput 
+                      label="Ensacadora (Bas.)" 
+                      type="number" 
+                      value={activeDetail.discardedBagsBagger} 
+                      onChange={e => setActiveDetail({...activeDetail, discardedBagsBagger: (e.target as HTMLInputElement).value})} 
+                    />
+                    <GlassInput 
+                      label="No Emboquilladas" 
+                      type="number" 
+                      value={activeDetail.notNozzledBags} 
+                      onChange={e => setActiveDetail({...activeDetail, notNozzledBags: (e.target as HTMLInputElement).value})} 
+                    />
+                    <GlassInput 
+                      label="Ventocheck" 
+                      type="number" 
+                      value={activeDetail.discardedBagsVentocheck} 
+                      onChange={e => setActiveDetail({...activeDetail, discardedBagsVentocheck: (e.target as HTMLInputElement).value})} 
+                    />
+                    <GlassInput 
+                      label="Transporte" 
+                      type="number" 
+                      value={activeDetail.discardedBagsTransport} 
+                      onChange={e => setActiveDetail({...activeDetail, discardedBagsTransport: (e.target as HTMLInputElement).value})} 
+                    />
+                  </div>
+                </div>
+
                 <div className="md:col-span-12 flex gap-2 pt-2">
                   <GlassButton
                     type="button"
@@ -1192,14 +1229,14 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
             </div>
           </div>
 
-          {/* Section 4: Descartes y Datos de Bolsa */}
+          {/* Section 4: Datos de Bolsa */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-primary border-b border-white/5 pb-2">
               <AlertCircle size={16} className="text-orange-500" />
-              <h4 className="text-xs font-black uppercase tracking-widest text-orange-500 font-bold">4. Descartes y Datos de Bolsa</h4>
+              <h4 className="text-xs font-black uppercase tracking-widest text-orange-500 font-bold">4. Suministro y Proveedor de Bolsa</h4>
             </div>
             
-            <div className="bg-bg-input/60 p-4 rounded-xl border border-border/50 space-y-4">
+            <div className="bg-bg-input/60 p-4 rounded-xl border border-border/50">
               <div className="grid grid-cols-1 gap-4">
                 <GlassSelect 
                   label="Proveedor de Bolsa" 
@@ -1207,38 +1244,6 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                   value={formData.bagProvider} 
                   onChange={e => setFormData({...formData, bagProvider: (e.target as HTMLSelectElement).value})} 
                 />
-              </div>
-
-              <div className="space-y-2">
-                <span className="text-[10px] font-black text-orange-500/90 uppercase tracking-widest block">
-                  Bolsas Descartadas (Para el material seleccionado en la sección 2)
-                </span>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <GlassInput 
-                    label="Ensacadora (Bas.)" 
-                    type="number" 
-                    value={activeDetail.discardedBagsBagger} 
-                    onChange={e => setActiveDetail({...activeDetail, discardedBagsBagger: (e.target as HTMLInputElement).value})} 
-                  />
-                  <GlassInput 
-                    label="No Emboquilladas" 
-                    type="number" 
-                    value={activeDetail.notNozzledBags} 
-                    onChange={e => setActiveDetail({...activeDetail, notNozzledBags: (e.target as HTMLInputElement).value})} 
-                  />
-                  <GlassInput 
-                    label="Ventocheck" 
-                    type="number" 
-                    value={activeDetail.discardedBagsVentocheck} 
-                    onChange={e => setActiveDetail({...activeDetail, discardedBagsVentocheck: (e.target as HTMLInputElement).value})} 
-                  />
-                  <GlassInput 
-                    label="Transporte" 
-                    type="number" 
-                    value={activeDetail.discardedBagsTransport} 
-                    onChange={e => setActiveDetail({...activeDetail, discardedBagsTransport: (e.target as HTMLInputElement).value})} 
-                  />
-                </div>
               </div>
             </div>
           </div>
