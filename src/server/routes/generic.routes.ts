@@ -33,6 +33,10 @@ async function reconcileTableData(tableName: string, incomingData: any[], allowD
 
   for (const item of incomingData) {
     if (!item) continue;
+
+    // Enrich item if needed (so looking up shiftDescription, materialDescription, etc. happens BEFORE we compare or save)
+    await MaestrosService.enrichDataIfNeeded(tableName, [item]);
+
     const itemId = String(item[clientKey]);
     if (dbMap.has(itemId)) {
       const dbItem = dbMap.get(itemId);
@@ -64,9 +68,7 @@ async function reconcileTableData(tableName: string, incomingData: any[], allowD
   }
 
   // Deletions against incoming state
-  if (upperTable === "PAROSV2") {
-    console.log(`[SAFE WRITE] Delete-missing reconciliation disabled for PAROSV2.`);
-  } else if (allowDeleteMissing) {
+  if (allowDeleteMissing) {
     for (const dbItem of dbData) {
       if (!dbItem) continue;
       const dbId = String(dbItem[clientKey]);
