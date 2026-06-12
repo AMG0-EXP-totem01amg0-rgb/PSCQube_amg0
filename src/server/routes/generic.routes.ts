@@ -266,6 +266,11 @@ router.post("/api/sheets", async (req, res) => {
         return res.status(400).json({ success: false, error: "Falta el parámetro 'id' para eliminar" });
       }
 
+      if (upperTable === "PRODUCCIONV2") {
+        console.log(`[Delete Action] Cascade deleting children for production report: ${id}`);
+        await ProductionService.deleteProductionChildren(id);
+      }
+
       // Supabase cascade handled directly inside the repository and service delete calls
       const isDeleted = await GenericRepository.delete(table, id);
       invalidateCache(table);

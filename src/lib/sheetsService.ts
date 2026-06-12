@@ -141,7 +141,8 @@ export async function syncTableToSheets(tableName: string, data: any[]): Promise
       body: JSON.stringify({
         action: 'write',
         table: sheetName,
-        data: data
+        data: data,
+        allowDeleteMissing: true
       })
     });
 
