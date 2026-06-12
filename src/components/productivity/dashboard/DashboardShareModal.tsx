@@ -458,9 +458,20 @@ export default function DashboardShareModal({
                               {activeNozzles.length > 0 ? (
                                 <div className="grid grid-cols-1 gap-1">
                                   {activeNozzles.map((nozzle, nidx) => (
-                                    <div key={nidx} className="bg-gray-50 border border-gray-200 px-2 py-1 rounded flex justify-between items-center text-[9px]">
-                                      <span className="font-bold text-gray-700 uppercase truncate flex-1 mr-2">{nozzle.baggerName}</span>
-                                      <span className="font-mono font-extrabold text-amber-600 shrink-0">{nozzle.nozzles}</span>
+                                    <div key={nidx} className="bg-gray-50 border border-gray-200 px-2 py-1 rounded flex flex-col gap-0.5 text-[9px]">
+                                      <div className="flex justify-between items-center w-full">
+                                        <span className="font-bold text-gray-700 uppercase truncate flex-1 mr-2">{nozzle.baggerName}</span>
+                                        <span className="font-mono font-extrabold text-amber-600 shrink-0">{nozzle.nozzles}</span>
+                                      </div>
+                                      {nozzle.observations && nozzle.observations.length > 0 && (
+                                        <div className="text-[7.5px] text-gray-400 italic border-t border-gray-150 pt-0.5 mt-0.5 leading-tight w-full">
+                                          {nozzle.observations.map((obs: string, oIdx: number) => (
+                                            <div key={oIdx} className="truncate" title={obs}>
+                                              • {obs}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
                                     </div>
                                   ))}
                                 </div>

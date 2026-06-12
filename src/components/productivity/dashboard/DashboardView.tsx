@@ -308,10 +308,19 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
       const performance = Math.round(perfVal * 100);
 
       // 4. Nozzles info
-      const activeNozzles = lineReports.map(r => ({
-        baggerName: masters.baggers.find((b: any) => b.id === r.baggerId)?.name || 'Bagger',
-        nozzles: r.availableNozzlesShift
-      }));
+      const activeNozzles = lineReports.map(r => {
+        const details = r.materialsDetails || [];
+        const observations = details
+          .map((det: any) => det.observacion || det.observation)
+          .filter((obs: any) => obs && String(obs).trim() !== "")
+          .map((obs: any) => String(obs).trim());
+
+        return {
+          baggerName: masters.baggers.find((b: any) => b.id === r.baggerId)?.name || 'Bagger',
+          nozzles: r.availableNozzlesShift,
+          observations
+        };
+      });
 
       return {
         palletizer: p,
@@ -582,9 +591,20 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
                     </h4>
                     <div className="grid grid-cols-2 gap-2">
                       {activeNozzles.length > 0 ? activeNozzles.map((nozzle, idx) => (
-                        <div key={idx} className="bg-amber-500/5 border border-amber-500/20 px-4 py-2.5 rounded-xl flex flex-col justify-center">
-                          <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mb-1">{nozzle.baggerName}</p>
-                          <p className="text-xl font-black text-amber-500 font-mono tracking-tighter">{nozzle.nozzles}</p>
+                        <div key={idx} className="bg-amber-500/5 border border-amber-500/20 px-4 py-2.5 rounded-xl flex flex-col justify-center gap-1">
+                          <div className="flex justify-between items-baseline">
+                            <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mb-1">{nozzle.baggerName}</p>
+                            <p className="text-sm font-black text-amber-500 font-mono tracking-tighter">{nozzle.nozzles}</p>
+                          </div>
+                          {nozzle.observations && nozzle.observations.length > 0 && (
+                            <div className="text-[8px] text-text-muted/75 italic border-t border-white/5 pt-1.5 leading-snug mt-1">
+                              {nozzle.observations.map((obs: string, oIdx: number) => (
+                                <div key={oIdx} className="line-clamp-2">
+                                  • {obs}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )) : (
                         <p className="text-[10px] text-text-muted italic">Sin datos</p>
