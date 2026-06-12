@@ -1314,7 +1314,8 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
       "bolsas_rech_ensacadora",
       "bolsas_sin_boquilla",
       "bolsas_rech_ventocheck",
-      "bolsas_rech_transporte"
+      "bolsas_rech_transporte",
+      "observacion"
     ],
     clientToSheet: {
       id: "id",
@@ -1329,7 +1330,8 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
       discardedBagsBagger: "bolsas_rech_ensacadora",
       notNozzledBags: "bolsas_sin_boquilla",
       discardedBagsVentocheck: "bolsas_rech_ventocheck",
-      discardedBagsTransport: "bolsas_rech_transporte"
+      discardedBagsTransport: "bolsas_rech_transporte",
+      observacion: "observacion"
     },
     sheetToClient: {
       id: "id",
@@ -1344,7 +1346,8 @@ const TABLE_SCHEMAS: Record<string, TableSchema> = {
       bolsas_rech_ensacadora: "discardedBagsBagger",
       bolsas_sin_boquilla: "notNozzledBags",
       bolsas_rech_ventocheck: "discardedBagsVentocheck",
-      bolsas_rech_transporte: "discardedBagsTransport"
+      bolsas_rech_transporte: "discardedBagsTransport",
+      observacion: "observacion"
     }
   },
   CONTROL_FECHADORV2: {
@@ -2787,7 +2790,8 @@ async function syncProductionDetails(sheets: any, spreadsheetId: string, item: a
       discardedBagsBagger: Number(det.discardedBagsBagger || 0),
       notNozzledBags: Number(det.notNozzledBags || 0),
       discardedBagsVentocheck: Number(det.discardedBagsVentocheck || 0),
-      discardedBagsTransport: Number(det.discardedBagsTransport || 0)
+      discardedBagsTransport: Number(det.discardedBagsTransport || 0),
+      observacion: det.observacion || ""
     }));
 
     await deleteDetailsForProduction(sheets, spreadsheetId, item.id);

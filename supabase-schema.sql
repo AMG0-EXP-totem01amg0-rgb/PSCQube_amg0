@@ -202,7 +202,8 @@ CREATE TABLE IF NOT EXISTS detalles_produccionv2 (
     bolsas_rech_ensacadora NUMERIC DEFAULT 0,
     bolsas_sin_boquilla NUMERIC DEFAULT 0,
     bolsas_rech_ventocheck NUMERIC DEFAULT 0,
-    bolsas_rech_transporte NUMERIC DEFAULT 0
+    bolsas_rech_transporte NUMERIC DEFAULT 0,
+    observacion TEXT
 );
 
 -- 16. Tabla: control_fechadorv2

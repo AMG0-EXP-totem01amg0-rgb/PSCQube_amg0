@@ -125,6 +125,7 @@ export interface ProductionMaterialDetail {
   notNozzledBags?: number;
   discardedBagsVentocheck?: number;
   discardedBagsTransport?: number;
+  observacion?: string;
 }
 
 export interface ProductionReport {

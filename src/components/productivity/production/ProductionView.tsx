@@ -147,7 +147,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
     discardedBagsBagger: '0',
     notNozzledBags: '0',
     discardedBagsVentocheck: '0',
-    discardedBagsTransport: '0'
+    discardedBagsTransport: '0',
+    observacion: ''
   });
   const [editingDetailId, setEditingDetailId] = useState<string | null>(null);
 
@@ -247,7 +248,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                 discardedBagsBagger: parseInt(activeDetail.discardedBagsBagger) || 0,
                 notNozzledBags: parseInt(activeDetail.notNozzledBags) || 0,
                 discardedBagsVentocheck: parseInt(activeDetail.discardedBagsVentocheck) || 0,
-                discardedBagsTransport: parseInt(activeDetail.discardedBagsTransport) || 0
+                discardedBagsTransport: parseInt(activeDetail.discardedBagsTransport) || 0,
+                observacion: activeDetail.observacion
               }
             : d
         )
@@ -265,7 +267,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
         discardedBagsBagger: parseInt(activeDetail.discardedBagsBagger) || 0,
         notNozzledBags: parseInt(activeDetail.notNozzledBags) || 0,
         discardedBagsVentocheck: parseInt(activeDetail.discardedBagsVentocheck) || 0,
-        discardedBagsTransport: parseInt(activeDetail.discardedBagsTransport) || 0
+        discardedBagsTransport: parseInt(activeDetail.discardedBagsTransport) || 0,
+        observacion: activeDetail.observacion
       };
 
       setFormData(prev => ({
@@ -282,7 +285,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       discardedBagsBagger: '0',
       notNozzledBags: '0',
       discardedBagsVentocheck: '0',
-      discardedBagsTransport: '0'
+      discardedBagsTransport: '0',
+      observacion: ''
     });
   };
 
@@ -296,7 +300,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
         discardedBagsBagger: '0',
         notNozzledBags: '0',
         discardedBagsVentocheck: '0',
-        discardedBagsTransport: '0'
+        discardedBagsTransport: '0',
+        observacion: ''
       });
     }
     setFormData(prev => ({
@@ -314,7 +319,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       discardedBagsBagger: (det.discardedBagsBagger || 0).toString(),
       notNozzledBags: (det.notNozzledBags || 0).toString(),
       discardedBagsVentocheck: (det.discardedBagsVentocheck || 0).toString(),
-      discardedBagsTransport: (det.discardedBagsTransport || 0).toString()
+      discardedBagsTransport: (det.discardedBagsTransport || 0).toString(),
+      observacion: det.observacion || ''
     });
   };
 
@@ -374,7 +380,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       discardedBagsBagger: '0',
       notNozzledBags: '0',
       discardedBagsVentocheck: '0',
-      discardedBagsTransport: '0'
+      discardedBagsTransport: '0',
+      observacion: ''
     });
     setTempNews({ nozzleNumber: '', startTime: '', endTime: '', isAllShift: false, observation: '' });
     setEditingNozzleId(null);
@@ -425,7 +432,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       discardedBagsBagger: '0',
       notNozzledBags: '0',
       discardedBagsVentocheck: '0',
-      discardedBagsTransport: '0'
+      discardedBagsTransport: '0',
+      observacion: ''
     });
     setTempNews({ nozzleNumber: '', startTime: '', endTime: '', isAllShift: false, observation: '' });
     setEditingNozzleId(null);
@@ -540,7 +548,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
             discardedBagsBagger: parseInt(activeDetail.discardedBagsBagger) || 0,
             notNozzledBags: parseInt(activeDetail.notNozzledBags) || 0,
             discardedBagsVentocheck: parseInt(activeDetail.discardedBagsVentocheck) || 0,
-            discardedBagsTransport: parseInt(activeDetail.discardedBagsTransport) || 0
+            discardedBagsTransport: parseInt(activeDetail.discardedBagsTransport) || 0,
+            observacion: activeDetail.observacion || ""
           });
         }
       } else {
@@ -915,45 +924,96 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
         title={editingItem ? 'Editar Registro Operativo' : 'Nueva Producción Ensacadora'}
       >
         <div className="space-y-8 max-h-[70vh] overflow-y-auto no-scrollbar pr-1">
-          {/* Section 1: Basic Info */}
+          {/* Section 1: Datos Generales del Turno */}
           <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-2">
-              <div className="flex items-center gap-2 text-primary">
-                <TrendingUp size={16} />
-                <h4 className="text-xs font-black uppercase tracking-widest">Información de Ensacadora</h4>
-              </div>
-              {modalTotals.totalBags > 0 && (
-                <div className="flex items-center gap-2 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-md shrink-0">
-                  <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest font-mono">
-                    Total Reportado: {modalTotals.totalTons.toFixed(2)} TN ({modalTotals.totalBags} Bolsas)
-                  </span>
-                </div>
-              )}
+            <div className="flex items-center gap-2 text-primary border-b border-white/5 pb-2">
+              <TrendingUp size={16} />
+              <h4 className="text-xs font-black uppercase tracking-widest">1. Datos Generales del Turno</h4>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-bg-input/60 p-4 rounded-xl border border-border/50">
-              <GlassSelect 
-                label="Ensacadora/Línea" 
-                options={masters.baggers.map((e:any) => ({label: e.name, value: e.id}))} 
-                value={formData.baggerId} 
-                onChange={e => setFormData({...formData, baggerId: (e.target as HTMLSelectElement).value})} 
-              />
-              {selectedBaggerObj && (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/5 border border-primary/10 rounded-lg self-center justify-center h-fit">
-                  <ShieldCheck size={14} className="text-primary" />
-                  <span className="text-[10px] font-black text-primary uppercase tracking-widest">
-                    EQUIPO (HAC): {selectedBaggerObj.hacId || 'N/A'} — {selectedBaggerObj.nozzles} BOQUILLAS
-                  </span>
-                </div>
-              )}
+            <div className="bg-bg-input/60 p-4 rounded-xl border border-border/50 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <GlassSelect 
+                  label="Ensacadora/Línea" 
+                  options={masters.baggers.map((e:any) => ({label: e.name, value: e.id}))} 
+                  value={formData.baggerId} 
+                  onChange={e => setFormData({...formData, baggerId: (e.target as HTMLSelectElement).value})} 
+                />
+                <GlassInput 
+                  label="Boquillas Disponibles" 
+                  type="number" 
+                  value={formData.availableNozzlesShift} 
+                  onChange={e => setFormData({...formData, availableNozzlesShift: (e.target as HTMLInputElement).value})} 
+                  placeholder="Ej: 4"
+                />
+                <GlassInput 
+                  label="Hs. Marcha TIS" 
+                  type="number"
+                  step="0.01"
+                  value={formData.hsMarchaTis} 
+                  onChange={e => setFormData({...formData, hsMarchaTis: (e.target as HTMLInputElement).value})} 
+                  placeholder="Ej: 7.50"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                {selectedBaggerObj && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/5 border border-primary/10 rounded-lg justify-center w-full">
+                    <ShieldCheck size={14} className="text-primary" />
+                    <span className="text-[10px] font-black text-primary uppercase tracking-widest">
+                      EQUIPO (HAC): {selectedBaggerObj.hacId || 'N/A'} — {selectedBaggerObj.nozzles} BOQUILLAS
+                    </span>
+                  </div>
+                )}
+
+                {formData.hsMarchaTis && (
+                  <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
+                    <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-text-muted">
+                      <span>Comparativa de Horas de Marcha</span>
+                      <span className="font-mono text-text-main">
+                        App: {hsCalculatedByApp.toFixed(2)} hs | TIS: {parseFloat(formData.hsMarchaTis || "0").toFixed(2)} hs
+                      </span>
+                    </div>
+                    
+                    {(() => {
+                      const tisVal = parseFloat(formData.hsMarchaTis || "0");
+                      const diff = hsCalculatedByApp - tisVal;
+                      const absoluteDiff = Math.abs(diff);
+                      
+                      if (absoluteDiff < 0.01) {
+                        return (
+                          <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 rounded-lg">
+                            <ShieldCheck size={14} />
+                            <span>Sincronización perfecta de horas (0.00 hs de diferencia)</span>
+                          </div>
+                        );
+                      } else if (diff > 0) {
+                        return (
+                          <div className="flex items-center gap-2 text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-2 rounded-lg">
+                            <AlertCircle size={14} />
+                            <span>Faltan paros de reportar en la app (Diferencia de +{diff.toFixed(2)} hs)</span>
+                          </div>
+                        );
+                      } else {
+                        return (
+                          <div className="flex items-center gap-2 text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-2 rounded-lg">
+                            <AlertCircle size={14} />
+                            <span>Hay paros de más reportados en la app (Diferencia de {diff.toFixed(2)} hs)</span>
+                          </div>
+                        );
+                      }
+                    })()}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Section 1b: Materiales Producidos */}
+          {/* Section 2: Producción por Material */}
           <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-2">
+            <div className="flex items-center justify-between border-b border-white/5 pb-2">
               <div className="flex items-center gap-2 text-primary">
                 <Package size={16} />
-                <h4 className="text-xs font-black uppercase tracking-widest">Materiales Producidos</h4>
+                <h4 className="text-xs font-black uppercase tracking-widest">2. Producción por Material</h4>
                 {activeDetail.tons && (
                   <span className="text-[10px] font-extrabold text-emerald-400 bg-emerald-500/15 border border-emerald-500/25 px-2 py-0.5 rounded-md font-mono select-none">
                     + {parseFloat(activeDetail.tons).toFixed(2)} TN (Ingreso)
@@ -963,9 +1023,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
             </div>
 
             <div className="bg-bg-input/60 p-4 rounded-xl border border-border/50 space-y-4">
-              {/* Form to enter a material position */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 pb-4 border-b border-border/30 items-end">
-                <div className="md:col-span-5">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 pb-2 items-end">
+                <div className="md:col-span-6">
                   <GlassSelect 
                     label="Material / Producto" 
                     options={availableMaterialsOptions} 
@@ -973,7 +1032,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                     onChange={e => setActiveDetail({...activeDetail, materialId: (e.target as HTMLSelectElement).value})} 
                   />
                 </div>
-                <div className="md:col-span-4">
+                <div className="md:col-span-6">
                   <GlassInput 
                     label="Bolsas Producidas" 
                     type="number" 
@@ -983,23 +1042,34 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                   />
                 </div>
                 
-                <div className="md:col-span-3 flex gap-2 items-end">
+                {/* Field: Observacion de Produccion (New) */}
+                <div className="md:col-span-12">
+                  <GlassInput 
+                    label="Observación de Producción" 
+                    type="text" 
+                    value={activeDetail.observacion || ''} 
+                    onChange={e => setActiveDetail({...activeDetail, observacion: (e.target as HTMLInputElement).value})} 
+                    placeholder="Escribe alguna observación o detalle sobre este material..."
+                  />
+                </div>
+
+                <div className="md:col-span-12 flex gap-2 pt-2">
                   <GlassButton
                     type="button"
                     variant="primary"
                     onClick={addMaterialDetail}
                     disabled={!activeDetail.materialId || !activeDetail.bags || parseInt(activeDetail.bags) <= 0}
-                    className="flex-grow h-[42px] px-2 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 min-w-0"
+                    className="flex-grow h-[42px] text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 min-w-0"
                   >
                     {editingDetailId ? (
                       <>
                         <Check size={14} className="shrink-0" />
-                        <span className="truncate">Actualizar</span>
+                        <span>Actualizar Material</span>
                       </>
                     ) : (
                       <>
                         <Plus size={14} className="shrink-0" />
-                        <span className="truncate">Registrar</span>
+                        <span>Agregar Material</span>
                       </>
                     )}
                   </GlassButton>
@@ -1016,74 +1086,60 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                           discardedBagsBagger: '0',
                           notNozzledBags: '0',
                           discardedBagsVentocheck: '0',
-                          discardedBagsTransport: '0'
+                          discardedBagsTransport: '0',
+                          observacion: ''
                         });
                       }}
                       className="h-[42px] px-3 font-black text-xs text-text-muted hover:text-white bg-white/[0.05] border-white/10 shrink-0 flex items-center justify-center gap-1"
                       title="Cancelar edición"
                     >
                       <X size={14} className="shrink-0" />
-                      <span className="hidden sm:inline">Cancelar</span>
+                      <span>Cancelar</span>
                     </GlassButton>
                   )}
                 </div>
-
-                {/* Bag Waste for this material */}
-                <div className="md:col-span-12 space-y-2 pt-2">
-                  <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest block">Bolsas Descartadas (Para este producto)</span>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <GlassInput 
-                      label="Ensacadora (Bas.)" 
-                      type="number" 
-                      value={activeDetail.discardedBagsBagger} 
-                      onChange={e => setActiveDetail({...activeDetail, discardedBagsBagger: (e.target as HTMLInputElement).value})} 
-                    />
-                    <GlassInput 
-                      label="No Emboquilladas" 
-                      type="number" 
-                      value={activeDetail.notNozzledBags} 
-                      onChange={e => setActiveDetail({...activeDetail, notNozzledBags: (e.target as HTMLInputElement).value})} 
-                    />
-                    <GlassInput 
-                      label="Ventocheck" 
-                      type="number" 
-                      value={activeDetail.discardedBagsVentocheck} 
-                      onChange={e => setActiveDetail({...activeDetail, discardedBagsVentocheck: (e.target as HTMLInputElement).value})} 
-                    />
-                    <GlassInput 
-                      label="Transporte" 
-                      type="number" 
-                      value={activeDetail.discardedBagsTransport} 
-                      onChange={e => setActiveDetail({...activeDetail, discardedBagsTransport: (e.target as HTMLInputElement).value})} 
-                    />
-                  </div>
-                </div>
               </div>
+            </div>
+          </div>
 
-              {/* Grid of already registered material details */}
-              <div className="space-y-2">
-                <span className="text-[10px] font-black text-text-muted uppercase tracking-widest block">Materiales Registrados en este Turno</span>
-                
-                {formData.materialsDetails && formData.materialsDetails.length > 0 ? (
-                  <div className="space-y-2">
-                    {formData.materialsDetails.map((det: any, idx: number) => {
-                      const matName = masters.materials.find(m => m.id === det.materialId)?.name || 'Desconocido';
-                      const totalDiscards = (Number(det.discardedBagsBagger) || 0) + 
-                                            (Number(det.notNozzledBags) || 0) + 
-                                            (Number(det.discardedBagsVentocheck) || 0) + 
-                                            (Number(det.discardedBagsTransport) || 0);
-                      const isEditing = editingDetailId === det.id;
+          {/* Section 3: Materiales Registrados */}
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-2">
+              <div className="flex items-center gap-2 text-primary">
+                <History size={16} />
+                <h4 className="text-xs font-black uppercase tracking-widest">3. Materiales Registrados</h4>
+              </div>
+              {modalTotals.totalBags > 0 && (
+                <div className="flex items-center gap-2 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-md shrink-0">
+                  <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest font-mono">
+                    Total Reportado: {modalTotals.totalTons.toFixed(2)} TN ({modalTotals.totalBags} Bolsas)
+                  </span>
+                </div>
+              )}
+            </div>
 
-                      return (
-                        <div 
-                          key={det.id || idx} 
-                          className={cn(
-                            "flex items-center justify-between p-3 rounded-lg transition-all gap-4 border", 
-                            isEditing 
-                              ? "border-primary bg-primary/10 shadow-lg shadow-primary/5" 
-                              : "border-white/5 bg-white/[0.02] hover:border-primary/20"
-                          )}
-                        >
+            <div className="bg-bg-input/60 p-4 rounded-xl border border-border/50">
+              {formData.materialsDetails && formData.materialsDetails.length > 0 ? (
+                <div className="space-y-2">
+                  {formData.materialsDetails.map((det: any, idx: number) => {
+                    const matName = masters.materials.find(m => m.id === det.materialId)?.name || 'Desconocido';
+                    const totalDiscards = (Number(det.discardedBagsBagger) || 0) + 
+                                          (Number(det.notNozzledBags) || 0) + 
+                                          (Number(det.discardedBagsVentocheck) || 0) + 
+                                          (Number(det.discardedBagsTransport) || 0);
+                    const isEditing = editingDetailId === det.id;
+
+                    return (
+                      <div 
+                        key={det.id || idx} 
+                        className={cn(
+                          "flex flex-col p-3 rounded-lg transition-all gap-2 border bg-white/[0.02]", 
+                          isEditing 
+                            ? "border-primary bg-primary/10 shadow-lg shadow-primary/5" 
+                            : "border-white/5 hover:border-primary/20"
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-4">
                           <div className="flex-1">
                             <span className="text-xs font-bold text-text-main block uppercase">
                               {matName} {isEditing && <span className="text-[10px] text-primary lowercase">(editando...)</span>}
@@ -1119,97 +1175,80 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                             </button>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-6 text-xs text-text-muted/60 bg-white/[0.01] border border-dashed border-white/5 rounded-xl">
-                    No se han cargado posiciones de material aún. Configura una y pulsa "Registrar" arriba.
-                  </div>
-                )}
-              </div>
+                        {det.observacion && (
+                          <div className="text-[10px] text-text-muted italic bg-black/20 px-2 py-1 rounded border border-white/5 select-none">
+                            Obs: {det.observacion}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-xs text-text-muted/60 bg-white/[0.01] border border-dashed border-white/5 rounded-xl">
+                  No se han registrado posiciones de material aún en este turno. Ingresa los datos arriba y haz click en "Agregar Material".
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Section 2: Datos Operativos del Turno */}
+          {/* Section 4: Descartes y Datos de Bolsa */}
           <div className="space-y-4">
-            <div className="flex items-center gap-2 text-primary">
-              <TrendingUp size={16} />
-              <h4 className="text-xs font-black uppercase tracking-widest">Datos Operativos del Turno</h4>
+            <div className="flex items-center gap-2 text-primary border-b border-white/5 pb-2">
+              <AlertCircle size={16} className="text-orange-500" />
+              <h4 className="text-xs font-black uppercase tracking-widest text-orange-500 font-bold">4. Descartes y Datos de Bolsa</h4>
             </div>
-            <div className="bg-bg-input/60 p-4 rounded-xl border border-border/50">
-               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                 <GlassInput 
-                  label="Boquillas Disponibles" 
-                  type="number" 
-                  value={formData.availableNozzlesShift} 
-                  onChange={e => setFormData({...formData, availableNozzlesShift: (e.target as HTMLInputElement).value})} 
-                  placeholder="Ej: 4"
-                />
+            
+            <div className="bg-bg-input/60 p-4 rounded-xl border border-border/50 space-y-4">
+              <div className="grid grid-cols-1 gap-4">
                 <GlassSelect 
                   label="Proveedor de Bolsa" 
                   options={(masters.bagSuppliers || []).map((p: any) => ({ label: p.nombre, value: p.nombre }))}
                   value={formData.bagProvider} 
                   onChange={e => setFormData({...formData, bagProvider: (e.target as HTMLSelectElement).value})} 
                 />
-                <GlassInput 
-                  label="Hs. Marcha TIS" 
-                  type="number"
-                  step="0.01"
-                  value={formData.hsMarchaTis} 
-                  onChange={e => setFormData({...formData, hsMarchaTis: (e.target as HTMLInputElement).value})} 
-                  placeholder="Ej: 7.50"
-                />
-               </div>
+              </div>
 
-               {formData.hsMarchaTis && (
-                 <div className="mt-4 p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
-                   <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-text-muted">
-                     <span>Comparativa de Horas de Marcha</span>
-                     <span className="font-mono text-text-main">
-                       App: {hsCalculatedByApp.toFixed(2)} hs | TIS: {parseFloat(formData.hsMarchaTis || "0").toFixed(2)} hs
-                     </span>
-                   </div>
-                   
-                   {(() => {
-                     const tisVal = parseFloat(formData.hsMarchaTis || "0");
-                     const diff = hsCalculatedByApp - tisVal;
-                     const absoluteDiff = Math.abs(diff);
-                     
-                     if (absoluteDiff < 0.01) {
-                       return (
-                         <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 rounded-lg">
-                           <ShieldCheck size={14} />
-                           <span>Sincronización perfecta de horas (0.00 hs de diferencia)</span>
-                         </div>
-                       );
-                     } else if (diff > 0) {
-                       return (
-                         <div className="flex items-center gap-2 text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-2 rounded-lg">
-                           <AlertCircle size={14} />
-                           <span>Faltan paros de reportar en la app (Diferencia de +{diff.toFixed(2)} hs)</span>
-                         </div>
-                       );
-                     } else {
-                       return (
-                         <div className="flex items-center gap-2 text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-2 rounded-lg">
-                           <AlertCircle size={14} />
-                           <span>Hay paros de más reportados en la app (Diferencia de {diff.toFixed(2)} hs)</span>
-                         </div>
-                       );
-                     }
-                   })()}
-                 </div>
-               )}
+              <div className="space-y-2">
+                <span className="text-[10px] font-black text-orange-500/90 uppercase tracking-widest block">
+                  Bolsas Descartadas (Para el material seleccionado en la sección 2)
+                </span>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <GlassInput 
+                    label="Ensacadora (Bas.)" 
+                    type="number" 
+                    value={activeDetail.discardedBagsBagger} 
+                    onChange={e => setActiveDetail({...activeDetail, discardedBagsBagger: (e.target as HTMLInputElement).value})} 
+                  />
+                  <GlassInput 
+                    label="No Emboquilladas" 
+                    type="number" 
+                    value={activeDetail.notNozzledBags} 
+                    onChange={e => setActiveDetail({...activeDetail, notNozzledBags: (e.target as HTMLInputElement).value})} 
+                  />
+                  <GlassInput 
+                    label="Ventocheck" 
+                    type="number" 
+                    value={activeDetail.discardedBagsVentocheck} 
+                    onChange={e => setActiveDetail({...activeDetail, discardedBagsVentocheck: (e.target as HTMLInputElement).value})} 
+                  />
+                  <GlassInput 
+                    label="Transporte" 
+                    type="number" 
+                    value={activeDetail.discardedBagsTransport} 
+                    onChange={e => setActiveDetail({...activeDetail, discardedBagsTransport: (e.target as HTMLInputElement).value})} 
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Section 3: Boquillas Fuera de Servicio */}
+          {/* Section 5: Novedades de Boquillas */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between border-b border-white/5 pb-2">
               <div className="flex items-center gap-2 text-red-500">
                 <Clock size={16} />
-                <h4 className="text-xs font-black uppercase tracking-widest">Novedades de Boquillas</h4>
+                <h4 className="text-xs font-black uppercase tracking-widest font-bold">5. Novedades de Boquillas</h4>
               </div>
               <GlassButton
                 type="button"
@@ -1247,7 +1286,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
           </div>
 
           <div className="pt-6 border-t border-border flex flex-col sm:flex-row gap-3">
-             <GlassButton 
+            <GlassButton 
               variant="secondary" 
               className="w-full sm:flex-1" 
               onClick={() => setIsModalOpen(false)}
