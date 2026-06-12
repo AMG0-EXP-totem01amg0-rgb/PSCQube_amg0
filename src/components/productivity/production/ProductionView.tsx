@@ -144,6 +144,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
     materialId: '',
     bags: '',
     tons: '',
+    bagProvider: '',
     discardedBagsBagger: '0',
     notNozzledBags: '0',
     discardedBagsVentocheck: '0',
@@ -245,7 +246,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                 materialDescription: matObj.name,
                 bagsProduced: parseInt(activeDetail.bags) || 0,
                 tonsProduced: parseFloat(activeDetail.tons) || 0,
-                bagProvider: formData.bagProvider,
+                bagProvider: activeDetail.bagProvider,
                 discardedBagsBagger: parseInt(activeDetail.discardedBagsBagger) || 0,
                 notNozzledBags: parseInt(activeDetail.notNozzledBags) || 0,
                 discardedBagsVentocheck: parseInt(activeDetail.discardedBagsVentocheck) || 0,
@@ -265,7 +266,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
         bagsProduced: parseInt(activeDetail.bags) || 0,
         tonsProduced: parseFloat(activeDetail.tons) || 0,
         bdp: 100,
-        bagProvider: formData.bagProvider,
+        bagProvider: activeDetail.bagProvider || formData.bagProvider,
         discardedBagsBagger: parseInt(activeDetail.discardedBagsBagger) || 0,
         notNozzledBags: parseInt(activeDetail.notNozzledBags) || 0,
         discardedBagsVentocheck: parseInt(activeDetail.discardedBagsVentocheck) || 0,
@@ -279,17 +280,18 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       }));
     }
 
-    // Reset inputs
-    setActiveDetail({
+    // Reset inputs but preserve the provider to make it faster
+    setActiveDetail(prev => ({
       materialId: '',
       bags: '',
       tons: '',
+      bagProvider: prev.bagProvider,
       discardedBagsBagger: '0',
       notNozzledBags: '0',
       discardedBagsVentocheck: '0',
       discardedBagsTransport: '0',
       observacion: ''
-    });
+    }));
   };
 
   const removeMaterialDetail = (id: string) => {
@@ -299,6 +301,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
         materialId: '',
         bags: '',
         tons: '',
+        bagProvider: masters.bagSuppliers && masters.bagSuppliers.length > 0 ? masters.bagSuppliers[0].nombre : '',
         discardedBagsBagger: '0',
         notNozzledBags: '0',
         discardedBagsVentocheck: '0',
@@ -318,6 +321,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       materialId: det.materialId || '',
       bags: (det.bagsProduced || '').toString(),
       tons: (det.tonsProduced || '').toString(),
+      bagProvider: det.bagProvider || (masters.bagSuppliers && masters.bagSuppliers.length > 0 ? masters.bagSuppliers[0].nombre : ''),
       discardedBagsBagger: (det.discardedBagsBagger || 0).toString(),
       notNozzledBags: (det.notNozzledBags || 0).toString(),
       discardedBagsVentocheck: (det.discardedBagsVentocheck || 0).toString(),
@@ -379,6 +383,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       materialId: '',
       bags: '',
       tons: '',
+      bagProvider: defaultBagProvider,
       discardedBagsBagger: '0',
       notNozzledBags: '0',
       discardedBagsVentocheck: '0',
@@ -431,6 +436,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       materialId: '',
       bags: '',
       tons: '',
+      bagProvider: defaultBagProvider,
       discardedBagsBagger: '0',
       notNozzledBags: '0',
       discardedBagsVentocheck: '0',
@@ -576,7 +582,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
         c.materialId === det.materialId
       )?.bdp || 100;
       det.bdp = bdpVal;
-      det.bagProvider = formData.bagProvider;
+      det.bagProvider = det.bagProvider || formData.bagProvider || (masters.bagSuppliers?.[0]?.nombre || '');
     });
 
     // Sum details together for header backward-compatibility
@@ -644,7 +650,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       tonsProduced: totalTons,
       bdp: headerBdp,
       availableNozzlesShift: parseInt(formData.availableNozzlesShift) || 0,
-      bagProvider: formData.bagProvider,
+      bagProvider: activeDetailsList[0]?.bagProvider || formData.bagProvider || (masters.bagSuppliers?.[0]?.nombre || ''),
       discardedBagsBagger: totalDiscardedBagsBagger,
       notNozzledBags: totalNotNozzledBags,
       discardedBagsVentocheck: totalDiscardedBagsVentocheck,
@@ -1028,7 +1034,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
 
             <div className="bg-bg-input/60 p-4 rounded-xl border border-border/50 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4 pb-2 items-end">
-                <div className="md:col-span-6">
+                <div className="md:col-span-4">
                   <GlassSelect 
                     label="Material / Producto" 
                     options={availableMaterialsOptions} 
@@ -1036,13 +1042,21 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                     onChange={e => setActiveDetail({...activeDetail, materialId: (e.target as HTMLSelectElement).value})} 
                   />
                 </div>
-                <div className="md:col-span-6">
+                <div className="md:col-span-4">
                   <GlassInput 
                     label="Bolsas Producidas" 
                     type="number" 
                     value={activeDetail.bags} 
                     onChange={e => setActiveDetail({...activeDetail, bags: (e.target as HTMLInputElement).value})} 
                     placeholder="0"
+                  />
+                </div>
+                <div className="md:col-span-4">
+                  <GlassSelect 
+                    label="Proveedor de Bolsa" 
+                    options={(masters.bagSuppliers || []).map((p: any) => ({ label: p.nombre, value: p.nombre }))}
+                    value={activeDetail.bagProvider || (masters.bagSuppliers?.[0]?.nombre || '')} 
+                    onChange={e => setActiveDetail({...activeDetail, bagProvider: (e.target as HTMLSelectElement).value})} 
                   />
                 </div>
                 
@@ -1120,6 +1134,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                           materialId: '',
                           bags: '',
                           tons: '',
+                          bagProvider: masters.bagSuppliers && masters.bagSuppliers.length > 0 ? masters.bagSuppliers[0].nombre : '',
                           discardedBagsBagger: '0',
                           notNozzledBags: '0',
                           discardedBagsVentocheck: '0',
@@ -1184,6 +1199,11 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                             <span className="text-[10px] text-primary/80 font-bold tracking-wide">
                               {det.bagsProduced} bolsas — {Number(det.tonsProduced).toFixed(2)} TN
                             </span>
+                            <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[9px] text-[#2ac480] bg-[#2ac480]/10 border border-[#2ac480]/20 px-2 py-0.5 rounded font-bold uppercase tracking-wide">
+                                PROVEEDOR: {det.bagProvider || (masters.bagSuppliers && masters.bagSuppliers.length > 0 ? masters.bagSuppliers[0].nombre : 'No asignado')}
+                              </span>
+                            </div>
                           </div>
 
                           <div className="text-right">
@@ -1213,7 +1233,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                           </div>
                         </div>
                         {det.observacion && (
-                          <div className="text-[10px] text-text-muted italic bg-black/20 px-2 py-1 rounded border border-white/5 select-none">
+                          <div className="text-[10px] text-text-muted italic bg-black/20 px-2 py-1 rounded border border-white/5 select-none animate-fadeIn">
                             Obs: {det.observacion}
                           </div>
                         )}
@@ -1229,31 +1249,12 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
             </div>
           </div>
 
-          {/* Section 4: Datos de Bolsa */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-primary border-b border-white/5 pb-2">
-              <AlertCircle size={16} className="text-orange-500" />
-              <h4 className="text-xs font-black uppercase tracking-widest text-orange-500 font-bold">4. Suministro y Proveedor de Bolsa</h4>
-            </div>
-            
-            <div className="bg-bg-input/60 p-4 rounded-xl border border-border/50">
-              <div className="grid grid-cols-1 gap-4">
-                <GlassSelect 
-                  label="Proveedor de Bolsa" 
-                  options={(masters.bagSuppliers || []).map((p: any) => ({ label: p.nombre, value: p.nombre }))}
-                  value={formData.bagProvider} 
-                  onChange={e => setFormData({...formData, bagProvider: (e.target as HTMLSelectElement).value})} 
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Section 5: Novedades de Boquillas */}
+          {/* Section 4: Novedades de Boquillas */}
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b border-white/5 pb-2">
               <div className="flex items-center gap-2 text-red-500">
                 <Clock size={16} />
-                <h4 className="text-xs font-black uppercase tracking-widest font-bold">5. Novedades de Boquillas</h4>
+                <h4 className="text-xs font-black uppercase tracking-widest font-bold">4. Novedades de Boquillas</h4>
               </div>
               <GlassButton
                 type="button"
