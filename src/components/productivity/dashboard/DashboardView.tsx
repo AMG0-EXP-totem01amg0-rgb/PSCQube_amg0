@@ -59,6 +59,43 @@ const MaterialStatCard = ({ item }: { item: any; key?: React.Key }) => {
   );
 };
 
+const NozzleObservationItem = ({ observation }: { observation: string; key?: React.Key }) => {
+  const [isExpanded, setIsExpanded] = React.useState(false);
+  const isLong = observation.length > 100;
+
+  return (
+    <div className="text-[10px] text-text-muted mt-1 border-t border-white/5 pt-1.5 leading-snug w-full text-left">
+      <div 
+        className={cn(
+          "transition-all duration-300", 
+          !isExpanded && isLong && "line-clamp-3"
+        )}
+        style={{
+          whiteSpace: 'normal',
+          overflowWrap: 'break-word',
+          wordBreak: 'break-word',
+          lineHeight: '1.35',
+          maxWidth: '100%',
+        }}
+      >
+        • {observation}
+      </div>
+      {isLong && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsExpanded(!isExpanded);
+          }}
+          className="text-amber-500 hover:text-amber-400 font-extrabold text-[8px] uppercase tracking-wider mt-1 hover:underline focus:outline-none transition-all block cursor-pointer"
+        >
+          {isExpanded ? 'Ver Menos' : 'Ver Más'}
+        </button>
+      )}
+    </div>
+  );
+};
+
 const isStopForMachine = (stop: MachineStop | null | undefined, machine: any, mastersAvailable: any) => {
   if (!stop || !machine) return false;
   
@@ -589,19 +626,17 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
                     <h4 className="text-[11px] font-black text-text-muted uppercase tracking-[0.2em] flex items-center gap-2 border-l-4 border-amber-500 pl-3">
                        Boquillas Activas
                     </h4>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {activeNozzles.length > 0 ? activeNozzles.map((nozzle, idx) => (
-                        <div key={idx} className="bg-amber-500/5 border border-amber-500/20 px-4 py-2.5 rounded-xl flex flex-col justify-center gap-1">
+                        <div key={idx} className="bg-amber-500/5 border border-amber-500/20 px-4 py-2.5 rounded-xl flex flex-col justify-between h-auto gap-1">
                           <div className="flex justify-between items-baseline">
                             <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mb-1">{nozzle.baggerName}</p>
                             <p className="text-sm font-black text-amber-500 font-mono tracking-tighter">{nozzle.nozzles}</p>
                           </div>
                           {nozzle.observations && nozzle.observations.length > 0 && (
-                            <div className="text-[8px] text-text-muted/75 italic border-t border-white/5 pt-1.5 leading-snug mt-1">
+                            <div className="flex flex-col gap-1 w-full">
                               {nozzle.observations.map((obs: string, oIdx: number) => (
-                                <div key={oIdx} className="line-clamp-2">
-                                  • {obs}
-                                </div>
+                                <NozzleObservationItem key={oIdx} observation={obs} />
                               ))}
                             </div>
                           )}

@@ -466,7 +466,18 @@ export default function DashboardShareModal({
                                       {nozzle.observations && nozzle.observations.length > 0 && (
                                         <div className="text-[7.5px] text-gray-400 italic border-t border-gray-150 pt-0.5 mt-0.5 leading-tight w-full">
                                           {nozzle.observations.map((obs: string, oIdx: number) => (
-                                            <div key={oIdx} className="truncate" title={obs}>
+                                            <div 
+                                              key={oIdx} 
+                                              className="leading-relaxed"
+                                              style={{
+                                                whiteSpace: 'normal',
+                                                overflowWrap: 'break-word',
+                                                wordBreak: 'break-word',
+                                                lineHeight: '1.35',
+                                                maxWidth: '100%'
+                                              }}
+                                              title={obs}
+                                            >
                                               • {obs}
                                             </div>
                                           ))}
