@@ -129,6 +129,8 @@ router.get("/api/supabase-test", async (req, res) => {
 router.get("/api/sheets/status", async (req, res) => {
   return res.json({
     success: true,
+    configured: true,
+    hasKey: true,
     isJsonConfigured: true,
     email: "supabase-active-PSCQUBE@supabase.co",
     sheetId: "PSCQUBE_SUPABASE_DATABASE",

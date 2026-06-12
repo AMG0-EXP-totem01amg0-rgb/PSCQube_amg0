@@ -1,10 +1,10 @@
+import dotenv from "dotenv";
+// Load environment variables in development at the very top
+dotenv.config();
+
 import express from "express";
 import path from "path";
-import dotenv from "dotenv";
 import app from "./src/server/app.js";
-
-// Load environment variables in development
-dotenv.config();
 
 const PORT = 3000;
 
