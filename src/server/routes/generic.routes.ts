@@ -49,17 +49,17 @@ async function reconcileTableData(tableName: string, incomingData: any[], allowD
 
       if (!equalBase || !equalNozzles || !equalDetails) {
         console.log(`[Reconciler] Item ${itemId} has changed in table ${tableName}. Modifying...`);
+        await GenericRepository.update(tableName, itemId, item);
         if (upperTable === "PRODUCCIONV2") {
           await ProductionService.syncProductionChildren(item);
         }
-        await GenericRepository.update(tableName, itemId, item);
       }
     } else {
       console.log(`[Reconciler] Item ${itemId} is new in table ${tableName}. Appending...`);
+      await GenericRepository.create(tableName, item);
       if (upperTable === "PRODUCCIONV2") {
         await ProductionService.syncProductionChildren(item);
       }
-      await GenericRepository.create(tableName, item);
     }
   }
 
@@ -224,11 +224,12 @@ router.post("/api/sheets", async (req, res) => {
 
       await MaestrosService.enrichDataIfNeeded(table, [item]);
 
+      await GenericRepository.create(table, item);
+
       if (upperTable === "PRODUCCIONV2") {
         await ProductionService.syncProductionChildren(item);
       }
 
-      await GenericRepository.create(table, item);
       invalidateCache(table);
 
       if (table === "PAROSV2" || table === "PRODUCCIONV2") {
@@ -246,11 +247,12 @@ router.post("/api/sheets", async (req, res) => {
 
       await MaestrosService.enrichDataIfNeeded(table, [item]);
 
+      await GenericRepository.update(table, id, item);
+
       if (upperTable === "PRODUCCIONV2") {
         await ProductionService.syncProductionChildren(item);
       }
 
-      await GenericRepository.update(table, id, item);
       invalidateCache(table);
 
       if (table === "PAROSV2" || table === "PRODUCCIONV2") {
