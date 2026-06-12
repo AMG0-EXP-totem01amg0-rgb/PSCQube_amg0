@@ -71,8 +71,14 @@ export function NotificationBellDropdown({
   }, [notifications, currentUser, isLabUser, isMaquinista, isAdmin]);
 
   const unreadNotifications = React.useMemo(() => {
-    return userNotifications.filter(n => !readNotificationKeys.includes(`${currentUser.dni}-${n.id}`));
-  }, [userNotifications, readNotificationKeys, currentUser.dni]);
+    return userNotifications.filter(n => {
+      const isRead = readNotificationKeys.includes(n.id) ||
+                     readNotificationKeys.includes(`${currentUser.dni}-${n.id}`) ||
+                     (currentUser.email && readNotificationKeys.includes(`${currentUser.email}-${n.id}`)) ||
+                     (currentUser.sapUser && readNotificationKeys.includes(`${currentUser.sapUser}-${n.id}`));
+      return !isRead;
+    });
+  }, [userNotifications, readNotificationKeys, currentUser.dni, currentUser.email, currentUser.sapUser]);
 
   const toggleOpen = () => setIsOpen(!isOpen);
 
@@ -137,7 +143,12 @@ export function NotificationBellDropdown({
                 </div>
               ) : (
                 userNotifications.map(n => {
-                  const isUnread = !readNotificationKeys.includes(`${currentUser.dni}-${n.id}`);
+                  const isUnread = !(
+                    readNotificationKeys.includes(n.id) ||
+                    readNotificationKeys.includes(`${currentUser.dni}-${n.id}`) ||
+                    (currentUser.email && readNotificationKeys.includes(`${currentUser.email}-${n.id}`)) ||
+                    (currentUser.sapUser && readNotificationKeys.includes(`${currentUser.sapUser}-${n.id}`))
+                  );
                   return (
                     <div
                       key={n.id}

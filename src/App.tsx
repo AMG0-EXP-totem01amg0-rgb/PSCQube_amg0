@@ -401,9 +401,14 @@ export default function App() {
 
   const handleMarkAsRead = (id: string) => {
     setReadNotificationKeys(prev => {
-      const key = `${currentUser.dni}-${id}`;
-      if (prev.includes(key)) return prev;
-      const updated = [...prev, key];
+      const keysToAdd = [
+        id,
+        `${currentUser.dni}-${id}`,
+        currentUser.email ? `${currentUser.email}-${id}` : "",
+        currentUser.sapUser ? `${currentUser.sapUser}-${id}` : ""
+      ].filter(Boolean);
+      
+      const updated = Array.from(new Set([...prev, ...keysToAdd]));
       localStorage.setItem('read_notifications_v1', JSON.stringify(updated));
       return updated;
     });
@@ -411,8 +416,14 @@ export default function App() {
 
   const handleMarkAllAsRead = (ids: string[]) => {
     setReadNotificationKeys(prev => {
-      const prefixes = ids.map(id => `${currentUser.dni}-${id}`);
-      const updated = Array.from(new Set([...prev, ...prefixes]));
+      const keysToAdd: string[] = [];
+      ids.forEach(id => {
+        keysToAdd.push(id);
+        keysToAdd.push(`${currentUser.dni}-${id}`);
+        if (currentUser.email) keysToAdd.push(`${currentUser.email}-${id}`);
+        if (currentUser.sapUser) keysToAdd.push(`${currentUser.sapUser}-${id}`);
+      });
+      const updated = Array.from(new Set([...prev, ...keysToAdd]));
       localStorage.setItem('read_notifications_v1', JSON.stringify(updated));
       return updated;
     });
