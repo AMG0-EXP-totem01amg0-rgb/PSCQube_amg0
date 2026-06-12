@@ -140,11 +140,11 @@ export interface ProductionReport {
   bdp: number;
   // Nuevos campos operativos
   availableNozzlesShift: number;
-  bagProvider: string;
-  discardedBagsBagger: number;
-  notNozzledBags: number;
-  discardedBagsVentocheck: number;
-  discardedBagsTransport: number;
+  bagProvider?: string;
+  discardedBagsBagger?: number;
+  notNozzledBags?: number;
+  discardedBagsVentocheck?: number;
+  discardedBagsTransport?: number;
   nozzleNews: NozzleNews[];
   nozzleAvailability?: string;
   hsMarchaTis?: number;

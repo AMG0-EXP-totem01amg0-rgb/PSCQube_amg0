@@ -5,7 +5,7 @@ import { ParosService } from "../services/paros.service.js";
 import { MaestrosService } from "../services/maestros.service.js";
 import { TABLE_SCHEMAS } from "../schemas/tableSchemas.js";
 import { getIdColumnAndKey } from "../utils/mappings.js";
-import { areRecordsEqual, areNozzleNewsListsEqual } from "../utils/helpers.js";
+import { areRecordsEqual, areNozzleNewsListsEqual, areDetailsListsEqual } from "../utils/helpers.js";
 import { getSupabaseClient } from "../services/supabase.service.js";
 import { invalidateCache } from "../cache/cache.service.js";
 
@@ -41,11 +41,13 @@ async function reconcileTableData(tableName: string, incomingData: any[], allowD
       
       const equalBase = areRecordsEqual(item, dbItem, headers, schema);
       let equalNozzles = true;
+      let equalDetails = true;
       if (upperTable === "PRODUCCIONV2") {
         equalNozzles = areNozzleNewsListsEqual(item.nozzleNews, dbItem.nozzleNews);
+        equalDetails = areDetailsListsEqual(item.materialsDetails, dbItem.materialsDetails);
       }
 
-      if (!equalBase || !equalNozzles) {
+      if (!equalBase || !equalNozzles || !equalDetails) {
         console.log(`[Reconciler] Item ${itemId} has changed in table ${tableName}. Modifying...`);
         if (upperTable === "PRODUCCIONV2") {
           await ProductionService.syncProductionChildren(item);

@@ -170,3 +170,35 @@ export function areNozzleNewsListsEqual(listA: any[], listB: any[]): boolean {
 
   return true;
 }
+
+export function areDetailsListsEqual(listA: any[], listB: any[]): boolean {
+  const arrA = Array.isArray(listA) ? listA : [];
+  const arrB = Array.isArray(listB) ? listB : [];
+  if (arrA.length !== arrB.length) return false;
+
+  const sortedA = [...arrA].sort((a, b) => String(a.materialId || "").localeCompare(String(b.materialId || "")));
+  const sortedB = [...arrB].sort((a, b) => String(a.materialId || "").localeCompare(String(b.materialId || "")));
+
+  for (let i = 0; i < sortedA.length; i++) {
+    const a = sortedA[i];
+    const b = sortedB[i];
+    if (
+      String(a.materialId || "").trim() !== String(b.materialId || "").trim() ||
+      Number(a.bagsProduced || a.bags || 0) !== Number(b.bagsProduced || b.bags || 0) ||
+      Number(a.tonsProduced || a.tons || 0) !== Number(b.tonsProduced || b.tons || 0) ||
+      Number(a.bdp || a.bdp_teorico || 0) !== Number(b.bdp || b.bdp_teorico || 0) ||
+      Number(a.availableNozzlesShift || 0) !== Number(b.availableNozzlesShift || 0) ||
+      String(a.bagProvider || "").trim() !== String(b.bagProvider || "").trim() ||
+      Number(a.discardedBagsBagger || 0) !== Number(b.discardedBagsBagger || 0) ||
+      Number(a.notNozzledBags || 0) !== Number(b.notNozzledBags || 0) ||
+      Number(a.discardedBagsVentocheck || 0) !== Number(b.discardedBagsVentocheck || 0) ||
+      Number(a.discardedBagsTransport || 0) !== Number(b.discardedBagsTransport || 0) ||
+      String(a.observacion || a.observation || "").trim() !== String(b.observacion || b.observation || "").trim()
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
