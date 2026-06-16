@@ -7,7 +7,7 @@ export class ProductionService {
   static async enrichProductionRecords(data: any[]): Promise<void> {
     if (!data || data.length === 0) return;
     try {
-      const [dbShifts, dbPalletizers, dbBaggers, dbMaterials, dbHacs, dbParos, dbCauses, dbCapacities] = await Promise.all([
+      const [dbShifts, dbPalletizers, dbBaggers, dbMaterials, dbHacs, dbParos, dbCauses, dbCapacities, dbDetails] = await Promise.all([
         GenericRepository.findAll("TURNOSV2").catch(() => []),
         GenericRepository.findAll("PALETIZADORAV2").catch(() => []),
         GenericRepository.findAll("ENSACADORAV2").catch(() => []),
@@ -16,6 +16,7 @@ export class ProductionService {
         GenericRepository.findAll("PAROSV2").catch(() => []),
         GenericRepository.findAll("CAUSASV2").catch(() => []),
         GenericRepository.findAll("CAPACIDADESV2").catch(() => []),
+        GenericRepository.findAll("DETALLES_PRODUCCIONV2").catch(() => []),
       ]);
 
       data.forEach((item: any) => {
@@ -42,7 +43,11 @@ export class ProductionService {
         item.baggerHac = bagHacVal;
         item["hac_ensacadora"] = bagHacVal;
 
-        const matId = item.materialId || item.material_id;
+        // Fallback for material ID lookup search details first if missing in root PRODUCCIONV2
+        const rDetailsOnItem = dbDetails.filter((d: any) => 
+          String(d.productionId || d.produccion_id || d.id_produccion || "").trim() === String(item.id || "").trim()
+        );
+        const matId = item.materialId || item.material_id || (rDetailsOnItem[0] ? (rDetailsOnItem[0].materialId || rDetailsOnItem[0].material_id) : "");
         const mat = dbMaterials.find((m: any) => m && safeMatch(m.id, matId));
         const matName = mat ? (mat.nombre || mat.name || "") : "";
         item.materialDescription = matName;
@@ -92,20 +97,47 @@ export class ProductionService {
           let sumTonsOverBDP = 0;
 
           contextReports.forEach((r: any) => {
-            const tons = Number(r.tonsProduced) || 0;
-            totalTons += tons;
-
-            const cap = dbCapacities.find((c: any) => 
-              String(c.palletizerId || "").trim().toUpperCase() === String(r.palletizerId || "").trim().toUpperCase() &&
-              String(c.baggerId || "").trim().toUpperCase() === String(r.baggerId || "").trim().toUpperCase() &&
-              String(c.materialId || "").trim().toUpperCase() === String(r.materialId || "").trim().toUpperCase()
+            const rDetails = dbDetails.filter((d: any) => 
+              String(d.productionId || d.produccion_id || d.id_produccion || "").trim() === String(r.id || "").trim()
             );
 
-            const bdpVal = cap ? Number(cap.bdp) : (Number(r.bdp) || 100);
-            if (bdpVal > 0) {
-              sumTonsOverBDP += tons / bdpVal;
+            if (rDetails.length > 0) {
+              rDetails.forEach((det: any) => {
+                const detTons = Number(det.tonsProduced || det.tn_producidas) || 0;
+                totalTons += detTons;
+
+                const detMatId = det.materialId || det.material_id;
+                const cap = dbCapacities.find((c: any) => 
+                  String(c.palletizerId || "").trim().toUpperCase() === String(r.palletizerId || "").trim().toUpperCase() &&
+                  String(c.baggerId || "").trim().toUpperCase() === String(r.baggerId || "").trim().toUpperCase() &&
+                  String(c.materialId || "").trim().toUpperCase() === String(detMatId || "").trim().toUpperCase()
+                );
+
+                const bdpVal = cap ? Number(cap.bdp) : (Number(det.bdp || det.bdp_teorico) || 100);
+                if (bdpVal > 0) {
+                  sumTonsOverBDP += detTons / bdpVal;
+                } else {
+                  sumTonsOverBDP += detTons / 100;
+                }
+              });
             } else {
-              sumTonsOverBDP += tons / 100;
+              // Fallback just in case
+              const tons = Number(r.tonsProduced) || 0;
+              totalTons += tons;
+
+              const matId = r.materialId || r.material_id;
+              const cap = dbCapacities.find((c: any) => 
+                String(c.palletizerId || "").trim().toUpperCase() === String(r.palletizerId || "").trim().toUpperCase() &&
+                String(c.baggerId || "").trim().toUpperCase() === String(r.baggerId || "").trim().toUpperCase() &&
+                String(c.materialId || "").trim().toUpperCase() === String(matId || "").trim().toUpperCase()
+              );
+
+              const bdpVal = cap ? Number(cap.bdp) : (Number(r.bdp) || 100);
+              if (bdpVal > 0) {
+                sumTonsOverBDP += tons / bdpVal;
+              } else {
+                sumTonsOverBDP += tons / 100;
+              }
             }
           });
 
