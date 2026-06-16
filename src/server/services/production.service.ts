@@ -2,6 +2,7 @@ import { GenericRepository } from "../repositories/generic.repository.js";
 import { getSupabaseClient } from "./supabase.service.js";
 import { safeMatch, safeHacMatch } from "../utils/helpers.js";
 import { invalidateCache } from "../cache/cache.service.js";
+import { ParosService } from "./paros.service.js";
 
 function isStopForMachine(stop: any, machineId: string | any, dbPalletizers: any[], dbBaggers: any[]) {
   if (!stop || !machineId) return false;
@@ -69,7 +70,8 @@ function isStopForShift(stop: any, shiftId: string | null | undefined, dbShifts:
   
   const selectedS = dbShifts.find((s: any) => s && String(s.id).trim().toUpperCase() === targetId);
   if (!selectedS) {
-    return String(stop.shiftId || '').trim().toUpperCase() === targetId;
+    const stopShiftId = String(stop.shiftId || '').trim().toUpperCase();
+    return stopShiftId === targetId;
   }
   
   const sId = String(selectedS.id).trim().toUpperCase();
@@ -83,6 +85,14 @@ function isStopForShift(stop: any, shiftId: string | null | undefined, dbShifts:
   if (stopShiftId === sName) return true;
   if (stopShiftName === sId) return true;
   
+  // Robust substring matching (e.g. "TURNO A" matching or including "A")
+  if (sName && stopShiftName && (stopShiftName.includes(sName) || sName.includes(stopShiftName))) return true;
+  
+  // Custom normalization: strip "TURNO" prefix/suffix
+  const cleanSName = sName.replace("TURNO", "").trim();
+  const cleanStopShiftName = stopShiftName.replace("TURNO", "").trim();
+  if (cleanSName && cleanStopShiftName && cleanSName === cleanStopShiftName) return true;
+
   return false;
 }
 
@@ -101,6 +111,9 @@ export class ProductionService {
         GenericRepository.findAll("CAPACIDADESV2").catch(() => []),
         GenericRepository.findAll("DETALLES_PRODUCCIONV2").catch(() => []),
       ]);
+
+      // Enrich raw dbParos with durationMinutes, machineId, shiftId, etc.
+      await ParosService.enrichParosOnRead(dbParos);
 
       data.forEach((item: any) => {
         const shiftId = item.shiftId || item.turno_id;
