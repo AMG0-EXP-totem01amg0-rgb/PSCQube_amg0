@@ -3,6 +3,89 @@ import { getSupabaseClient } from "./supabase.service.js";
 import { safeMatch, safeHacMatch } from "../utils/helpers.js";
 import { invalidateCache } from "../cache/cache.service.js";
 
+function isStopForMachine(stop: any, machineId: string | any, dbPalletizers: any[], dbBaggers: any[]) {
+  if (!stop || !machineId) return false;
+  
+  let targetId = "";
+  if (typeof machineId === 'object' && machineId !== null) {
+    targetId = String(machineId.id || machineId.hacId || machineId.hac_id || machineId.name || machineId.nombre || "").trim().toUpperCase();
+  } else {
+    targetId = String(machineId).trim().toUpperCase();
+  }
+  
+  if (!targetId) return false;
+
+  const selectedMac = dbPalletizers.find((p: any) => p && (
+    String(p.id).trim().toUpperCase() === targetId ||
+    String(p.hacId || p.hac_id || "").trim().toUpperCase() === targetId ||
+    String(p.name || p.nombre || "").trim().toUpperCase() === targetId
+  )) || dbBaggers.find((b: any) => b && (
+    String(b.id).trim().toUpperCase() === targetId ||
+    String(b.hacId || b.hac_id || "").trim().toUpperCase() === targetId ||
+    String(b.name || b.nombre || "").trim().toUpperCase() === targetId
+  ));
+
+  const stopMachineId = String(stop.machineId || stop.maquina_id || "").trim().toUpperCase();
+  const stopMachineName = String(stop.machineName || stop.nombre_maquina || "").trim().toUpperCase();
+  const stopMachineHacText = String(stop.machineHacText || stop.maquina_hac || "").trim().toUpperCase();
+  const stopHacName = String(stop.hacName || stop.hac || "").trim().toUpperCase();
+
+  if (!selectedMac) {
+    return stopMachineId === targetId || stopMachineHacText === targetId || stopMachineName === targetId || stopHacName === targetId;
+  }
+
+  const macId = String(selectedMac.id).trim().toUpperCase();
+  const macName = String(selectedMac.name || selectedMac.nombre || "").trim().toUpperCase();
+  const macHacId = String(selectedMac.hacId || selectedMac.hac_id || "").trim().toUpperCase();
+
+  const stopFields = [stopMachineId, stopMachineName, stopMachineHacText, stopHacName].filter(Boolean);
+  const macFields = [macId, macName, macHacId].filter(Boolean);
+
+  for (const sField of stopFields) {
+    for (const mField of macFields) {
+      if (sField === mField) return true;
+    }
+  }
+
+  const cleanStr = (val: string) => val.replace(/[^A-Z0-9]/g, '');
+  const cleanStopFields = stopFields.map(cleanStr).filter(Boolean);
+  const cleanMacFields = macFields.map(cleanStr).filter(Boolean);
+
+  for (const sClean of cleanStopFields) {
+    for (const mClean of cleanMacFields) {
+      if (sClean === mClean) return true;
+    }
+  }
+
+  if (macHacId && (stopMachineHacText.includes(macHacId) || macHacId.includes(stopMachineHacText))) return true;
+  if (macHacId && (stopHacName.includes(macHacId) || macHacId.includes(stopHacName))) return true;
+
+  return false;
+}
+
+function isStopForShift(stop: any, shiftId: string | null | undefined, dbShifts: any[]) {
+  if (!stop || !shiftId) return false;
+  const targetId = String(shiftId).trim().toUpperCase();
+  
+  const selectedS = dbShifts.find((s: any) => s && String(s.id).trim().toUpperCase() === targetId);
+  if (!selectedS) {
+    return String(stop.shiftId || '').trim().toUpperCase() === targetId;
+  }
+  
+  const sId = String(selectedS.id).trim().toUpperCase();
+  const sName = String(selectedS.name || selectedS.nombre || "").trim().toUpperCase();
+  
+  const stopShiftId = String(stop.shiftId || "").trim().toUpperCase();
+  const stopShiftName = String(stop.shiftName || stop.turno || "").trim().toUpperCase();
+  
+  if (stopShiftId === sId) return true;
+  if (stopShiftName === sName) return true;
+  if (stopShiftId === sName) return true;
+  if (stopShiftName === sId) return true;
+  
+  return false;
+}
+
 export class ProductionService {
   static async enrichProductionRecords(data: any[]): Promise<void> {
     if (!data || data.length === 0) return;
@@ -57,9 +140,10 @@ export class ProductionService {
         const shiftDurationHours = shift ? Number(shift.durationHours || 8) : 8;
 
         const stops = dbParos.filter((s: any) => 
-          s.date === item.date && 
-          s.shiftId === item.shiftId && 
-          s.machineId === item.palletizerId
+          s &&
+          String(s.date || "").substring(0, 10) === String(item.date || "").substring(0, 10) &&
+          isStopForShift(s, shiftId, dbShifts) &&
+          isStopForMachine(s, palId, dbPalletizers, dbBaggers)
         );
         const stopMins = stops.reduce((sum: number, s: any) => sum + (Number(s.durationMinutes) || 0), 0);
         const hsMarcha = Math.max(0, shiftDurationHours - (stopMins / 60));
@@ -67,10 +151,12 @@ export class ProductionService {
         const externalStopMinutes = stops
           .filter((s: any) => {
             const c = dbCauses.find((cause: any) => 
-              cause.id === s.causeId || 
-              cause.text === s.causeText || 
-              cause.descripcion === s.causeText || 
-              cause.id === s.causeText
+              cause && (
+                cause.id === s.causeId || 
+                cause.text === s.causeText || 
+                cause.descripcion === s.causeText || 
+                cause.id === s.causeText
+              )
             );
             return (c && c.stopType === 'EXTERNO') || s.stopType === 'EXTERNO';
           })
@@ -86,9 +172,10 @@ export class ProductionService {
 
         // Rendimiento = (totalTons / hsMarcha) / bdp_ponderado
         const contextReports = data.filter((r: any) => 
-          r.date === item.date && 
-          r.shiftId === item.shiftId && 
-          r.palletizerId === item.palletizerId
+          r &&
+          String(r.date || "").substring(0, 10) === String(item.date || "").substring(0, 10) &&
+          (safeMatch(r.shiftId, shiftId) || safeMatch(r.turno_id, shiftId)) &&
+          (safeMatch(r.palletizerId, palId) || safeMatch(r.palletizadora_id, palId))
         );
 
         let yieldPercent = 100;
