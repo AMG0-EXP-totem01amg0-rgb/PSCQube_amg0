@@ -163,14 +163,14 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
             >
               {/* Tooltip on Hover - Dual wrapper structure prevents transform clashing */}
               <div 
-                className="absolute bottom-full pointer-events-none group-hover:pointer-events-auto z-50 mb-3"
+                className="absolute top-full pointer-events-none group-hover:pointer-events-auto z-50 mt-3"
                 style={{
                   left: '50%',
                   transform: `translateX(-${clampedX}%)`,
                   width: '16rem', // equivalent to w-64 (256px)
                 }}
               >
-                <div className="relative bg-surface/95 border border-border p-3.5 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-2xl translate-y-2 group-hover:translate-y-0 text-left backdrop-blur-md">
+                <div className="relative bg-surface/95 border border-border p-3.5 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-2xl -translate-y-2 group-hover:translate-y-0 text-left backdrop-blur-md">
                   <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-white/5">
                     <span className="text-[9px] font-black text-text-muted uppercase tracking-wider">
                       ⏱️ {seg.startTime} - {seg.endTime}
@@ -215,7 +215,7 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
                   )}
                   {/* Arrow points precisely to segment center */}
                   <div 
-                    className="absolute -bottom-1 w-2 h-2 bg-surface/95 border-r border-b border-border"
+                    className="absolute -top-1 w-2 h-2 bg-surface/95 border-t border-l border-border"
                     style={{
                       left: `${clampedX}%`,
                       transform: 'translateX(-50%) rotate(45deg)'
