@@ -35,7 +35,7 @@ import { getSupabaseClient } from './lib/supabaseClient';
 import { cn } from './lib/utils';
 import { Shift, MachineStop, ProductionReport, DaterControl, ScaleControl, InventoryEntry, PalletClassification, UserContext, MasterData, AppUser, ProductChange, Company, FuelLoad, AlertNotification } from './types';
 import { SHIFTS, PALLETIZERS, BAGGERS, MATERIALS, HACS, CAUSES, CAPACITIES, USERS, SYSTEM_VIEWS, COMPANIES, LOADING_POINTS, LANE_STATUSES } from './lib/mockData';
-import { syncTableToSheets, getBackendSheetsStatus, fetchTableFromSheets, clearClientCache } from './lib/sheetsService';
+import { syncTableToSheets, getBackendSheetsStatus, fetchTableFromSheets, clearClientCache, createRecordInSheets, updateRecordInSheets, deleteRecordInSheets } from './lib/sheetsService';
 import { ToastContainer, ToastMessage } from './components/ui/Toast';
 
 // --- Utilities ---
@@ -724,7 +724,11 @@ export default function App() {
       return nextEntries;
     });
 
-    syncTableToSheets("DESPACHOSV2", nextEntries).then(res => {
+    const actionPromise = exists
+      ? updateRecordInSheets("DESPACHOSV2", entry.id, entry)
+      : createRecordInSheets("DESPACHOSV2", entry);
+
+    actionPromise.then(res => {
       if (res.success) {
         addToast(exists ? "Despacho actualizado con éxito" : "Despacho guardado con éxito", "success");
       } else {
@@ -740,7 +744,7 @@ export default function App() {
       return nextEntries;
     });
 
-    syncTableToSheets("DESPACHOSV2", nextEntries).then(res => {
+    deleteRecordInSheets("DESPACHOSV2", id).then(res => {
       if (res.success) {
         addToast("Despacho eliminado", "success");
       } else {
@@ -761,7 +765,11 @@ export default function App() {
       return nextStops;
     });
 
-    syncTableToSheets("PAROSV2", nextStops).then(res => {
+    const actionPromise = exists
+      ? updateRecordInSheets("PAROSV2", stop.id, stop)
+      : createRecordInSheets("PAROSV2", stop);
+
+    actionPromise.then(res => {
       if (res.success) {
         addToast(exists ? "Paro actualizado con éxito" : "Paro registrado con éxito", "success");
         // Re-read both PAROSV2 and PRODUCCIONV2 with explicit bypassCache = true
@@ -789,7 +797,7 @@ export default function App() {
       return nextStops;
     });
 
-    syncTableToSheets("PAROSV2", nextStops).then(res => {
+    deleteRecordInSheets("PAROSV2", id).then(res => {
       if (res.success) {
         addToast("Paro eliminado", "success");
         // Re-read both PAROSV2 and PRODUCCIONV2 with explicit bypassCache = true
@@ -820,7 +828,11 @@ export default function App() {
       return nextReports;
     });
 
-    syncTableToSheets("PRODUCCIONV2", nextReports).then(res => {
+    const actionPromise = exists
+      ? updateRecordInSheets("PRODUCCIONV2", report.id, report)
+      : createRecordInSheets("PRODUCCIONV2", report);
+
+    actionPromise.then(res => {
       if (res.success) {
         addToast(exists ? "Producción actualizada con éxito" : "Producción guardada con éxito", "success");
         // FETCH the updated table from Sheets/Supabase to get exact recalculated metrics and nested fields!
@@ -842,7 +854,7 @@ export default function App() {
       return nextReports;
     });
 
-    syncTableToSheets("PRODUCCIONV2", nextReports).then(res => {
+    deleteRecordInSheets("PRODUCCIONV2", id).then(res => {
       if (res.success) {
         addToast("Reporte de producción eliminado de base de datos", "success");
         // FETCH the updated table from Sheets/Supabase to keep frontend state perfectly synchronized
@@ -868,7 +880,11 @@ export default function App() {
       return nextDater;
     });
 
-    syncTableToSheets("CONTROL_FECHADORV2", nextDater).then(res => {
+    const actionPromise = exists
+      ? updateRecordInSheets("CONTROL_FECHADORV2", report.id, report)
+      : createRecordInSheets("CONTROL_FECHADORV2", report);
+
+    actionPromise.then(res => {
       if (res.success) {
         addToast(exists ? "Control fechador actualizado con éxito" : "Control fechador registrado con éxito", "success");
       } else {
@@ -884,7 +900,7 @@ export default function App() {
       return nextDater;
     });
 
-    syncTableToSheets("CONTROL_FECHADORV2", nextDater).then(res => {
+    deleteRecordInSheets("CONTROL_FECHADORV2", id).then(res => {
       if (res.success) {
         addToast("Control fechador eliminado de Google Sheets", "success");
       } else {
@@ -904,7 +920,11 @@ export default function App() {
       return nextScale;
     });
 
-    syncTableToSheets("CONTROL_BALANZAV2", nextScale).then(res => {
+    const actionPromise = exists
+      ? updateRecordInSheets("CONTROL_BALANZAV2", report.id, report)
+      : createRecordInSheets("CONTROL_BALANZAV2", report);
+
+    actionPromise.then(res => {
       if (res.success) {
         addToast(exists ? "Control de balanza actualizado con éxito" : "Control de balanza registrado con éxito", "success");
       } else {
@@ -920,7 +940,7 @@ export default function App() {
       return nextScale;
     });
 
-    syncTableToSheets("CONTROL_BALANZAV2", nextScale).then(res => {
+    deleteRecordInSheets("CONTROL_BALANZAV2", id).then(res => {
       if (res.success) {
         addToast("Control de balanza eliminado", "success");
       } else {
@@ -940,7 +960,11 @@ export default function App() {
       return nextInventory;
     });
 
-    syncTableToSheets("INVENTARIO_FISICOV2", nextInventory).then(res => {
+    const actionPromise = exists
+      ? updateRecordInSheets("INVENTARIO_FISICOV2", entry.id, entry)
+      : createRecordInSheets("INVENTARIO_FISICOV2", entry);
+
+    actionPromise.then(res => {
       if (res.success) {
         addToast(exists ? "Registro de insumo actualizado" : "Registro de insumo guardado", "success");
       } else {
@@ -956,7 +980,7 @@ export default function App() {
       return nextInventory;
     });
 
-    syncTableToSheets("INVENTARIO_FISICOV2", nextInventory).then(res => {
+    deleteRecordInSheets("INVENTARIO_FISICOV2", id).then(res => {
       if (res.success) {
         addToast("Registro de insumo eliminado", "success");
       } else {
@@ -976,7 +1000,11 @@ export default function App() {
       return nextEntries;
     });
 
-    syncTableToSheets("CLASISFICACION_PALLETSV2", nextEntries).then(res => {
+    const actionPromise = exists
+      ? updateRecordInSheets("CLASISFICACION_PALLETSV2", entry.id, entry)
+      : createRecordInSheets("CLASISFICACION_PALLETSV2", entry);
+
+    actionPromise.then(res => {
       if (res.success) {
         addToast(exists ? "Registro de pallet actualizado" : "Registro de pallet guardado", "success");
       } else {
@@ -992,7 +1020,7 @@ export default function App() {
       return nextEntries;
     });
 
-    syncTableToSheets("CLASISFICACION_PALLETSV2", nextEntries).then(res => {
+    deleteRecordInSheets("CLASISFICACION_PALLETSV2", id).then(res => {
       if (res.success) {
         addToast("Registro de pallet eliminado", "success");
       } else {
@@ -1012,7 +1040,11 @@ export default function App() {
       return nextChanges;
     });
 
-    syncTableToSheets("CAMBIO_PRODUCTOV2", nextChanges).then(res => {
+    const actionPromise = exists
+      ? updateRecordInSheets("CAMBIO_PRODUCTOV2", report.id, report)
+      : createRecordInSheets("CAMBIO_PRODUCTOV2", report);
+
+    actionPromise.then(res => {
       if (res.success) {
         addToast(exists ? "Cambio de producto actualizado con éxito" : "Cambio de producto registrado con éxito", "success");
       } else {
@@ -1028,7 +1060,7 @@ export default function App() {
       return nextChanges;
     });
 
-    syncTableToSheets("CAMBIO_PRODUCTOV2", nextChanges).then(res => {
+    deleteRecordInSheets("CAMBIO_PRODUCTOV2", id).then(res => {
       if (res.success) {
         addToast("Cambio de producto eliminado", "success");
       } else {
@@ -1057,8 +1089,16 @@ export default function App() {
       return current;
     });
 
-    syncTableToSheets("ESTADO_CALLESV2", nextLanes).then(res => {
-      if (res.success) {
+    const promises = statusesToSave.map(status => {
+      const entryExists = laneStatuses.some(x => x.id === status.id);
+      return entryExists
+        ? updateRecordInSheets("ESTADO_CALLESV2", status.id, status)
+        : createRecordInSheets("ESTADO_CALLESV2", status);
+    });
+
+    Promise.all(promises).then(results => {
+      const allSuccess = results.every(res => res.success);
+      if (allSuccess) {
         addToast(
           Array.isArray(laneStatus)
             ? "Estados de calles actualizados con éxito"
@@ -1066,8 +1106,10 @@ export default function App() {
           "success"
         );
       } else {
-        addToast("Registrada localmente. Error al sincronizar con base de datos.", "warning");
+        addToast("Sincronizado parcialmente en base de datos.", "warning");
       }
+    }).catch(() => {
+      addToast("Registrada localmente. Error al sincronizar.", "warning");
     });
   };
 
@@ -1078,7 +1120,7 @@ export default function App() {
       return nextLanes;
     });
 
-    syncTableToSheets("ESTADO_CALLESV2", nextLanes).then(res => {
+    deleteRecordInSheets("ESTADO_CALLESV2", id).then(res => {
       if (res.success) {
         addToast("Calle de carga eliminada", "success");
       } else {
@@ -1098,7 +1140,11 @@ export default function App() {
       return nextLoads;
     });
 
-    syncTableToSheets("CARGA_COMBUSTIBLEV2", nextLoads).then(res => {
+    const actionPromise = exists
+      ? updateRecordInSheets("CARGA_COMBUSTIBLEV2", load.id, load)
+      : createRecordInSheets("CARGA_COMBUSTIBLEV2", load);
+
+    actionPromise.then(res => {
       if (res.success) {
         addToast(exists ? "Carga de combustible actualizada con éxito" : "Carga de combustible registrada con éxito", "success");
       } else {
@@ -1114,7 +1160,7 @@ export default function App() {
       return nextLoads;
     });
 
-    syncTableToSheets("CARGA_COMBUSTIBLEV2", nextLoads).then(res => {
+    deleteRecordInSheets("CARGA_COMBUSTIBLEV2", id).then(res => {
       if (res.success) {
         addToast("Carga de combustible eliminada con éxito", "success");
       } else {

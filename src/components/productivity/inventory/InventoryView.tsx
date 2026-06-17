@@ -78,8 +78,8 @@ export default function InventoryView({ masters, currentUser, onSave, onDelete, 
       materialId: formData.materialId,
       quantity: Number(formData.quantity),
       weightTn: Number(weightTn.toFixed(3)),
-      userId: 'USER-1',
-      userName: 'Operador Holcim'
+      userId: currentUser?.dni || 'USER-1',
+      userName: currentUser?.name || 'Operador Holcim'
     };
 
     onSave(entry);

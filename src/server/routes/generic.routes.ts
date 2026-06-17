@@ -206,7 +206,24 @@ router.post("/api/sheets", async (req, res) => {
       if (!data) {
         return res.status(400).json({ success: false, error: "Faltan los datos para la acción write" });
       }
-      const allowDeleteMissing = req.body.allowDeleteMissing === true;
+      let allowDeleteMissing = req.body.allowDeleteMissing === true;
+      
+      const transactionalTables = [
+        "PAROSV2",
+        "PRODUCCIONV2",
+        "DESPACHOSV2",
+        "CONTROL_FECHADORV2",
+        "CONTROL_BALANZAV2",
+        "INVENTARIO_FISICOV2",
+        "CLASISFICACION_PALLETSV2",
+        "CAMBIO_PRODUCTOV2",
+        "ESTADO_CALLESV2",
+        "CARGA_COMBUSTIBLEV2"
+      ];
+      if (transactionalTables.includes(upperTable)) {
+        allowDeleteMissing = false;
+      }
+
       await reconcileTableData(table, data, allowDeleteMissing);
       
       invalidateCache(table);
