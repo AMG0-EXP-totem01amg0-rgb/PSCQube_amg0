@@ -26,6 +26,20 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
 
   const totalMinutes = shift.durationHours * 60;
 
+  const [hoveredIdx, setHoveredIdx] = React.useState<number | null>(null);
+  const [tooltipDirections, setTooltipDirections] = React.useState<Record<number, 'up' | 'down'>>({});
+
+  const handleMouseEnter = (idx: number, e: React.MouseEvent<HTMLDivElement>) => {
+    setHoveredIdx(idx);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const dir = rect.top < 260 ? 'down' : 'up';
+    setTooltipDirections(prev => ({ ...prev, [idx]: dir }));
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredIdx(null);
+  };
+
   const segments = useMemo(() => {
     const list: any[] = [];
     // Sort stops chromatically by their start time relative to shift start
@@ -150,7 +164,7 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
             <div 
               key={idx}
               className={cn(
-                "h-full relative group transition-all duration-200",
+                "h-full relative group transition-all duration-200 hover:z-[100] group-hover:z-[100] z-0",
                 bgColorClass,
                 showDivider && "border-l border-white/40",
                 !readOnly && !isOperative && "cursor-pointer hover:filter hover:brightness-110",
@@ -160,17 +174,25 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
               )}
               style={{ width: `${width}%` }}
               onClick={() => !readOnly && seg.stop && onEdit?.(seg.stop)}
+              onMouseEnter={(e) => handleMouseEnter(idx, e)}
+              onMouseLeave={handleMouseLeave}
             >
               {/* Tooltip on Hover - Dual wrapper structure prevents transform clashing */}
               <div 
-                className="absolute top-full pointer-events-none group-hover:pointer-events-auto z-50 mt-3"
+                className={cn(
+                  "absolute pointer-events-none group-hover:pointer-events-auto z-[200]",
+                  (tooltipDirections[idx] || 'up') === 'down' ? "top-full mt-3" : "bottom-full mb-3"
+                )}
                 style={{
                   left: '50%',
                   transform: `translateX(-${clampedX}%)`,
                   width: '16rem', // equivalent to w-64 (256px)
                 }}
               >
-                <div className="relative bg-surface/95 border border-border p-3.5 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-2xl -translate-y-2 group-hover:translate-y-0 text-left backdrop-blur-md">
+                <div className={cn(
+                  "relative bg-surface/95 border border-border p-3.5 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-2xl text-left backdrop-blur-md",
+                  (tooltipDirections[idx] || 'up') === 'down' ? "-translate-y-2 group-hover:translate-y-0" : "translate-y-2 group-hover:translate-y-0"
+                )}>
                   <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-white/5">
                     <span className="text-[9px] font-black text-text-muted uppercase tracking-wider">
                       ⏱️ {seg.startTime} - {seg.endTime}
@@ -215,7 +237,10 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
                   )}
                   {/* Arrow points precisely to segment center */}
                   <div 
-                    className="absolute -top-1 w-2 h-2 bg-surface/95 border-t border-l border-border"
+                    className={cn(
+                      "absolute w-2 h-2 bg-surface/95 border-border",
+                      (tooltipDirections[idx] || 'up') === 'down' ? "-top-1 border-t border-l" : "-bottom-1 border-r border-b"
+                    )}
                     style={{
                       left: `${clampedX}%`,
                       transform: 'translateX(-50%) rotate(45deg)'
