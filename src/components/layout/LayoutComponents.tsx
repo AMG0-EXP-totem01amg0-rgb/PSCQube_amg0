@@ -351,43 +351,14 @@ export function Header({
               {isDark ? <Sun size={14} className="text-yellow-400" /> : <Moon size={14} className="text-primary" />}
             </button>
 
-            {/* Force Refresh Masters (Mobile) */}
-            <button 
-              onClick={() => {
-                try {
-                  for (let i = 0; i < localStorage.length; i++) {
-                    const key = localStorage.key(i);
-                    if (key && (key.startsWith("app_cache_v2_") || key.startsWith("app_causas_v2_local_cache"))) {
-                      localStorage.removeItem(key);
-                      i--;
-                    }
-                  }
-                  for (let i = 0; i < sessionStorage.length; i++) {
-                    const key = sessionStorage.key(i);
-                    if (key && key.startsWith("app_table_cache_v2_")) {
-                      sessionStorage.removeItem(key);
-                      i--;
-                    }
-                  }
-                  window.location.reload();
-                } catch (err) {
-                  console.error("Error clearing caches manually:", err);
-                }
-              }}
-              className="sm:hidden p-1.5 rounded-full hover:bg-bg transition-colors text-text-main"
-              title="Limpiar Caché General y Recargar"
-            >
-              <RotateCw size={14} className="text-text-main hover:text-primary" />
-            </button>
-
-            {/* Refrescar Vista (Mobile) */}
+            {/* Refrescar aplicación (Mobile) */}
             {onRefreshCurrentFilters && (
               <button 
                 onClick={onRefreshCurrentFilters}
                 className="sm:hidden p-1.5 rounded-full hover:bg-bg transition-colors text-text-main"
-                title="Refrescar Vista Actual"
+                title="Refrescar Aplicación y Limpiar Caché"
               >
-                <RefreshCw size={14} className="text-text-main hover:text-green-500" />
+                <RefreshCw size={14} className="text-text-main hover:text-green-500 animate-pulse" />
               </button>
             )}
 
@@ -505,43 +476,14 @@ export function Header({
                 {isDark ? <Sun size={18} className="text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]" /> : <Moon size={18} className="text-primary drop-shadow-[0_0_8px_rgba(59,130,246,0.3)]" />}
               </button>
 
-              {/* Force Refresh Masters - Desktop */}
-              <button 
-                onClick={() => {
-                  try {
-                    for (let i = 0; i < localStorage.length; i++) {
-                      const key = localStorage.key(i);
-                      if (key && (key.startsWith("app_cache_v2_") || key.startsWith("app_causas_v2_local_cache"))) {
-                        localStorage.removeItem(key);
-                        i--;
-                      }
-                    }
-                    for (let i = 0; i < sessionStorage.length; i++) {
-                      const key = sessionStorage.key(i);
-                      if (key && key.startsWith("app_table_cache_v2_")) {
-                        sessionStorage.removeItem(key);
-                        i--;
-                      }
-                    }
-                    window.location.reload();
-                  } catch (err) {
-                    console.error("Error clearing caches manually:", err);
-                  }
-                }}
-                className="hidden sm:flex p-2 rounded-full hover:bg-bg transition-colors text-text-main hover:text-primary shrink-0 ml-1"
-                title="Limpiar Caché General y Recargar"
-              >
-                <RotateCw size={18} className="text-text-main hover:text-primary" />
-              </button>
-
-              {/* Refrescar Vista - Desktop */}
+              {/* Refrescar Aplicación - Desktop */}
               {onRefreshCurrentFilters && (
                 <button 
                   onClick={onRefreshCurrentFilters}
                   className="hidden sm:flex p-2 rounded-full hover:bg-bg transition-colors text-text-main hover:text-primary shrink-0 ml-1"
-                  title="Refrescar Vista Actual"
+                  title="Refrescar Aplicación y Limpiar Caché"
                 >
-                  <RefreshCw size={18} className="text-text-main hover:text-green-500" />
+                  <RefreshCw size={18} className="text-text-main hover:text-green-500 animate-pulse" />
                 </button>
               )}
             </motion.div>

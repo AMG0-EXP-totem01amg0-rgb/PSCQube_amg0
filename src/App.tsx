@@ -645,79 +645,14 @@ export default function App() {
   };
 
   const handleRefreshCurrentFilters = async () => {
-    addToast("Actualizando datos del turno actual...", "info");
-    const filters = {
-      date: userContext.selectedDate,
-      shiftId: userContext.selectedShiftId,
-      palletizerId: userContext.selectedPalletizerId
-    };
-
+    addToast("Limpiando caché general y recargando toda la aplicación...", "info");
+    const activeDni = currentUser.profile?.dni || sessionStorage.getItem('pscqube_user_dni') || '';
     try {
-      setIsSyncing(true);
-      setSyncMessage('Forzando lectura fresca...');
-
-      const [
-        resStops,
-        resProd,
-        resDater,
-        resScale,
-        resInventory,
-        resClass,
-        resChange,
-        resDespachos,
-        resLoadingLanes,
-        resFuel
-      ] = await Promise.all([
-        fetchTableFromSheets("PAROSV2", true, filters),
-        fetchTableFromSheets("PRODUCCIONV2", true, filters),
-        fetchTableFromSheets("CONTROL_FECHADORV2", true, filters),
-        fetchTableFromSheets("CONTROL_BALANZAV2", true, filters),
-        fetchTableFromSheets("INVENTARIO_FISICOV2", true, filters),
-        fetchTableFromSheets("CLASISFICACION_PALLETSV2", true, filters),
-        fetchTableFromSheets("CAMBIO_PRODUCTOV2", true, filters),
-        fetchTableFromSheets("DESPACHOSV2", true, filters),
-        fetchTableFromSheets("ESTADO_CALLESV2", true, filters),
-        fetchTableFromSheets("CARGA_COMBUSTIBLEV2", true, filters)
-      ]);
-
-      if (resStops.success && resStops.data) {
-        const freshStops = resStops.data as MachineStop[];
-        setStops(freshStops.filter(s => s && !deletedStopIdsRef.current.has(s.id)));
-      }
-      if (resProd.success && resProd.data) {
-        setProductionReports(resProd.data);
-      }
-      if (resDater.success && resDater.data) {
-        setDaterControls(resDater.data);
-      }
-      if (resScale.success && resScale.data) {
-        setScaleControls(resScale.data);
-      }
-      if (resInventory.success && resInventory.data) {
-        setInventoryEntries(resInventory.data);
-      }
-      if (resClass.success && resClass.data) {
-        setPalletClassifications(resClass.data);
-      }
-      if (resChange.success && resChange.data) {
-        setProductChanges(resChange.data);
-      }
-      if (resDespachos.success && resDespachos.data) {
-        setDispatchEntries(resDespachos.data);
-      }
-      if (resLoadingLanes.success && resLoadingLanes.data) {
-        setLaneStatuses(resLoadingLanes.data);
-      }
-      if (resFuel.success && resFuel.data) {
-        setFuelLoads(resFuel.data);
-      }
-
-      addToast("¡Datos de vista actualizados!", "success");
+      await handleSyncOnEnter(activeDni);
+      addToast("¡Sincronización completa de la aplicación exitosa!", "success");
     } catch (err) {
-      console.warn("Error refreshing current view filters:", err);
-      addToast("Error al refrescar la vista", "error");
-    } finally {
-      setIsSyncing(false);
+      console.error("Error recharging all databases:", err);
+      addToast("Error al recargar la aplicación", "error");
     }
   };
 
@@ -743,14 +678,9 @@ export default function App() {
     const fetchFilteredTransactions = async () => {
       try {
         const filters = {
-          date: userContext.selectedDate,
-          shiftId: userContext.selectedShiftId,
-          palletizerId: userContext.selectedPalletizerId
+          date: userContext.selectedDate
         };
         
-        setIsSyncing(true);
-        setSyncMessage('Cargando registros del turno actual...');
-
         const [
           resStops,
           resProd,
@@ -810,11 +740,7 @@ export default function App() {
         }
 
       } catch (err) {
-        console.warn("Error fetching filtered transactions:", err);
-      } finally {
-        if (isMounted) {
-          setIsSyncing(false);
-        }
+        console.warn("Error fetching filtered transactions silently:", err);
       }
     };
 
@@ -823,7 +749,7 @@ export default function App() {
     return () => {
       isMounted = false;
     };
-  }, [hasEnteredApp, userContext.selectedDate, userContext.selectedShiftId, userContext.selectedPalletizerId]);
+  }, [hasEnteredApp, userContext.selectedDate]);
 
   // Background synchronized polling for real-time collaboration across multiple devices
   useEffect(() => {

@@ -71,10 +71,8 @@ export const MASTER_TABLES = [
 function getBrowserCache(tableName: string, filters?: { date?: string; shiftId?: string; palletizerId?: string }): any[] | null {
   try {
     let key = `app_cache_v2_${tableName.toUpperCase()}`;
-    if (filters) {
-      if (filters.date) key += `_${filters.date}`;
-      if (filters.shiftId) key += `_${filters.shiftId}`;
-      if (filters.palletizerId) key += `_${filters.palletizerId}`;
+    if (filters && filters.date) {
+      key += `_${filters.date}`;
     }
     const value = localStorage.getItem(key);
     if (!value) return null;
@@ -100,10 +98,8 @@ function getBrowserCache(tableName: string, filters?: { date?: string; shiftId?:
 function setBrowserCache(tableName: string, data: any[], filters?: { date?: string; shiftId?: string; palletizerId?: string }): void {
   try {
     let key = `app_cache_v2_${tableName.toUpperCase()}`;
-    if (filters) {
-      if (filters.date) key += `_${filters.date}`;
-      if (filters.shiftId) key += `_${filters.shiftId}`;
-      if (filters.palletizerId) key += `_${filters.palletizerId}`;
+    if (filters && filters.date) {
+      key += `_${filters.date}`;
     }
     localStorage.setItem(key, JSON.stringify({
       timestamp: Date.now(),
@@ -271,8 +267,6 @@ export async function fetchTableFromSheets(
     }
     if (filters) {
       if (filters.date) queryParams += `date=${encodeURIComponent(filters.date)}&`;
-      if (filters.shiftId) queryParams += `shiftId=${encodeURIComponent(filters.shiftId)}&`;
-      if (filters.palletizerId) queryParams += `palletizerId=${encodeURIComponent(filters.palletizerId)}&`;
     }
     if (queryParams.endsWith("&")) {
       queryParams = queryParams.slice(0, -1);
@@ -460,8 +454,6 @@ function triggerBackgroundRevalidation(
       let queryParams = "bypassCache=true";
       if (filters) {
         if (filters.date) queryParams += `&date=${encodeURIComponent(filters.date)}`;
-        if (filters.shiftId) queryParams += `&shiftId=${encodeURIComponent(filters.shiftId)}`;
-        if (filters.palletizerId) queryParams += `&palletizerId=${encodeURIComponent(filters.palletizerId)}`;
       }
 
       let url = `/api/sheets?table=${sheetName}&${queryParams}`;

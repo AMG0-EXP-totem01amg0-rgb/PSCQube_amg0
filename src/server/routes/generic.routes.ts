@@ -188,15 +188,9 @@ router.get("/api/produccion", async (req, res) => {
     let list = await GenericRepository.findAll("PRODUCCIONV2");
 
     // Apply active filters at backend level if provided!
-    const { date, shiftId, palletizerId } = req.query as Record<string, string>;
+    const { date } = req.query as Record<string, string>;
     if (date) {
       list = list.filter((r: any) => r.date === date);
-    }
-    if (shiftId) {
-      list = list.filter((r: any) => String(r.shiftId || '').trim().toUpperCase() === String(shiftId).trim().toUpperCase());
-    }
-    if (palletizerId) {
-      list = list.filter((r: any) => String(r.palletizerId || '').trim().toUpperCase() === String(palletizerId).trim().toUpperCase());
     }
 
     await ProductionService.enrichProductionReportsWithNozzleNews(list);
@@ -218,23 +212,9 @@ router.get("/api/paros", async (req, res) => {
     let list = await GenericRepository.findAll("PAROSV2");
 
     // Apply active filters at backend level if provided!
-    const { date, shiftId, palletizerId } = req.query as Record<string, string>;
+    const { date } = req.query as Record<string, string>;
     if (date) {
       list = list.filter((r: any) => r.date === date);
-    }
-    if (shiftId) {
-      list = list.filter((r: any) => {
-        const itemShift = String(r.shiftId || r.shiftName || '').trim().toUpperCase();
-        const paramShift = String(shiftId).trim().toUpperCase();
-        return itemShift === paramShift;
-      });
-    }
-    if (palletizerId) {
-      list = list.filter((r: any) => {
-        const itemMach = String(r.palletizerId || r.machineId || r.machineHacText || '').trim().toUpperCase();
-        const paramMach = String(palletizerId).trim().toUpperCase();
-        return itemMach.includes(paramMach) || paramMach.includes(itemMach);
-      });
     }
 
     await ParosService.enrichParosOnRead(list);
@@ -277,23 +257,9 @@ router.get("/api/sheets", async (req, res) => {
     ];
 
     if (filterableTables.includes(upperTable)) {
-      const { date, shiftId, palletizerId } = req.query as Record<string, string>;
+      const { date } = req.query as Record<string, string>;
       if (date) {
         list = list.filter((r: any) => r.date === date);
-      }
-      if (shiftId) {
-        list = list.filter((r: any) => {
-          const itemShift = String(r.shiftId || r.shiftName || '').trim().toUpperCase();
-          const paramShift = String(shiftId).trim().toUpperCase();
-          return itemShift === paramShift;
-        });
-      }
-      if (palletizerId) {
-        list = list.filter((r: any) => {
-          const itemMach = String(r.palletizerId || r.machineId || r.machineHacText || '').trim().toUpperCase();
-          const paramMach = String(palletizerId).trim().toUpperCase();
-          return itemMach.includes(paramMach) || paramMach.includes(itemMach);
-        });
       }
     }
 
