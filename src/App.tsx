@@ -35,7 +35,7 @@ import { getSupabaseClient } from './lib/supabaseClient';
 import { cn } from './lib/utils';
 import { Shift, MachineStop, ProductionReport, DaterControl, ScaleControl, InventoryEntry, PalletClassification, UserContext, MasterData, AppUser, ProductChange, Company, FuelLoad, AlertNotification } from './types';
 import { SHIFTS, PALLETIZERS, BAGGERS, MATERIALS, HACS, CAUSES, CAPACITIES, USERS, SYSTEM_VIEWS, COMPANIES, LOADING_POINTS, LANE_STATUSES } from './lib/mockData';
-import { syncTableToSheets, getBackendSheetsStatus, fetchTableFromSheets, clearClientCache, createRecordInSheets, updateRecordInSheets, deleteRecordInSheets } from './lib/sheetsService';
+import { syncTableToSheets, getBackendSheetsStatus, fetchTableFromSheets, clearClientCache, createRecordInSheets, updateRecordInSheets, deleteRecordInSheets, preloadMasterCatalogs } from './lib/sheetsService';
 import { ToastContainer, ToastMessage } from './components/ui/Toast';
 
 // --- Utilities ---
@@ -490,6 +490,10 @@ export default function App() {
       let finalUsers: AppUser[] = [];
 
       if (status.configured) {
+        setSyncMessage('Cargando catálogos maestros...');
+        // Preload ALL master tables in a single optimized HTTP request
+        await preloadMasterCatalogs(true);
+
         setSyncMessage('Sincronizando información...');
         // Parallel fetching of master & transactional data with explicit cache bypass to get manual DB updates
         const [
@@ -502,7 +506,7 @@ export default function App() {
           resChange,
           resDespachos,
           resLoadingLanes,
-          // Masters
+          // Masters (loaded directly from new browser cache populated by preloadMasterCatalogs)
           resShifts,
           resPalletizers,
           resBaggers,
@@ -526,19 +530,19 @@ export default function App() {
           fetchTableFromSheets("CAMBIO_PRODUCTOV2", true),
           fetchTableFromSheets("DESPACHOSV2", true),
           fetchTableFromSheets("ESTADO_CALLESV2", true),
-          // Masters
-          fetchTableFromSheets("TURNOSV2", true),
-          fetchTableFromSheets("PALETIZADORAV2", true),
-          fetchTableFromSheets("ENSACADORAV2", true),
-          fetchTableFromSheets("HACSV2", true),
-          fetchTableFromSheets("CAUSASV2", true),
-          fetchTableFromSheets("MATERIALESV2", true),
-          fetchTableFromSheets("CAPACIDADESV2", true),
-          fetchTableFromSheets("USUARIOSV2", true),
-          fetchTableFromSheets("EMPRESASV2", true),
-          fetchTableFromSheets("PUNTOS_CARGAV2", true),
-          fetchTableFromSheets("PROVEEDORES_BOLSAV2", true),
-          fetchTableFromSheets("VEHICULOSV2", true),
+          // Masters (resolved instantly from cache with false flag)
+          fetchTableFromSheets("TURNOSV2", false),
+          fetchTableFromSheets("PALETIZADORAV2", false),
+          fetchTableFromSheets("ENSACADORAV2", false),
+          fetchTableFromSheets("HACSV2", false),
+          fetchTableFromSheets("CAUSASV2", false),
+          fetchTableFromSheets("MATERIALESV2", false),
+          fetchTableFromSheets("CAPACIDADESV2", false),
+          fetchTableFromSheets("USUARIOSV2", false),
+          fetchTableFromSheets("EMPRESASV2", false),
+          fetchTableFromSheets("PUNTOS_CARGAV2", false),
+          fetchTableFromSheets("PROVEEDORES_BOLSAV2", false),
+          fetchTableFromSheets("VEHICULOSV2", false),
           fetchTableFromSheets("CARGA_COMBUSTIBLEV2", true)
         ]);
 

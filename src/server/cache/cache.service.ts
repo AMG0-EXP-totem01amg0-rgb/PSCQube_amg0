@@ -1,11 +1,32 @@
 const readCache: Record<string, { timestamp: number; data: any[] }> = {};
-export const CACHE_TTL_MS = 6000;
+
+export const MASTER_TABLES = [
+  "TURNOSV2",
+  "PALETIZADORAV2",
+  "ENSACADORAV2",
+  "HACSV2",
+  "CAUSASV2",
+  "MATERIALESV2",
+  "CAPACIDADESV2",
+  "USUARIOSV2",
+  "EMPRESASV2",
+  "PUNTOS_CARGAV2",
+  "PROVEEDORES_BOLSAV2",
+  "VEHICULOSV2"
+];
+
+export const MASTER_TTL_MS = 30 * 60 * 1000; // 30 minutes
+export const OPERATIONAL_TTL_MS = 10000; // 10 seconds (optimized from 6s)
 
 export function getCachedData(table: string): any[] | null {
   const upperTable = table.toUpperCase();
   const cached = readCache[upperTable];
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-    return cached.data;
+  if (cached) {
+    const isMaster = MASTER_TABLES.includes(upperTable);
+    const ttl = isMaster ? MASTER_TTL_MS : OPERATIONAL_TTL_MS;
+    if (Date.now() - cached.timestamp < ttl) {
+      return cached.data;
+    }
   }
   return null;
 }

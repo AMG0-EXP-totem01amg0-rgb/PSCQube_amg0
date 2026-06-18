@@ -145,6 +145,72 @@ router.get("/api/sheets/status", async (req, res) => {
   });
 });
 
+// GET Catalogos (returns all master directories in one single call)
+router.get("/api/catalogos", async (req, res) => {
+  const bypassCache = req.query.bypassCache === "true";
+  const catalogTables = [
+    "TURNOSV2",
+    "PALETIZADORAV2",
+    "ENSACADORAV2",
+    "HACSV2",
+    "CAUSASV2",
+    "MATERIALESV2",
+    "CAPACIDADESV2",
+    "USUARIOSV2",
+    "EMPRESASV2",
+    "PUNTOS_CARGAV2",
+    "PROVEEDORES_BOLSAV2",
+    "VEHICULOSV2"
+  ];
+
+  try {
+    const results: Record<string, any[]> = {};
+    for (const table of catalogTables) {
+      if (bypassCache) {
+        invalidateCache(table);
+      }
+      results[table] = await GenericRepository.findAll(table);
+    }
+    return res.json({ success: true, data: results });
+  } catch (error: any) {
+    console.error("GET /api/catalogos Error:", error);
+    return res.status(500).json({ success: false, error: error.message || "Error al leer catálogos" });
+  }
+});
+
+// GET Produccion Endpoint
+router.get("/api/produccion", async (req, res) => {
+  const bypassCache = req.query.bypassCache === "true";
+  if (bypassCache) {
+    invalidateCache("PRODUCCIONV2");
+  }
+  try {
+    const list = await GenericRepository.findAll("PRODUCCIONV2");
+    await ProductionService.enrichProductionReportsWithNozzleNews(list);
+    await ProductionService.enrichProductionReportsWithDetails(list);
+    return res.json({ success: true, data: list });
+  } catch (error: any) {
+    console.error("GET /api/produccion Error:", error);
+    return res.status(500).json({ success: false, error: error.message || "Error al leer producción" });
+  }
+});
+
+// GET Paros Endpoint
+router.get("/api/paros", async (req, res) => {
+  const bypassCache = req.query.bypassCache === "true";
+  if (bypassCache) {
+    invalidateCache("PAROSV2");
+  }
+  try {
+    const list = await GenericRepository.findAll("PAROSV2");
+    await ParosService.enrichParosOnRead(list);
+    return res.json({ success: true, data: list });
+  } catch (error: any) {
+    console.error("GET /api/paros Error:", error);
+    return res.status(500).json({ success: false, error: error.message || "Error al leer paros" });
+  }
+});
+
 // GET Endpoint to read tables generically
 router.get("/api/sheets", async (req, res) => {
   const table = req.query.table as string;

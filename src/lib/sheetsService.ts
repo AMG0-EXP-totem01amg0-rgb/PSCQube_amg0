@@ -50,8 +50,62 @@ export interface FetchResult {
 
 const CACHE_PREFIX = "app_table_cache_v2_";
 
+export const MASTER_TABLES = [
+  "TURNOSV2",
+  "PALETIZADORAV2",
+  "ENSACADORAV2",
+  "HACSV2",
+  "CAUSASV2",
+  "MATERIALESV2",
+  "CAPACIDADESV2",
+  "USUARIOSV2",
+  "EMPRESASV2",
+  "PUNTOS_CARGAV2",
+  "PROVEEDORES_BOLSAV2",
+  "VEHICULOSV2"
+];
+
 /**
- * Reads cached data for a given table from sessionStorage.
+ * Reads cached data for a given table from browser localStorage or sessionStorage.
+ */
+function getBrowserCache(tableName: string): any[] | null {
+  try {
+    const key = `app_cache_v2_${tableName.toUpperCase()}`;
+    const value = localStorage.getItem(key);
+    if (!value) return null;
+    
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.data)) return null;
+
+    const isMaster = MASTER_TABLES.includes(tableName.toUpperCase());
+    const ttl = isMaster ? 30 * 60 * 1000 : 5000; // 30 minutes for master tables, 5 seconds for operational tables
+    
+    if (Date.now() - parsed.timestamp < ttl) {
+      return parsed.data;
+    }
+  } catch (err) {
+    console.warn("Error reading cache for " + tableName, err);
+  }
+  return null;
+}
+
+/**
+ * Saves table data into local browser cache.
+ */
+function setBrowserCache(tableName: string, data: any[]): void {
+  try {
+    const key = `app_cache_v2_${tableName.toUpperCase()}`;
+    localStorage.setItem(key, JSON.stringify({
+      timestamp: Date.now(),
+      data
+    }));
+  } catch (err) {
+    console.warn("Error writing cache for " + tableName, err);
+  }
+}
+
+/**
+ * Reads cached data for a given table from sessionStorage (temporary legacy support).
  */
 function getCachedData(tableName: string): any[] | null {
   try {
@@ -67,7 +121,7 @@ function getCachedData(tableName: string): any[] | null {
 }
 
 /**
- * Saves table data into sessionStorage.
+ * Saves table data into sessionStorage (temporary legacy support).
  */
 function setCachedData(tableName: string, data: any[]): void {
   try {
@@ -79,7 +133,7 @@ function setCachedData(tableName: string, data: any[]): void {
 }
 
 /**
- * Clears cached data from sessionStorage for a specific table or all.
+ * Clears cached data from sessionStorage and localStorage.
  */
 export function clearClientCache(tableName?: string): void {
   try {
@@ -87,31 +141,43 @@ export function clearClientCache(tableName?: string): void {
       const sheetName = tableName.toUpperCase();
       const keysToClear = [sheetName, sheetName.endsWith('V2') ? sheetName : `${sheetName}V2`];
       keysToClear.forEach(k => {
+        localStorage.removeItem(`app_cache_v2_${k}`);
         sessionStorage.removeItem(CACHE_PREFIX + k);
         if (k === "CAUSASV2") {
           localStorage.removeItem("app_causas_v2_local_cache");
           localStorage.removeItem("app_causas_v2_local_cache_time");
-          console.log("[Client Cache Invalidation] Cleared causas localStorage cache.");
         }
       });
 
       // Special dependency invalidation: PAROSV2, PRODUCCIONV2 and PAROS_BOQUILLASV2 are closely linked on calculations
       if (sheetName.includes("PARO") || sheetName.includes("PRODUC") || sheetName.includes("BOQUILLA")) {
+        localStorage.removeItem(`app_cache_v2_PAROSV2`);
+        localStorage.removeItem(`app_cache_v2_PRODUCCIONV2`);
+        localStorage.removeItem(`app_cache_v2_PAROS_BOQUILLASV2`);
         sessionStorage.removeItem(CACHE_PREFIX + "PAROSV2");
         sessionStorage.removeItem(CACHE_PREFIX + "PRODUCCIONV2");
         sessionStorage.removeItem(CACHE_PREFIX + "PAROS_BOQUILLASV2");
       }
     } else {
       // Clear all related prefix keys
+      const keysToClearL: string[] = [];
+      const keysToClearS: string[] = [];
+      
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith("app_cache_v2_") || key.startsWith("app_causas_v2"))) {
+          keysToClearL.push(key);
+        }
+      }
       for (let i = 0; i < sessionStorage.length; i++) {
         const key = sessionStorage.key(i);
         if (key && key.startsWith(CACHE_PREFIX)) {
-          sessionStorage.removeItem(key);
-          i--; // offset index shift
+          keysToClearS.push(key);
         }
       }
-      localStorage.removeItem("app_causas_v2_local_cache");
-      localStorage.removeItem("app_causas_v2_local_cache_time");
+
+      keysToClearL.forEach(k => localStorage.removeItem(k));
+      keysToClearS.forEach(k => sessionStorage.removeItem(k));
     }
   } catch (err) {
     console.warn("[Client Cache Clear Error]", err);
@@ -168,46 +234,31 @@ export async function fetchTableFromSheets(tableName: string, forceBypass = fals
     sheetName = `${sheetName}V2`;
   }
 
-  const CAUSAS_LOCAL_CACHE_KEY = "app_causas_v2_local_cache";
-  const CAUSAS_LOCAL_CACHE_TIME_KEY = "app_causas_v2_local_cache_time";
-  const CAUSAS_CACHE_TTL = 10 * 60 * 1000; // 10 minutes TTL
+  const isMaster = MASTER_TABLES.includes(sheetName);
+  const isForcedManual = (window as any).forceRefreshMasters === true;
 
-  // Optimize: Try loading from browser / explorer sessionStorage or localStorage cache first
-  if (!forceBypass) {
-    if (sheetName === "CAUSASV2") {
-      try {
-        const localCached = localStorage.getItem(CAUSAS_LOCAL_CACHE_KEY);
-        const localCachedTime = localStorage.getItem(CAUSAS_LOCAL_CACHE_TIME_KEY);
-        const parsedTime = localCachedTime ? parseInt(localCachedTime, 10) : 0;
-
-        if (localCached && (Date.now() - parsedTime < CAUSAS_CACHE_TTL)) {
-          const parsedData = JSON.parse(localCached);
-          console.log(`[Diagnostic] CAUSASV2 Cache hit!`);
-          console.log(`- registros leídos desde caché: ${parsedData.length}`);
-          console.log(`- registros consultados a Supabase: 0`);
-          console.log(`- total final disponible en masters.causes: ${parsedData.length}`);
-          
-          triggerBackgroundRevalidation(sheetName, parsedData);
-          
-          return { success: true, data: parsedData };
-        }
-      } catch (e) {
-        console.warn("Error reading localStorage causas cache:", e);
-      }
-    } else {
-      const cached = getCachedData(sheetName);
-      if (cached) {
-        console.log(`[Client Cache Hit] Loaded table ${sheetName} from sessionStorage`);
-        
+  // Optimize: Check local cached data first. Under normal flows or intervals, 
+  // we do not fetch master tables if their browser cache is still active (30 mins).
+  if (!isForcedManual) {
+    const cached = getBrowserCache(sheetName);
+    if (cached) {
+      console.log(`[Browser Cache Hit] Loaded table ${sheetName} (isMaster: ${isMaster})`);
+      if (!isMaster) {
         triggerBackgroundRevalidation(sheetName, cached);
-        
-        return { success: true, data: cached };
       }
+      return { success: true, data: cached };
     }
   }
 
   try {
-    const url = `/api/sheets?table=${sheetName}${forceBypass ? '&bypassCache=true' : ''}`;
+    // If it's a specialized endpoint (produccion / paros), we can hit that instead for performance!
+    let url = `/api/sheets?table=${sheetName}${forceBypass || isForcedManual ? '&bypassCache=true' : ''}`;
+    if (sheetName === "PRODUCCIONV2") {
+      url = `/api/produccion${forceBypass || isForcedManual ? '?bypassCache=true' : ''}`;
+    } else if (sheetName === "PAROSV2") {
+      url = `/api/paros${forceBypass || isForcedManual ? '?bypassCache=true' : ''}`;
+    }
+
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -217,21 +268,7 @@ export async function fetchTableFromSheets(tableName: string, forceBypass = fals
 
     const result = await response.json();
     if (result.success && Array.isArray(result.data)) {
-      if (sheetName === "CAUSASV2") {
-        try {
-          localStorage.setItem(CAUSAS_LOCAL_CACHE_KEY, JSON.stringify(result.data));
-          localStorage.setItem(CAUSAS_LOCAL_CACHE_TIME_KEY, String(Date.now()));
-          console.log(`[Diagnostic] CAUSASV2 Cache miss! Loading fresh from Supabase.`);
-          console.log(`- registros leídos desde caché: 0`);
-          console.log(`- registros consultados a Supabase: ${result.data.length}`);
-          console.log(`- total final disponible en masters.causes: ${result.data.length}`);
-        } catch (e) {
-          console.warn("Error writing localStorage causas cache:", e);
-        }
-      } else {
-        // Warm browser cache
-        setCachedData(sheetName, result.data);
-      }
+      setBrowserCache(sheetName, result.data);
       return { success: true, data: result.data };
     }
     return { success: false, error: result.error || "Formato de respuesta inválido" };
@@ -385,6 +422,8 @@ Para que la aplicación funcione en tiempo real con Google Sheets, debes agregar
  * window event is dispatched so React state can synchronize seamlessly.
  */
 function triggerBackgroundRevalidation(sheetName: string, cachedData: any[]) {
+  if (MASTER_TABLES.includes(sheetName)) return; // Skip background revalidation for master/catalog databases
+
   setTimeout(async () => {
     try {
       const url = `/api/sheets?table=${sheetName}&bypassCache=true`;
@@ -407,16 +446,7 @@ function triggerBackgroundRevalidation(sheetName: string, cachedData: any[]) {
         if (different) {
           console.log(`[Background Revalidation] Cache out of date for ${sheetName}. Refreshing Cache and dispatching event...`);
           
-          if (sheetName === "CAUSASV2") {
-            try {
-              localStorage.setItem("app_causas_v2_local_cache", JSON.stringify(result.data));
-              localStorage.setItem("app_causas_v2_local_cache_time", String(Date.now()));
-            } catch (e) {
-              console.warn("Error writing causas localStorage cache in background:", e);
-            }
-          } else {
-            setCachedData(sheetName, result.data);
-          }
+          setBrowserCache(sheetName, result.data);
 
           // Emit global custom event so React registers the fresh updates
           window.dispatchEvent(new CustomEvent('table-data-updated', {
@@ -430,4 +460,29 @@ function triggerBackgroundRevalidation(sheetName: string, cachedData: any[]) {
       console.warn("[Background Revalidation Error]", e);
     }
   }, 100); // small delay to give thread breathing room
+}
+
+/**
+ * Preloads all master catalogs from the backend in a single efficient HTTP request,
+ * storing them directly into the new browser-side cache.
+ */
+export async function preloadMasterCatalogs(bypassCache = false): Promise<FetchResult> {
+  try {
+    const url = `/api/catalogos${bypassCache ? '?bypassCache=true' : ''}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      return { success: false, error: `Error HTTP ${response.status}` };
+    }
+    const result = await response.json();
+    if (result.success && result.data) {
+      Object.entries(result.data).forEach(([tableName, rows]) => {
+        setBrowserCache(tableName, rows as any[]);
+      });
+      return { success: true, data: [] };
+    }
+    return { success: false, error: result.error || "Formato inválido en precarga" };
+  } catch (err: any) {
+    console.error("Error preloading master catalogs:", err);
+    return { success: false, error: err.message || String(err) };
+  }
 }
