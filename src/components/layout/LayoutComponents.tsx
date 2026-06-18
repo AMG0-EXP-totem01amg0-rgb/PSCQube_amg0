@@ -4,7 +4,7 @@ import {
   Factory, ChevronDown, Bot, AlertTriangle, Package, Settings, 
   ShieldCheck, Leaf, Users, Sun, Moon, Home, X, Filter, 
   ChevronUp, Calendar, LogOut, User as UserIcon,
-  Bell, CheckCheck, Beaker, AlertCircle, Info, RotateCw
+  Bell, CheckCheck, Beaker, AlertCircle, Info, RotateCw, RefreshCw
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Machine, AlertNotification, AppUser } from '../../types';
@@ -26,6 +26,7 @@ interface HeaderProps {
   onMarkAsRead: (id: string) => void;
   onMarkAllAsRead: (ids: string[]) => void;
   onNavigateToChange: () => void;
+  onRefreshCurrentFilters?: () => void;
 }
 
 interface NotificationBellDropdownProps {
@@ -226,7 +227,8 @@ export function Header({
   readNotificationKeys,
   onMarkAsRead,
   onMarkAllAsRead,
-  onNavigateToChange
+  onNavigateToChange,
+  onRefreshCurrentFilters
 }: HeaderProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -373,10 +375,21 @@ export function Header({
                 }
               }}
               className="sm:hidden p-1.5 rounded-full hover:bg-bg transition-colors text-text-main"
-              title="Sincronizar Datos"
+              title="Limpiar Caché General y Recargar"
             >
               <RotateCw size={14} className="text-text-main hover:text-primary" />
             </button>
+
+            {/* Refrescar Vista (Mobile) */}
+            {onRefreshCurrentFilters && (
+              <button 
+                onClick={onRefreshCurrentFilters}
+                className="sm:hidden p-1.5 rounded-full hover:bg-bg transition-colors text-text-main"
+                title="Refrescar Vista Actual"
+              >
+                <RefreshCw size={14} className="text-text-main hover:text-green-500" />
+              </button>
+            )}
 
             {/* EXPAND/COLLAPSE TOGGLE (Mobile only) - Strictly Manual */}
             <button 
@@ -516,10 +529,21 @@ export function Header({
                   }
                 }}
                 className="hidden sm:flex p-2 rounded-full hover:bg-bg transition-colors text-text-main hover:text-primary shrink-0 ml-1"
-                title="Sincronizar base de datos"
+                title="Limpiar Caché General y Recargar"
               >
                 <RotateCw size={18} className="text-text-main hover:text-primary" />
               </button>
+
+              {/* Refrescar Vista - Desktop */}
+              {onRefreshCurrentFilters && (
+                <button 
+                  onClick={onRefreshCurrentFilters}
+                  className="hidden sm:flex p-2 rounded-full hover:bg-bg transition-colors text-text-main hover:text-primary shrink-0 ml-1"
+                  title="Refrescar Vista Actual"
+                >
+                  <RefreshCw size={18} className="text-text-main hover:text-green-500" />
+                </button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

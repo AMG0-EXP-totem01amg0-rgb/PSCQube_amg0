@@ -495,6 +495,14 @@ export default function App() {
         await preloadMasterCatalogs(true);
 
         setSyncMessage('Sincronizando información...');
+        
+        // Define initial filters to only query current shift records to avoid heavy initial historic downloads
+        const initialFilters = {
+          date: userContext.selectedDate,
+          shiftId: userContext.selectedShiftId,
+          palletizerId: userContext.selectedPalletizerId
+        };
+
         // Parallel fetching of master & transactional data with explicit cache bypass to get manual DB updates
         const [
           resStops,
@@ -521,15 +529,15 @@ export default function App() {
           resVehicles,
           resFuelLoads
         ] = await Promise.all([
-          fetchTableFromSheets("PAROSV2", true),
-          fetchTableFromSheets("PRODUCCIONV2", true),
-          fetchTableFromSheets("CONTROL_FECHADORV2", true),
-          fetchTableFromSheets("CONTROL_BALANZAV2", true),
-          fetchTableFromSheets("INVENTARIO_FISICOV2", true),
-          fetchTableFromSheets("CLASISFICACION_PALLETSV2", true),
-          fetchTableFromSheets("CAMBIO_PRODUCTOV2", true),
-          fetchTableFromSheets("DESPACHOSV2", true),
-          fetchTableFromSheets("ESTADO_CALLESV2", true),
+          fetchTableFromSheets("PAROSV2", true, initialFilters),
+          fetchTableFromSheets("PRODUCCIONV2", true, initialFilters),
+          fetchTableFromSheets("CONTROL_FECHADORV2", true, initialFilters),
+          fetchTableFromSheets("CONTROL_BALANZAV2", true, initialFilters),
+          fetchTableFromSheets("INVENTARIO_FISICOV2", true, initialFilters),
+          fetchTableFromSheets("CLASISFICACION_PALLETSV2", true, initialFilters),
+          fetchTableFromSheets("CAMBIO_PRODUCTOV2", true, initialFilters),
+          fetchTableFromSheets("DESPACHOSV2", true, initialFilters),
+          fetchTableFromSheets("ESTADO_CALLESV2", true, initialFilters),
           // Masters (resolved instantly from cache with false flag)
           fetchTableFromSheets("TURNOSV2", false),
           fetchTableFromSheets("PALETIZADORAV2", false),
@@ -543,7 +551,7 @@ export default function App() {
           fetchTableFromSheets("PUNTOS_CARGAV2", false),
           fetchTableFromSheets("PROVEEDORES_BOLSAV2", false),
           fetchTableFromSheets("VEHICULOSV2", false),
-          fetchTableFromSheets("CARGA_COMBUSTIBLEV2", true)
+          fetchTableFromSheets("CARGA_COMBUSTIBLEV2", true, initialFilters)
         ]);
 
         setSyncMessage('Preparando sistema...');
@@ -636,6 +644,83 @@ export default function App() {
     }
   };
 
+  const handleRefreshCurrentFilters = async () => {
+    addToast("Actualizando datos del turno actual...", "info");
+    const filters = {
+      date: userContext.selectedDate,
+      shiftId: userContext.selectedShiftId,
+      palletizerId: userContext.selectedPalletizerId
+    };
+
+    try {
+      setIsSyncing(true);
+      setSyncMessage('Forzando lectura fresca...');
+
+      const [
+        resStops,
+        resProd,
+        resDater,
+        resScale,
+        resInventory,
+        resClass,
+        resChange,
+        resDespachos,
+        resLoadingLanes,
+        resFuel
+      ] = await Promise.all([
+        fetchTableFromSheets("PAROSV2", true, filters),
+        fetchTableFromSheets("PRODUCCIONV2", true, filters),
+        fetchTableFromSheets("CONTROL_FECHADORV2", true, filters),
+        fetchTableFromSheets("CONTROL_BALANZAV2", true, filters),
+        fetchTableFromSheets("INVENTARIO_FISICOV2", true, filters),
+        fetchTableFromSheets("CLASISFICACION_PALLETSV2", true, filters),
+        fetchTableFromSheets("CAMBIO_PRODUCTOV2", true, filters),
+        fetchTableFromSheets("DESPACHOSV2", true, filters),
+        fetchTableFromSheets("ESTADO_CALLESV2", true, filters),
+        fetchTableFromSheets("CARGA_COMBUSTIBLEV2", true, filters)
+      ]);
+
+      if (resStops.success && resStops.data) {
+        const freshStops = resStops.data as MachineStop[];
+        setStops(freshStops.filter(s => s && !deletedStopIdsRef.current.has(s.id)));
+      }
+      if (resProd.success && resProd.data) {
+        setProductionReports(resProd.data);
+      }
+      if (resDater.success && resDater.data) {
+        setDaterControls(resDater.data);
+      }
+      if (resScale.success && resScale.data) {
+        setScaleControls(resScale.data);
+      }
+      if (resInventory.success && resInventory.data) {
+        setInventoryEntries(resInventory.data);
+      }
+      if (resClass.success && resClass.data) {
+        setPalletClassifications(resClass.data);
+      }
+      if (resChange.success && resChange.data) {
+        setProductChanges(resChange.data);
+      }
+      if (resDespachos.success && resDespachos.data) {
+        setDispatchEntries(resDespachos.data);
+      }
+      if (resLoadingLanes.success && resLoadingLanes.data) {
+        setLaneStatuses(resLoadingLanes.data);
+      }
+      if (resFuel.success && resFuel.data) {
+        setFuelLoads(resFuel.data);
+      }
+
+      addToast("¡Datos de vista actualizados!", "success");
+    } catch (err) {
+      console.warn("Error refreshing current view filters:", err);
+      addToast("Error al refrescar la vista", "error");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   // Automatically restore active user session elements on start
   useEffect(() => {
     const savedDni = sessionStorage.getItem('pscqube_user_dni');
@@ -650,16 +735,111 @@ export default function App() {
     productChangesRef.current = productChanges;
   }, [productChanges]);
 
+  // On-demand fetch of transactional data when filters change (without fetching master tables)
+  useEffect(() => {
+    if (!hasEnteredApp) return;
+
+    let isMounted = true;
+    const fetchFilteredTransactions = async () => {
+      try {
+        const filters = {
+          date: userContext.selectedDate,
+          shiftId: userContext.selectedShiftId,
+          palletizerId: userContext.selectedPalletizerId
+        };
+        
+        setIsSyncing(true);
+        setSyncMessage('Cargando registros del turno actual...');
+
+        const [
+          resStops,
+          resProd,
+          resDater,
+          resScale,
+          resInventory,
+          resClass,
+          resChange,
+          resDespachos,
+          resLoadingLanes,
+          resFuel
+        ] = await Promise.all([
+          fetchTableFromSheets("PAROSV2", false, filters),
+          fetchTableFromSheets("PRODUCCIONV2", false, filters),
+          fetchTableFromSheets("CONTROL_FECHADORV2", false, filters),
+          fetchTableFromSheets("CONTROL_BALANZAV2", false, filters),
+          fetchTableFromSheets("INVENTARIO_FISICOV2", false, filters),
+          fetchTableFromSheets("CLASISFICACION_PALLETSV2", false, filters),
+          fetchTableFromSheets("CAMBIO_PRODUCTOV2", false, filters),
+          fetchTableFromSheets("DESPACHOSV2", false, filters),
+          fetchTableFromSheets("ESTADO_CALLESV2", false, filters),
+          fetchTableFromSheets("CARGA_COMBUSTIBLEV2", false, filters)
+        ]);
+
+        if (!isMounted) return;
+
+        if (resStops.success && resStops.data) {
+          const freshStops = resStops.data as MachineStop[];
+          setStops(freshStops.filter(s => s && !deletedStopIdsRef.current.has(s.id)));
+        }
+        if (resProd.success && resProd.data) {
+          setProductionReports(resProd.data);
+        }
+        if (resDater.success && resDater.data) {
+          setDaterControls(resDater.data);
+        }
+        if (resScale.success && resScale.data) {
+          setScaleControls(resScale.data);
+        }
+        if (resInventory.success && resInventory.data) {
+          setInventoryEntries(resInventory.data);
+        }
+        if (resClass.success && resClass.data) {
+          setPalletClassifications(resClass.data);
+        }
+        if (resChange.success && resChange.data) {
+          setProductChanges(resChange.data);
+        }
+        if (resDespachos.success && resDespachos.data) {
+          setDispatchEntries(resDespachos.data);
+        }
+        if (resLoadingLanes.success && resLoadingLanes.data) {
+          setLaneStatuses(resLoadingLanes.data);
+        }
+        if (resFuel.success && resFuel.data) {
+          setFuelLoads(resFuel.data);
+        }
+
+      } catch (err) {
+        console.warn("Error fetching filtered transactions:", err);
+      } finally {
+        if (isMounted) {
+          setIsSyncing(false);
+        }
+      }
+    };
+
+    fetchFilteredTransactions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [hasEnteredApp, userContext.selectedDate, userContext.selectedShiftId, userContext.selectedPalletizerId]);
+
   // Background synchronized polling for real-time collaboration across multiple devices
   useEffect(() => {
     if (!hasEnteredApp) return;
 
     const intervalId = setInterval(async () => {
       try {
+        const filters = {
+          date: userContext.selectedDate,
+          shiftId: userContext.selectedShiftId,
+          palletizerId: userContext.selectedPalletizerId
+        };
         const [resChanges, resStops, resProd] = await Promise.all([
-          fetchTableFromSheets("CAMBIO_PRODUCTOV2", true),
-          fetchTableFromSheets("PAROSV2", true),
-          fetchTableFromSheets("PRODUCCIONV2", true)
+          fetchTableFromSheets("CAMBIO_PRODUCTOV2", true, filters),
+          fetchTableFromSheets("PAROSV2", true, filters),
+          fetchTableFromSheets("PRODUCCIONV2", true, filters)
         ]);
 
         if (resChanges.success && resChanges.data) {
@@ -710,10 +890,10 @@ export default function App() {
       } catch (err) {
         console.warn("[BackgroundSync] Silent polling warning:", err);
       }
-    }, 12000); // Poll every 12 seconds to maintain freshness without hitting Sheets API limits
+    }, 60000); // Poll every 60 seconds (1 minute) to reduce resource usage while ensuring freshness
 
     return () => clearInterval(intervalId);
-  }, [hasEnteredApp, currentUser.profile, currentUser.position, masters.materials]);
+  }, [hasEnteredApp, currentUser.profile, currentUser.position, masters.materials, userContext.selectedDate, userContext.selectedShiftId, userContext.selectedPalletizerId]);
 
   // --- Centralized, Synchronized & Toast-Enabled handlers ---
   
@@ -773,16 +953,22 @@ export default function App() {
       ? updateRecordInSheets("PAROSV2", stop.id, stop)
       : createRecordInSheets("PAROSV2", stop);
 
+    const activeFilters = {
+      date: stop.date || userContext.selectedDate,
+      shiftId: stop.shiftId || userContext.selectedShiftId,
+      palletizerId: stop.machineId || userContext.selectedPalletizerId
+    };
+
     actionPromise.then(res => {
       if (res.success) {
         addToast(exists ? "Paro actualizado con éxito" : "Paro registrado con éxito", "success");
-        // Re-read both PAROSV2 and PRODUCCIONV2 with explicit bypassCache = true
-        fetchTableFromSheets("PAROSV2", true).then(sRes => {
+        // Re-read both PAROSV2 and PRODUCCIONV2 with filter parameters applied to keep resource usage minimum
+        fetchTableFromSheets("PAROSV2", true, activeFilters).then(sRes => {
           if (sRes.success && sRes.data) {
             setStops(sRes.data);
           }
         });
-        fetchTableFromSheets("PRODUCCIONV2", true).then(pRes => {
+        fetchTableFromSheets("PRODUCCIONV2", true, activeFilters).then(pRes => {
           if (pRes.success && pRes.data) {
             setProductionReports(pRes.data);
           }
@@ -795,22 +981,30 @@ export default function App() {
 
   const handleDeleteStop = (id: string) => {
     let nextStops: MachineStop[] = [];
-    deletedStopIdsRef.current.add(id);
+    let deletedItem: MachineStop | undefined;
     setStops(prev => {
+      deletedItem = prev.find(s => s.id === id);
       nextStops = prev.filter(s => s.id !== id);
       return nextStops;
     });
+    deletedStopIdsRef.current.add(id);
+
+    const activeFilters = {
+      date: deletedItem?.date || userContext.selectedDate,
+      shiftId: deletedItem?.shiftId || userContext.selectedShiftId,
+      palletizerId: deletedItem?.machineId || userContext.selectedPalletizerId
+    };
 
     deleteRecordInSheets("PAROSV2", id).then(res => {
       if (res.success) {
         addToast("Paro eliminado", "success");
-        // Re-read both PAROSV2 and PRODUCCIONV2 with explicit bypassCache = true
-        fetchTableFromSheets("PAROSV2", true).then(sRes => {
+        // Re-read both PAROSV2 and PRODUCCIONV2 with filter parameters applied
+        fetchTableFromSheets("PAROSV2", true, activeFilters).then(sRes => {
           if (sRes.success && sRes.data) {
             setStops(sRes.data);
           }
         });
-        fetchTableFromSheets("PRODUCCIONV2", true).then(pRes => {
+        fetchTableFromSheets("PRODUCCIONV2", true, activeFilters).then(pRes => {
           if (pRes.success && pRes.data) {
             setProductionReports(pRes.data);
           }
@@ -836,11 +1030,17 @@ export default function App() {
       ? updateRecordInSheets("PRODUCCIONV2", report.id, report)
       : createRecordInSheets("PRODUCCIONV2", report);
 
+    const activeFilters = {
+      date: report.date || userContext.selectedDate,
+      shiftId: report.shiftId || userContext.selectedShiftId,
+      palletizerId: report.palletizerId || userContext.selectedPalletizerId
+    };
+
     actionPromise.then(res => {
       if (res.success) {
         addToast(exists ? "Producción actualizada con éxito" : "Producción guardada con éxito", "success");
         // FETCH the updated table from Sheets/Supabase to get exact recalculated metrics and nested fields!
-        fetchTableFromSheets("PRODUCCIONV2", true).then(pRes => {
+        fetchTableFromSheets("PRODUCCIONV2", true, activeFilters).then(pRes => {
           if (pRes.success && pRes.data) {
             setProductionReports(pRes.data);
           }
@@ -853,16 +1053,24 @@ export default function App() {
 
   const handleDeleteProductionReport = (id: string) => {
     let nextReports: ProductionReport[] = [];
+    let deletedItem: ProductionReport | undefined;
     setProductionReports(prev => {
+      deletedItem = prev.find(r => r.id === id);
       nextReports = prev.filter(r => r.id !== id);
       return nextReports;
     });
+
+    const activeFilters = {
+      date: deletedItem?.date || userContext.selectedDate,
+      shiftId: deletedItem?.shiftId || userContext.selectedShiftId,
+      palletizerId: deletedItem?.palletizerId || userContext.selectedPalletizerId
+    };
 
     deleteRecordInSheets("PRODUCCIONV2", id).then(res => {
       if (res.success) {
         addToast("Reporte de producción eliminado de base de datos", "success");
         // FETCH the updated table from Sheets/Supabase to keep frontend state perfectly synchronized
-        fetchTableFromSheets("PRODUCCIONV2", true).then(pRes => {
+        fetchTableFromSheets("PRODUCCIONV2", true, activeFilters).then(pRes => {
           if (pRes.success && pRes.data) {
             setProductionReports(pRes.data);
           }
@@ -1315,6 +1523,7 @@ export default function App() {
               setActiveSection('PRODUCTIVITY');
               setProdTab('CHANGE');
             }}
+            onRefreshCurrentFilters={handleRefreshCurrentFilters}
           />
 
           <main className="p-4 md:p-8 max-w-7xl mx-auto pt-4 md:pt-8">

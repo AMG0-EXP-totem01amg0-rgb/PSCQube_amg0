@@ -185,7 +185,20 @@ router.get("/api/produccion", async (req, res) => {
     invalidateCache("PRODUCCIONV2");
   }
   try {
-    const list = await GenericRepository.findAll("PRODUCCIONV2");
+    let list = await GenericRepository.findAll("PRODUCCIONV2");
+
+    // Apply active filters at backend level if provided!
+    const { date, shiftId, palletizerId } = req.query as Record<string, string>;
+    if (date) {
+      list = list.filter((r: any) => r.date === date);
+    }
+    if (shiftId) {
+      list = list.filter((r: any) => String(r.shiftId || '').trim().toUpperCase() === String(shiftId).trim().toUpperCase());
+    }
+    if (palletizerId) {
+      list = list.filter((r: any) => String(r.palletizerId || '').trim().toUpperCase() === String(palletizerId).trim().toUpperCase());
+    }
+
     await ProductionService.enrichProductionReportsWithNozzleNews(list);
     await ProductionService.enrichProductionReportsWithDetails(list);
     return res.json({ success: true, data: list });
@@ -202,7 +215,28 @@ router.get("/api/paros", async (req, res) => {
     invalidateCache("PAROSV2");
   }
   try {
-    const list = await GenericRepository.findAll("PAROSV2");
+    let list = await GenericRepository.findAll("PAROSV2");
+
+    // Apply active filters at backend level if provided!
+    const { date, shiftId, palletizerId } = req.query as Record<string, string>;
+    if (date) {
+      list = list.filter((r: any) => r.date === date);
+    }
+    if (shiftId) {
+      list = list.filter((r: any) => {
+        const itemShift = String(r.shiftId || r.shiftName || '').trim().toUpperCase();
+        const paramShift = String(shiftId).trim().toUpperCase();
+        return itemShift === paramShift;
+      });
+    }
+    if (palletizerId) {
+      list = list.filter((r: any) => {
+        const itemMach = String(r.palletizerId || r.machineId || r.machineHacText || '').trim().toUpperCase();
+        const paramMach = String(palletizerId).trim().toUpperCase();
+        return itemMach.includes(paramMach) || paramMach.includes(itemMach);
+      });
+    }
+
     await ParosService.enrichParosOnRead(list);
     return res.json({ success: true, data: list });
   } catch (error: any) {
@@ -224,9 +258,45 @@ router.get("/api/sheets", async (req, res) => {
   }
 
   try {
-    const list = await GenericRepository.findAll(table);
+    let list = await GenericRepository.findAll(table);
 
     const upperTable = table.toUpperCase();
+
+    // List of transactional/filterable tables
+    const filterableTables = [
+      "PAROSV2",
+      "PRODUCCIONV2",
+      "CONTROL_FECHADORV2",
+      "CONTROL_BALANZAV2",
+      "INVENTARIO_FISICOV2",
+      "CLASISFICACION_PALLETSV2",
+      "CAMBIO_PRODUCTOV2",
+      "DESPACHOSV2",
+      "ESTADO_CALLESV2",
+      "CARGA_COMBUSTIBLEV2"
+    ];
+
+    if (filterableTables.includes(upperTable)) {
+      const { date, shiftId, palletizerId } = req.query as Record<string, string>;
+      if (date) {
+        list = list.filter((r: any) => r.date === date);
+      }
+      if (shiftId) {
+        list = list.filter((r: any) => {
+          const itemShift = String(r.shiftId || r.shiftName || '').trim().toUpperCase();
+          const paramShift = String(shiftId).trim().toUpperCase();
+          return itemShift === paramShift;
+        });
+      }
+      if (palletizerId) {
+        list = list.filter((r: any) => {
+          const itemMach = String(r.palletizerId || r.machineId || r.machineHacText || '').trim().toUpperCase();
+          const paramMach = String(palletizerId).trim().toUpperCase();
+          return itemMach.includes(paramMach) || paramMach.includes(itemMach);
+        });
+      }
+    }
+
     if (upperTable === "PRODUCCIONV2") {
       await ProductionService.enrichProductionReportsWithNozzleNews(list);
       await ProductionService.enrichProductionReportsWithDetails(list);

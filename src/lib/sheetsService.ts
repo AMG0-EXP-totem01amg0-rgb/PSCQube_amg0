@@ -68,9 +68,14 @@ export const MASTER_TABLES = [
 /**
  * Reads cached data for a given table from browser localStorage or sessionStorage.
  */
-function getBrowserCache(tableName: string): any[] | null {
+function getBrowserCache(tableName: string, filters?: { date?: string; shiftId?: string; palletizerId?: string }): any[] | null {
   try {
-    const key = `app_cache_v2_${tableName.toUpperCase()}`;
+    let key = `app_cache_v2_${tableName.toUpperCase()}`;
+    if (filters) {
+      if (filters.date) key += `_${filters.date}`;
+      if (filters.shiftId) key += `_${filters.shiftId}`;
+      if (filters.palletizerId) key += `_${filters.palletizerId}`;
+    }
     const value = localStorage.getItem(key);
     if (!value) return null;
     
@@ -92,9 +97,14 @@ function getBrowserCache(tableName: string): any[] | null {
 /**
  * Saves table data into local browser cache.
  */
-function setBrowserCache(tableName: string, data: any[]): void {
+function setBrowserCache(tableName: string, data: any[], filters?: { date?: string; shiftId?: string; palletizerId?: string }): void {
   try {
-    const key = `app_cache_v2_${tableName.toUpperCase()}`;
+    let key = `app_cache_v2_${tableName.toUpperCase()}`;
+    if (filters) {
+      if (filters.date) key += `_${filters.date}`;
+      if (filters.shiftId) key += `_${filters.shiftId}`;
+      if (filters.palletizerId) key += `_${filters.palletizerId}`;
+    }
     localStorage.setItem(key, JSON.stringify({
       timestamp: Date.now(),
       data
@@ -228,7 +238,11 @@ export async function syncTableToSheets(tableName: string, data: any[]): Promise
 /**
  * Fetch Table Data from Google Sheets
  */
-export async function fetchTableFromSheets(tableName: string, forceBypass = false): Promise<FetchResult> {
+export async function fetchTableFromSheets(
+  tableName: string, 
+  forceBypass = false,
+  filters?: { date?: string; shiftId?: string; palletizerId?: string }
+): Promise<FetchResult> {
   let sheetName = tableName.toUpperCase();
   if (!sheetName.endsWith('V2')) {
     sheetName = `${sheetName}V2`;
@@ -239,24 +253,37 @@ export async function fetchTableFromSheets(tableName: string, forceBypass = fals
 
   // Optimize: Check local cached data first. Under normal flows or intervals, 
   // we do not fetch master tables if their browser cache is still active (30 mins).
-  if (!isForcedManual) {
-    const cached = getBrowserCache(sheetName);
+  if (!isForcedManual && !forceBypass) {
+    const cached = getBrowserCache(sheetName, filters);
     if (cached) {
       console.log(`[Browser Cache Hit] Loaded table ${sheetName} (isMaster: ${isMaster})`);
       if (!isMaster) {
-        triggerBackgroundRevalidation(sheetName, cached);
+        triggerBackgroundRevalidation(sheetName, cached, filters);
       }
       return { success: true, data: cached };
     }
   }
 
   try {
+    let queryParams = "";
+    if (forceBypass || isForcedManual) {
+      queryParams += "bypassCache=true&";
+    }
+    if (filters) {
+      if (filters.date) queryParams += `date=${encodeURIComponent(filters.date)}&`;
+      if (filters.shiftId) queryParams += `shiftId=${encodeURIComponent(filters.shiftId)}&`;
+      if (filters.palletizerId) queryParams += `palletizerId=${encodeURIComponent(filters.palletizerId)}&`;
+    }
+    if (queryParams.endsWith("&")) {
+      queryParams = queryParams.slice(0, -1);
+    }
+
     // If it's a specialized endpoint (produccion / paros), we can hit that instead for performance!
-    let url = `/api/sheets?table=${sheetName}${forceBypass || isForcedManual ? '&bypassCache=true' : ''}`;
+    let url = `/api/sheets?table=${sheetName}${queryParams ? '&' + queryParams : ''}`;
     if (sheetName === "PRODUCCIONV2") {
-      url = `/api/produccion${forceBypass || isForcedManual ? '?bypassCache=true' : ''}`;
+      url = `/api/produccion${queryParams ? '?' + queryParams : ''}`;
     } else if (sheetName === "PAROSV2") {
-      url = `/api/paros${forceBypass || isForcedManual ? '?bypassCache=true' : ''}`;
+      url = `/api/paros${queryParams ? '?' + queryParams : ''}`;
     }
 
     const response = await fetch(url);
@@ -268,7 +295,7 @@ export async function fetchTableFromSheets(tableName: string, forceBypass = fals
 
     const result = await response.json();
     if (result.success && Array.isArray(result.data)) {
-      setBrowserCache(sheetName, result.data);
+      setBrowserCache(sheetName, result.data, filters);
       return { success: true, data: result.data };
     }
     return { success: false, error: result.error || "Formato de respuesta inválido" };
@@ -421,12 +448,29 @@ Para que la aplicación funcione en tiempo real con Google Sheets, debes agregar
  * If the fresh data differs from the cached data, the cache is updated and a custom
  * window event is dispatched so React state can synchronize seamlessly.
  */
-function triggerBackgroundRevalidation(sheetName: string, cachedData: any[]) {
+function triggerBackgroundRevalidation(
+  sheetName: string, 
+  cachedData: any[], 
+  filters?: { date?: string; shiftId?: string; palletizerId?: string }
+) {
   if (MASTER_TABLES.includes(sheetName)) return; // Skip background revalidation for master/catalog databases
 
   setTimeout(async () => {
     try {
-      const url = `/api/sheets?table=${sheetName}&bypassCache=true`;
+      let queryParams = "bypassCache=true";
+      if (filters) {
+        if (filters.date) queryParams += `&date=${encodeURIComponent(filters.date)}`;
+        if (filters.shiftId) queryParams += `&shiftId=${encodeURIComponent(filters.shiftId)}`;
+        if (filters.palletizerId) queryParams += `&palletizerId=${encodeURIComponent(filters.palletizerId)}`;
+      }
+
+      let url = `/api/sheets?table=${sheetName}&${queryParams}`;
+      if (sheetName === "PRODUCCIONV2") {
+        url = `/api/produccion?${queryParams}`;
+      } else if (sheetName === "PAROSV2") {
+        url = `/api/paros?${queryParams}`;
+      }
+
       const response = await fetch(url);
       if (!response.ok) return;
       
@@ -446,7 +490,7 @@ function triggerBackgroundRevalidation(sheetName: string, cachedData: any[]) {
         if (different) {
           console.log(`[Background Revalidation] Cache out of date for ${sheetName}. Refreshing Cache and dispatching event...`);
           
-          setBrowserCache(sheetName, result.data);
+          setBrowserCache(sheetName, result.data, filters);
 
           // Emit global custom event so React registers the fresh updates
           window.dispatchEvent(new CustomEvent('table-data-updated', {
