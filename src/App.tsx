@@ -64,6 +64,12 @@ const isStopForMachine = (stop: any, machineId: string | any | null | undefined,
   
   if (!targetId) return false;
 
+  // 1.5 Direct robust match to prevent master lookup failures
+  const stopMacId = String(stop.machineId || stop.palletizerId || "").trim().toUpperCase();
+  if (stopMacId && targetId && (stopMacId === targetId || targetId.includes(stopMacId) || stopMacId.includes(targetId))) {
+    return true;
+  }
+
   // 2. Find the selected machine object in palletizers or baggers
   const selectedMac: any = (mastersAvailable.palletizers || []).find((p: any) => p && (
     String(p.id).trim().toUpperCase() === targetId ||
@@ -750,76 +756,6 @@ export default function App() {
       isMounted = false;
     };
   }, [hasEnteredApp, userContext.selectedDate]);
-
-  // Background synchronized polling for real-time collaboration across multiple devices
-  useEffect(() => {
-    if (!hasEnteredApp) return;
-
-    const intervalId = setInterval(async () => {
-      try {
-        const filters = {
-          date: userContext.selectedDate,
-          shiftId: userContext.selectedShiftId,
-          palletizerId: userContext.selectedPalletizerId
-        };
-        const [resChanges, resStops, resProd] = await Promise.all([
-          fetchTableFromSheets("CAMBIO_PRODUCTOV2", true, filters),
-          fetchTableFromSheets("PAROSV2", true, filters),
-          fetchTableFromSheets("PRODUCCIONV2", true, filters)
-        ]);
-
-        if (resChanges.success && resChanges.data) {
-          const fetchedChanges = resChanges.data as ProductChange[];
-          const currentLocal = productChangesRef.current;
-          const localMap = new Map<string, ProductChange>(currentLocal.map(pc => [pc.id, pc]));
-
-          fetchedChanges.forEach((pc: ProductChange) => {
-            const oldPc = localMap.get(pc.id);
-            if (oldPc) {
-              // If status transitioned from PENDIENTE to APROBADO or RECHAZADO
-              if (oldPc.approvalStatus === 'PENDIENTE' && pc.approvalStatus !== 'PENDIENTE') {
-                const prevMat = masters.materials.find(m => m.id === pc.previousMaterialId)?.name || 'Desconocido';
-                const newMat = masters.materials.find(m => m.id === pc.newMaterialId)?.name || 'Desconocido';
-                
-                if (pc.approvalStatus === 'APROBADO') {
-                  addToast(`¡Cambio Aprobado! El análisis de ${prevMat} a ${newMat} fue APROBADO.`, "success");
-                } else if (pc.approvalStatus === 'RECHAZADO') {
-                  const obsStr = pc.rejectionObservation ? ` Obs: ${pc.rejectionObservation}` : '';
-                  addToast(`¡Cambio Rechazado! El análisis de ${prevMat} a ${newMat} fue RECHAZADO.${obsStr}`, "error");
-                }
-              }
-            } else {
-              // New pending change registered by someone else
-              if (pc.approvalStatus === 'PENDIENTE') {
-                const isLab = currentUser.profile === 'Laboratorio' || currentUser.position === 'Laboratórista';
-                if (isLab) {
-                  const newMat = masters.materials.find(m => m.id === pc.newMaterialId)?.name || 'Desconocido';
-                  addToast(`Nuevo Cambio de Producto cargado por ${pc.operatorName} para material: ${newMat}.`, "info");
-                }
-              }
-            }
-          });
-
-          setProductChanges(fetchedChanges);
-        }
-
-        if (resStops.success && resStops.data) {
-          const freshStops = resStops.data as MachineStop[];
-          const filtered = freshStops.filter(s => s && !deletedStopIdsRef.current.has(s.id));
-          setStops(filtered);
-        }
-
-        if (resProd.success && resProd.data) {
-          setProductionReports(resProd.data);
-        }
-
-      } catch (err) {
-        console.warn("[BackgroundSync] Silent polling warning:", err);
-      }
-    }, 60000); // Poll every 60 seconds (1 minute) to reduce resource usage while ensuring freshness
-
-    return () => clearInterval(intervalId);
-  }, [hasEnteredApp, currentUser.profile, currentUser.position, masters.materials, userContext.selectedDate, userContext.selectedShiftId, userContext.selectedPalletizerId]);
 
   // --- Centralized, Synchronized & Toast-Enabled handlers ---
   

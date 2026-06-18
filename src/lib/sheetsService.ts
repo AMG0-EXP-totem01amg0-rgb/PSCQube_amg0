@@ -81,7 +81,8 @@ function getBrowserCache(tableName: string, filters?: { date?: string; shiftId?:
     if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.data)) return null;
 
     const isMaster = MASTER_TABLES.includes(tableName.toUpperCase());
-    const ttl = isMaster ? 30 * 60 * 1000 : 5000; // 30 minutes for master tables, 5 seconds for operational tables
+    // 30 minutes for master tables, 12 hours for operational tables to eliminate automatic background refetches
+    const ttl = isMaster ? 30 * 60 * 1000 : 12 * 60 * 60 * 1000;
     
     if (Date.now() - parsed.timestamp < ttl) {
       return parsed.data;
@@ -253,9 +254,10 @@ export async function fetchTableFromSheets(
     const cached = getBrowserCache(sheetName, filters);
     if (cached) {
       console.log(`[Browser Cache Hit] Loaded table ${sheetName} (isMaster: ${isMaster})`);
-      if (!isMaster) {
-        triggerBackgroundRevalidation(sheetName, cached, filters);
-      }
+      // Completely comment out automatic background revalidation so no API queries are run on cache hit
+      // if (!isMaster) {
+      //   triggerBackgroundRevalidation(sheetName, cached, filters);
+      // }
       return { success: true, data: cached };
     }
   }
