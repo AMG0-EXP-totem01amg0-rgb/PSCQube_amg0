@@ -18,6 +18,8 @@ function logTraceRequest(req: any, endpoint: string, tableRequested: string) {
   const bodyParams = req.body ? JSON.stringify(req.body) : "{}";
   const userAgent = req.headers["user-agent"] || "No User-Agent";
   const referer = req.headers["referer"] || "No Referer";
+  const source = req.query.source || "N/A";
+  const bypassCache = req.query.bypassCache || "false";
   
   // IP Extraction & Anonymization
   let rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
@@ -57,6 +59,8 @@ function logTraceRequest(req: any, endpoint: string, tableRequested: string) {
 Timestamp (Exact): ${timestamp}
 Accessed Endpoint: ${endpoint}
 Requested Table  : ${tableRequested}
+Bypass Cache Flag: ${bypassCache}
+Origin Source Tracker: ${source}
 Anonymized IP    : ${ip}
 Received Query   : ${queryParams}
 Received Body    : ${bodyParams}

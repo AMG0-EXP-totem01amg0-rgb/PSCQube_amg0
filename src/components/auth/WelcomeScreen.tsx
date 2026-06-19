@@ -30,7 +30,7 @@ export default function WelcomeScreen({ onEnter, onLoginSuccess, addToast }: Wel
     let isSuccess = false;
     try {
       // Fetch authorized users list from the backend
-      const res = await fetch('/api/sheets?table=USUARIOSV2');
+      const res = await fetch('/api/sheets?table=USUARIOSV2&source=WelcomeScreen.verifyAndAuthorizeEmail');
       if (!res.ok) {
         throw new Error("No se pudo obtener la lista de usuarios autorizados desde el servidor.");
       }

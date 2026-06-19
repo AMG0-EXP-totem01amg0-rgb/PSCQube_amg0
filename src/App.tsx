@@ -572,7 +572,7 @@ export default function App() {
       if (status.configured) {
         setSyncMessage('Cargando catálogos maestros...');
         // Preload ALL master tables in a single optimized HTTP request
-        await preloadMasterCatalogs(true);
+        await preloadMasterCatalogs(true, "App.handleSyncOnEnter");
 
         setSyncMessage('Sincronizando información...');
         
@@ -609,29 +609,29 @@ export default function App() {
           resVehicles,
           resFuelLoads
         ] = await Promise.all([
-          fetchTableFromSheets("PAROSV2", true, initialFilters),
-          fetchTableFromSheets("PRODUCCIONV2", true, initialFilters),
-          fetchTableFromSheets("CONTROL_FECHADORV2", true, initialFilters),
-          fetchTableFromSheets("CONTROL_BALANZAV2", true, initialFilters),
-          fetchTableFromSheets("INVENTARIO_FISICOV2", true, initialFilters),
-          fetchTableFromSheets("CLASISFICACION_PALLETSV2", true, initialFilters),
-          fetchTableFromSheets("CAMBIO_PRODUCTOV2", true, initialFilters),
-          fetchTableFromSheets("DESPACHOSV2", true, initialFilters),
-          fetchTableFromSheets("ESTADO_CALLESV2", true, initialFilters),
+          fetchTableFromSheets("PAROSV2", true, initialFilters, "App.handleSyncOnEnter"),
+          fetchTableFromSheets("PRODUCCIONV2", true, initialFilters, "App.handleSyncOnEnter"),
+          fetchTableFromSheets("CONTROL_FECHADORV2", true, initialFilters, "App.handleSyncOnEnter"),
+          fetchTableFromSheets("CONTROL_BALANZAV2", true, initialFilters, "App.handleSyncOnEnter"),
+          fetchTableFromSheets("INVENTARIO_FISICOV2", true, initialFilters, "App.handleSyncOnEnter"),
+          fetchTableFromSheets("CLASISFICACION_PALLETSV2", true, initialFilters, "App.handleSyncOnEnter"),
+          fetchTableFromSheets("CAMBIO_PRODUCTOV2", true, initialFilters, "App.handleSyncOnEnter"),
+          fetchTableFromSheets("DESPACHOSV2", true, initialFilters, "App.handleSyncOnEnter"),
+          fetchTableFromSheets("ESTADO_CALLESV2", true, initialFilters, "App.handleSyncOnEnter"),
           // Masters (resolved instantly from cache with false flag)
-          fetchTableFromSheets("TURNOSV2", false),
-          fetchTableFromSheets("PALETIZADORAV2", false),
-          fetchTableFromSheets("ENSACADORAV2", false),
-          fetchTableFromSheets("HACSV2", false),
-          fetchTableFromSheets("CAUSASV2", false),
-          fetchTableFromSheets("MATERIALESV2", false),
-          fetchTableFromSheets("CAPACIDADESV2", false),
-          fetchTableFromSheets("USUARIOSV2", false),
-          fetchTableFromSheets("EMPRESASV2", false),
-          fetchTableFromSheets("PUNTOS_CARGAV2", false),
-          fetchTableFromSheets("PROVEEDORES_BOLSAV2", false),
-          fetchTableFromSheets("VEHICULOSV2", false),
-          fetchTableFromSheets("CARGA_COMBUSTIBLEV2", true, initialFilters)
+          fetchTableFromSheets("TURNOSV2", false, undefined, "App.handleSyncOnEnter"),
+          fetchTableFromSheets("PALETIZADORAV2", false, undefined, "App.handleSyncOnEnter"),
+          fetchTableFromSheets("ENSACADORAV2", false, undefined, "App.handleSyncOnEnter"),
+          fetchTableFromSheets("HACSV2", false, undefined, "App.handleSyncOnEnter"),
+          fetchTableFromSheets("CAUSASV2", false, undefined, "App.handleSyncOnEnter"),
+          fetchTableFromSheets("MATERIALESV2", false, undefined, "App.handleSyncOnEnter"),
+          fetchTableFromSheets("CAPACIDADESV2", false, undefined, "App.handleSyncOnEnter"),
+          fetchTableFromSheets("USUARIOSV2", false, undefined, "App.handleSyncOnEnter"),
+          fetchTableFromSheets("EMPRESASV2", false, undefined, "App.handleSyncOnEnter"),
+          fetchTableFromSheets("PUNTOS_CARGAV2", false, undefined, "App.handleSyncOnEnter"),
+          fetchTableFromSheets("PROVEEDORES_BOLSAV2", false, undefined, "App.handleSyncOnEnter"),
+          fetchTableFromSheets("VEHICULOSV2", false, undefined, "App.handleSyncOnEnter"),
+          fetchTableFromSheets("CARGA_COMBUSTIBLEV2", true, initialFilters, "App.handleSyncOnEnter")
         ]);
 
         setSyncMessage('Preparando sistema...');
@@ -773,16 +773,16 @@ export default function App() {
           resLoadingLanes,
           resFuel
         ] = await Promise.all([
-          fetchTableFromSheets("PAROSV2", false, filters),
-          fetchTableFromSheets("PRODUCCIONV2", false, filters),
-          fetchTableFromSheets("CONTROL_FECHADORV2", false, filters),
-          fetchTableFromSheets("CONTROL_BALANZAV2", false, filters),
-          fetchTableFromSheets("INVENTARIO_FISICOV2", false, filters),
-          fetchTableFromSheets("CLASISFICACION_PALLETSV2", false, filters),
-          fetchTableFromSheets("CAMBIO_PRODUCTOV2", false, filters),
-          fetchTableFromSheets("DESPACHOSV2", false, filters),
-          fetchTableFromSheets("ESTADO_CALLESV2", false, filters),
-          fetchTableFromSheets("CARGA_COMBUSTIBLEV2", false, filters)
+          fetchTableFromSheets("PAROSV2", false, filters, "App.fetchFilteredTransactions"),
+          fetchTableFromSheets("PRODUCCIONV2", false, filters, "App.fetchFilteredTransactions"),
+          fetchTableFromSheets("CONTROL_FECHADORV2", false, filters, "App.fetchFilteredTransactions"),
+          fetchTableFromSheets("CONTROL_BALANZAV2", false, filters, "App.fetchFilteredTransactions"),
+          fetchTableFromSheets("INVENTARIO_FISICOV2", false, filters, "App.fetchFilteredTransactions"),
+          fetchTableFromSheets("CLASISFICACION_PALLETSV2", false, filters, "App.fetchFilteredTransactions"),
+          fetchTableFromSheets("CAMBIO_PRODUCTOV2", false, filters, "App.fetchFilteredTransactions"),
+          fetchTableFromSheets("DESPACHOSV2", false, filters, "App.fetchFilteredTransactions"),
+          fetchTableFromSheets("ESTADO_CALLESV2", false, filters, "App.fetchFilteredTransactions"),
+          fetchTableFromSheets("CARGA_COMBUSTIBLEV2", false, filters, "App.fetchFilteredTransactions")
         ]);
 
         if (!isMounted) return;
@@ -899,12 +899,12 @@ export default function App() {
       if (res.success) {
         addToast(exists ? "Paro actualizado con éxito" : "Paro registrado con éxito", "success");
         // Re-read both PAROSV2 and PRODUCCIONV2 with filter parameters applied to keep resource usage minimum
-        fetchTableFromSheets("PAROSV2", true, activeFilters).then(sRes => {
+        fetchTableFromSheets("PAROSV2", true, activeFilters, "App.handleSaveStop").then(sRes => {
           if (sRes.success && sRes.data) {
             setStops(sRes.data);
           }
         });
-        fetchTableFromSheets("PRODUCCIONV2", true, activeFilters).then(pRes => {
+        fetchTableFromSheets("PRODUCCIONV2", true, activeFilters, "App.handleSaveStop").then(pRes => {
           if (pRes.success && pRes.data) {
             setProductionReports(pRes.data);
           }
@@ -935,12 +935,12 @@ export default function App() {
       if (res.success) {
         addToast("Paro eliminado", "success");
         // Re-read both PAROSV2 and PRODUCCIONV2 with filter parameters applied
-        fetchTableFromSheets("PAROSV2", true, activeFilters).then(sRes => {
+        fetchTableFromSheets("PAROSV2", true, activeFilters, "App.handleDeleteStop").then(sRes => {
           if (sRes.success && sRes.data) {
             setStops(sRes.data);
           }
         });
-        fetchTableFromSheets("PRODUCCIONV2", true, activeFilters).then(pRes => {
+        fetchTableFromSheets("PRODUCCIONV2", true, activeFilters, "App.handleDeleteStop").then(pRes => {
           if (pRes.success && pRes.data) {
             setProductionReports(pRes.data);
           }
@@ -976,7 +976,7 @@ export default function App() {
       if (res.success) {
         addToast(exists ? "Producción actualizada con éxito" : "Producción guardada con éxito", "success");
         // FETCH the updated table from Sheets/Supabase to get exact recalculated metrics and nested fields!
-        fetchTableFromSheets("PRODUCCIONV2", true, activeFilters).then(pRes => {
+        fetchTableFromSheets("PRODUCCIONV2", true, activeFilters, "App.handleSaveProductionReport").then(pRes => {
           if (pRes.success && pRes.data) {
             setProductionReports(pRes.data);
           }
@@ -1006,7 +1006,7 @@ export default function App() {
       if (res.success) {
         addToast("Reporte de producción eliminado de base de datos", "success");
         // FETCH the updated table from Sheets/Supabase to keep frontend state perfectly synchronized
-        fetchTableFromSheets("PRODUCCIONV2", true, activeFilters).then(pRes => {
+        fetchTableFromSheets("PRODUCCIONV2", true, activeFilters, "App.handleDeleteProductionReport").then(pRes => {
           if (pRes.success && pRes.data) {
             setProductionReports(pRes.data);
           }

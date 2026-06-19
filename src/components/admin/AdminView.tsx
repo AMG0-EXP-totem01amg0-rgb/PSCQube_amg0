@@ -206,7 +206,7 @@ export default function AdminView({
     setIsRefreshingActiveTab(true);
     try {
       clearClientCache(suffix);
-      const result = await fetchTableFromSheets(suffix, true);
+      const result = await fetchTableFromSheets(suffix, true, undefined, "AdminView.handleRefreshActiveTab");
       if (result.success && result.data) {
         onUpdateMasters(activeTab, result.data);
         if (addToast) {
@@ -1864,6 +1864,9 @@ export default function AdminView({
                             }));
                             const result = await fetchTableFromSheets(
                               tbl.suffix,
+                              false,
+                              undefined,
+                              "AdminView.manualTableSync"
                             );
                             if (result.success && result.data) {
                               onUpdateMasters(tbl.type, result.data);

@@ -238,7 +238,8 @@ export async function syncTableToSheets(tableName: string, data: any[]): Promise
 export async function fetchTableFromSheets(
   tableName: string, 
   forceBypass = false,
-  filters?: { date?: string; shiftId?: string; palletizerId?: string }
+  filters?: { date?: string; shiftId?: string; palletizerId?: string },
+  source = "unspecified"
 ): Promise<FetchResult> {
   let sheetName = tableName.toUpperCase();
   if (!sheetName.endsWith('V2')) {
@@ -276,6 +277,7 @@ export async function fetchTableFromSheets(
     if (filters) {
       if (filters.date) queryParams += `date=${encodeURIComponent(filters.date)}&`;
     }
+    queryParams += `source=${encodeURIComponent(source)}&`;
     if (queryParams.endsWith("&")) {
       queryParams = queryParams.slice(0, -1);
     }
@@ -449,9 +451,9 @@ Para que la aplicación funcione en tiempo real con Google Sheets, debes agregar
  * Preloads all master catalogs from the backend in a single efficient HTTP request,
  * storing them directly into the new browser-side cache.
  */
-export async function preloadMasterCatalogs(bypassCache = false): Promise<FetchResult> {
+export async function preloadMasterCatalogs(bypassCache = false, source = "unspecified"): Promise<FetchResult> {
   try {
-    const url = `/api/catalogos${bypassCache ? '?bypassCache=true' : ''}`;
+    const url = `/api/catalogos?bypassCache=${bypassCache ? 'true' : 'false'}&source=${encodeURIComponent(source)}`;
     const response = await fetch(url);
     if (!response.ok) {
       return { success: false, error: `Error HTTP ${response.status}` };
