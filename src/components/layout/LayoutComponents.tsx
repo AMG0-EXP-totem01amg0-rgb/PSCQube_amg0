@@ -286,7 +286,7 @@ export function Header({
         {/* Row 1: Always Visible */}
         <div className="flex items-center justify-between sm:justify-start sm:gap-6 h-10 sm:h-16 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="flex flex-col">
+            <div className="flex flex-row items-center gap-2.5">
               <div className="flex items-center gap-2">
                 <h1 className={cn(
                   "font-black uppercase tracking-tighter leading-none transition-all logo-glow text-text-main",
@@ -302,12 +302,12 @@ export function Header({
                 )}
               </div>
                {!isCollapsed && (
-                 <div className="mt-0.5 relative group cursor-pointer" onClick={handleDateClick}>
+                 <div className="relative group cursor-pointer" onClick={handleDateClick}>
                    <div 
-                     className="flex items-center gap-1.5 px-1.5 py-0.5 rounded transition-all hover:bg-primary/5 active:bg-primary/10 border-none outline-none group"
+                     className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-all active:scale-95 group"
                    >
-                     <Calendar size={10} className="text-text-main group-hover:text-primary transition-colors" />
-                     <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider group-hover:text-primary whitespace-nowrap">{displayDate}</span>
+                     <Calendar size={12} className="text-primary group-hover:text-primary transition-colors shrink-0" />
+                     <span className="text-[11px] font-black text-primary uppercase tracking-wider group-hover:text-primary whitespace-nowrap">{displayDate}</span>
                    </div>
                    {/* Overlay Input for robust Native Calendar Triggering across all devices (including iOS Safari) */}
                    <input 
@@ -358,7 +358,7 @@ export function Header({
                 className="sm:hidden p-1.5 rounded-full hover:bg-bg transition-colors text-text-main"
                 title="Refrescar Aplicación y Limpiar Caché"
               >
-                <RefreshCw size={14} className="text-text-main hover:text-green-500 animate-pulse" />
+                <RefreshCw size={14} className="text-text-main hover:text-green-500" />
               </button>
             )}
 
@@ -483,7 +483,7 @@ export function Header({
                   className="hidden sm:flex p-2 rounded-full hover:bg-bg transition-colors text-text-main hover:text-primary shrink-0 ml-1"
                   title="Refrescar Aplicación y Limpiar Caché"
                 >
-                  <RefreshCw size={18} className="text-text-main hover:text-green-500 animate-pulse" />
+                  <RefreshCw size={18} className="text-text-main hover:text-green-500" />
                 </button>
               )}
             </motion.div>
