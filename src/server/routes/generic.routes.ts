@@ -11,6 +11,67 @@ import { invalidateCache } from "../cache/cache.service.js";
 
 const router = Router();
 
+// Helper to trace and log incoming calls with comprehensive diagnostics
+function logTraceRequest(req: any, endpoint: string, tableRequested: string) {
+  const timestamp = new Date().toISOString();
+  const queryParams = JSON.stringify(req.query || {});
+  const bodyParams = req.body ? JSON.stringify(req.body) : "{}";
+  const userAgent = req.headers["user-agent"] || "No User-Agent";
+  const referer = req.headers["referer"] || "No Referer";
+  
+  // IP Extraction & Anonymization
+  let rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  let ip = 'unknown';
+  if (typeof rawIp === 'string') {
+    const firstIp = rawIp.split(',')[0].trim();
+    if (firstIp.includes('.')) {
+      const parts = firstIp.split('.');
+      if (parts.length >= 2) {
+        ip = `${parts[0]}.${parts[1]}.x.x`;
+      } else {
+        ip = firstIp;
+      }
+    } else if (firstIp.includes(':')) {
+      const parts = firstIp.split(':');
+      if (parts.length >= 2) {
+        ip = `${parts[0]}:${parts[1]}:x:x`;
+      } else {
+        ip = firstIp;
+      }
+    } else {
+      ip = firstIp;
+    }
+  }
+
+  // Identify application origin callers if customized headers exist
+  const appCallerHeader = req.headers["x-app-caller"] || "Not Specified (Legacy/Generic)";
+  const secChUa = req.headers["sec-ch-ua"] || "N/A";
+  const secChUaPlatform = req.headers["sec-ch-ua-platform"] || "N/A";
+  const secFetchSite = req.headers["sec-fetch-site"] || "N/A";
+  const secFetchMode = req.headers["sec-fetch-mode"] || "N/A";
+  const authHeader = req.headers["authorization"] ? "Attached" : "None";
+  const cookieHeader = req.headers["cookie"] ? "Attached" : "None";
+
+  console.log(`
+====== [PSCQUBE API TRACE LOG] ======
+Timestamp (Exact): ${timestamp}
+Accessed Endpoint: ${endpoint}
+Requested Table  : ${tableRequested}
+Anonymized IP    : ${ip}
+Received Query   : ${queryParams}
+Received Body    : ${bodyParams}
+User-Agent       : ${userAgent}
+sec-ch-ua        : ${secChUa}
+sec-ch-ua-plat   : ${secChUaPlatform}
+sec-fetch-site   : ${secFetchSite}
+sec-fetch-mode   : ${secFetchMode}
+Referer          : ${referer}
+App Caller ID    : ${appCallerHeader}
+Credentials Meta : Auth=${authHeader}, Cookies=${cookieHeader}
+======================================
+`);
+}
+
 // Reconciles incoming collection list against cached database state
 async function reconcileTableData(tableName: string, incomingData: any[], allowDeleteMissing: boolean = false): Promise<void> {
   const upperTable = tableName.toUpperCase();
@@ -147,6 +208,7 @@ router.get("/api/sheets/status", async (req, res) => {
 
 // GET Catalogos (returns all master directories in one single call)
 router.get("/api/catalogos", async (req, res) => {
+  logTraceRequest(req, "GET /api/catalogos", "ALL_CATALOGUES_BULK");
   const bypassCache = req.query.bypassCache === "true";
   const catalogTables = [
     "TURNOSV2",
@@ -180,6 +242,7 @@ router.get("/api/catalogos", async (req, res) => {
 
 // GET Produccion Endpoint
 router.get("/api/produccion", async (req, res) => {
+  logTraceRequest(req, "GET /api/produccion", "PRODUCCIONV2");
   const bypassCache = req.query.bypassCache === "true";
   if (bypassCache) {
     invalidateCache("PRODUCCIONV2");
@@ -204,6 +267,7 @@ router.get("/api/produccion", async (req, res) => {
 
 // GET Paros Endpoint
 router.get("/api/paros", async (req, res) => {
+  logTraceRequest(req, "GET /api/paros", "PAROSV2");
   const bypassCache = req.query.bypassCache === "true";
   if (bypassCache) {
     invalidateCache("PAROSV2");
@@ -228,6 +292,7 @@ router.get("/api/paros", async (req, res) => {
 // GET Endpoint to read tables generically
 router.get("/api/sheets", async (req, res) => {
   const table = req.query.table as string;
+  logTraceRequest(req, "GET /api/sheets", table || "unspecified");
   if (!table) {
     return res.status(400).json({ success: false, error: "Falta el parámetro 'table'" });
   }
@@ -283,6 +348,7 @@ router.get("/api/sheets", async (req, res) => {
 // POST Endpoint to read/write/create/update/delete tables
 router.post("/api/sheets", async (req, res) => {
   const { action, table, data } = req.body;
+  logTraceRequest(req, `POST /api/sheets (action: ${action || 'n/a'})`, table || "unspecified");
 
   if (!table) {
     return res.status(400).json({ success: false, error: "Falta el parámetro 'table'" });
