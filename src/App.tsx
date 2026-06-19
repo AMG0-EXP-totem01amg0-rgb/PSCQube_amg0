@@ -36,7 +36,7 @@ import { getSupabaseClient } from './lib/supabaseClient';
 import { cn } from './lib/utils';
 import { Shift, MachineStop, ProductionReport, DaterControl, ScaleControl, InventoryEntry, PalletClassification, UserContext, MasterData, AppUser, ProductChange, Company, FuelLoad, AlertNotification } from './types';
 import { SHIFTS, PALLETIZERS, BAGGERS, MATERIALS, HACS, CAUSES, CAPACITIES, USERS, SYSTEM_VIEWS, COMPANIES, LOADING_POINTS, LANE_STATUSES } from './lib/mockData';
-import { syncTableToSheets, getBackendSheetsStatus, fetchTableFromSheets, clearClientCache, createRecordInSheets, updateRecordInSheets, deleteRecordInSheets, preloadMasterCatalogs } from './lib/sheetsService';
+import { syncTableToSheets, getBackendSheetsStatus, fetchTableFromSheets, clearClientCache, createRecordInSheets as rawCreateRecordInSheets, updateRecordInSheets as rawUpdateRecordInSheets, deleteRecordInSheets as rawDeleteRecordInSheets, preloadMasterCatalogs } from './lib/sheetsService';
 import { ToastContainer, ToastMessage } from './components/ui/Toast';
 
 // --- Utilities ---
@@ -153,8 +153,162 @@ type AppSection = 'PRODUCTIVITY' | 'SAFETY' | 'ENVIRONMENT' | 'HR' | 'ADMIN';
 type ProductivityTab = 'DASHBOARD' | 'PAROS' | 'PRODUCCION' | 'DATER' | 'SCALE' | 'STOCK' | 'PALLET_CLASS' | 'GASOIL' | 'MANTENIMIENTO' | 'CHANGE' | 'LOADING_LANES' | 'DESPACHOS';
 
 export default function App() {
+  // Toast notifications State (Moved to top for visibility in all functions)
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const addToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts((prev) => [...prev, { id, message, type }]);
+  };
+
   const [loadedVersion, setLoadedVersion] = useState<string | null>(null);
   const [showVersionAlert, setShowVersionAlert] = useState(false);
+
+  // New Version Control & Operation Flags
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [pendingVersionUpdate, setPendingVersionUpdate] = useState(false);
+  const [isUserInteracting, setIsUserInteracting] = useState(false);
+
+  // Wrappers around sheetsService mutation API functions to track isSaving and hasUnsavedChanges dynamically
+  const createRecordInSheets = async (tableName: string, record: any) => {
+    setIsSaving(true);
+    try {
+      const res = await rawCreateRecordInSheets(tableName, record);
+      if (res.success) {
+        setHasUnsavedChanges(false);
+      }
+      return res;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const updateRecordInSheets = async (tableName: string, id: string, record: any) => {
+    setIsSaving(true);
+    try {
+      const res = await rawUpdateRecordInSheets(tableName, id, record);
+      if (res.success) {
+        setHasUnsavedChanges(false);
+      }
+      return res;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const deleteRecordInSheets = async (tableName: string, id: string) => {
+    setIsSaving(true);
+    try {
+      const res = await rawDeleteRecordInSheets(tableName, id);
+      if (res.success) {
+        setHasUnsavedChanges(false);
+      }
+      return res;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Helper to dynamically check if the DOM has active forms, open dialogs, or focused input fields
+  const checkHasUnsavedChanges = (): boolean => {
+    const activeEl = document.activeElement;
+    if (activeEl) {
+      const tag = activeEl.tagName.toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") {
+        return true;
+      }
+    }
+    const modalOrForm = document.querySelector('[role="dialog"], .modal, .form-container');
+    if (modalOrForm) {
+      return true;
+    }
+    return false;
+  };
+
+  // Track User Interaction/Activity window (10s decay)
+  const userInteractionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    const handleUserActivity = () => {
+      setIsUserInteracting(true);
+      if (userInteractionTimeoutRef.current) {
+        clearTimeout(userInteractionTimeoutRef.current);
+      }
+      userInteractionTimeoutRef.current = setTimeout(() => {
+        setIsUserInteracting(false);
+      }, 10000);
+    };
+
+    window.addEventListener("mousemove", handleUserActivity);
+    window.addEventListener("keydown", handleUserActivity);
+    window.addEventListener("click", handleUserActivity);
+    window.addEventListener("scroll", handleUserActivity);
+
+    return () => {
+      window.removeEventListener("mousemove", handleUserActivity);
+      window.removeEventListener("keydown", handleUserActivity);
+      window.removeEventListener("click", handleUserActivity);
+      window.removeEventListener("scroll", handleUserActivity);
+      if (userInteractionTimeoutRef.current) clearTimeout(userInteractionTimeoutRef.current);
+    };
+  }, []);
+
+  // Track Form edits to set hasUnsavedChanges
+  useEffect(() => {
+    const handleInput = () => {
+      const activeEl = document.activeElement;
+      if (activeEl) {
+        const tag = activeEl.tagName.toLowerCase();
+        if (tag === "input" || tag === "textarea" || tag === "select") {
+          setHasUnsavedChanges(true);
+        }
+      }
+    };
+    
+    const handleFocusCheck = () => {
+      const activeEl = document.activeElement;
+      if (!activeEl) {
+        setHasUnsavedChanges(false);
+        return;
+      }
+      const tag = activeEl.tagName.toLowerCase();
+      if (tag !== "input" && tag !== "textarea" && tag !== "select") {
+        setHasUnsavedChanges(false);
+      }
+    };
+
+    window.addEventListener("input", handleInput);
+    window.addEventListener("change", handleInput);
+    window.addEventListener("focusin", handleFocusCheck);
+    window.addEventListener("focusout", handleFocusCheck);
+
+    return () => {
+      window.removeEventListener("input", handleInput);
+      window.removeEventListener("change", handleInput);
+      window.removeEventListener("focusin", handleFocusCheck);
+      window.removeEventListener("focusout", handleFocusCheck);
+    };
+  }, []);
+
+  const handleVersionMismatch = (serverVer: string) => {
+    const activeUnsaved = hasUnsavedChanges || checkHasUnsavedChanges();
+    if (activeUnsaved || isSaving) {
+      if (!pendingVersionUpdate) {
+        setPendingVersionUpdate(true);
+        addToast("Hay una nueva versión disponible. Se actualizará automáticamente al finalizar la operación.", "info");
+      }
+    } else {
+      if (document.visibilityState === 'visible') {
+        console.log("[Version Control] Tab visible and idle. Executing silent background reload.");
+        try {
+          clearClientCache();
+          localStorage.removeItem("pscqube_app_version");
+        } catch (e) {}
+        window.location.reload();
+      } else {
+        setPendingVersionUpdate(true);
+      }
+    }
+  };
 
   const checkAppVersion = async (isStartup = false) => {
     try {
@@ -171,7 +325,7 @@ export default function App() {
           const localVer = localStorage.getItem("pscqube_app_version") || loadedVersion;
           if (localVer && localVer !== serverVer) {
             console.warn(`[Version Control] Version mismatch! Browser: ${localVer} vs Server: ${serverVer}`);
-            setShowVersionAlert(true);
+            handleVersionMismatch(serverVer);
           }
         }
       }
@@ -179,6 +333,21 @@ export default function App() {
       console.warn("[Version Control] Error checking version:", err);
     }
   };
+
+  // Perform a silent reload immediately once active save/edit operations finish and no unsaved changes remain
+  useEffect(() => {
+    if (!isSaving && pendingVersionUpdate) {
+      const activeUnsaved = hasUnsavedChanges || checkHasUnsavedChanges();
+      if (!activeUnsaved) {
+        console.log("[Version Control] Active operations completed, no unsaved changes. Performing silent reload.");
+        try {
+          clearClientCache();
+          localStorage.removeItem("pscqube_app_version");
+        } catch (e) {}
+        window.location.reload();
+      }
+    }
+  }, [isSaving, pendingVersionUpdate, hasUnsavedChanges]);
 
   useEffect(() => {
     checkAppVersion(true);
@@ -188,9 +357,22 @@ export default function App() {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
+        if (pendingVersionUpdate) {
+          const activeUnsaved = hasUnsavedChanges || checkHasUnsavedChanges();
+          if (!activeUnsaved && !isSaving) {
+            console.log("[Version Control] Visibility change: silent reload of pending version.");
+            try {
+              clearClientCache();
+              localStorage.removeItem("pscqube_app_version");
+            } catch (e) {}
+            window.location.reload();
+            return;
+          }
+        }
+
         const timeElapsed = Date.now() - lastCheckTime;
         if (timeElapsed > tenMinutes) {
-          console.log("[Version Control] Visibility check. Surveying server for version updates...");
+          console.log("[Version Control] Visibility check. Checking for updates...");
           checkAppVersion(false);
           lastCheckTime = Date.now();
         }
@@ -199,7 +381,7 @@ export default function App() {
 
     const slowInterval = setInterval(() => {
       if (document.visibilityState === 'visible') {
-        console.log("[Version Control] Regular slow background update integrity query.");
+        console.log("[Version Control] Regular background updates query.");
         checkAppVersion(false);
         lastCheckTime = Date.now();
       }
@@ -210,21 +392,7 @@ export default function App() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       clearInterval(slowInterval);
     };
-  }, [loadedVersion]);
-
-  useEffect(() => {
-    if (showVersionAlert) {
-      console.log("[Version Control] Refresh timeout set for 5s.");
-      const reloadTimeout = setTimeout(() => {
-        try {
-          clearClientCache();
-          localStorage.removeItem("pscqube_app_version");
-        } catch (e) {}
-        window.location.reload();
-      }, 5000);
-      return () => clearTimeout(reloadTimeout);
-    }
-  }, [showVersionAlert]);
+  }, [loadedVersion, pendingVersionUpdate, hasUnsavedChanges, isSaving]);
 
   const [activeSection, setActiveSection] = useState<AppSection>('PRODUCTIVITY');
   const [prodTab, setProdTab] = useState<ProductivityTab>('DASHBOARD');
@@ -462,13 +630,6 @@ export default function App() {
   const [palletClassifications, setPalletClassifications] = useState<PalletClassification[]>([]);
   const [productChanges, setProductChanges] = useState<ProductChange[]>([]);
   const [laneStatuses, setLaneStatuses] = useState<any[]>([]);
-
-  // Toast notifications State
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const addToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
-    const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, message, type }]);
-  };
 
   // Alert Notifications State (derived + read key tracker mapped by user DNI)
   const [readNotificationKeys, setReadNotificationKeys] = useState<string[]>(() => {
