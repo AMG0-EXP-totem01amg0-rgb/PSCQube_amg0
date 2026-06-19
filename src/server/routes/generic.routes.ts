@@ -190,7 +190,7 @@ router.get("/api/supabase-test", async (req, res) => {
   }
 });
 
-const APP_BUILD_VERSION = process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_APP_VERSION || "v1.0.3-boot-" + Date.now();
+const APP_BUILD_VERSION = process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_APP_VERSION || "v2.0.1-stable";
 
 // GET Version Endpoint
 router.get("/api/version", (req, res) => {

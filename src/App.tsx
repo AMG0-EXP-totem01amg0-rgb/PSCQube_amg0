@@ -217,8 +217,8 @@ export default function App() {
       console.log("[Version Control] Refresh timeout set for 5s.");
       const reloadTimeout = setTimeout(() => {
         try {
-          localStorage.clear();
-          sessionStorage.clear();
+          clearClientCache();
+          localStorage.removeItem("pscqube_app_version");
         } catch (e) {}
         window.location.reload();
       }, 5000);
@@ -1421,8 +1421,8 @@ export default function App() {
               <button
                 onClick={() => {
                   try {
-                    localStorage.clear();
-                    sessionStorage.clear();
+                    clearClientCache();
+                    localStorage.removeItem("pscqube_app_version");
                   } catch (e) {}
                   window.location.reload();
                 }}
