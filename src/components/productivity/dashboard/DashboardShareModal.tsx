@@ -164,13 +164,13 @@ export default function DashboardShareModal({
   return (
     <AnimatePresence>
       <div id="share-dashboard-modal" className="fixed inset-0 z-[200] flex items-center justify-center p-4 overflow-y-auto">
-        {/* Backdrop */}
+        {/* Backdrop - Avoid backdrop-blur on mobile to bypass mobile rendering artifacts during scroll */}
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm"
+          className="fixed inset-0 bg-black/85 sm:backdrop-blur-sm"
         />
 
         {/* Modal Window Container */}
@@ -178,7 +178,7 @@ export default function DashboardShareModal({
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
-          className="relative bg-surface-elevated border border-border rounded-3xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[90vh] z-10 overflow-hidden"
+          className="relative bg-surface-elevated border border-border rounded-3xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[90dvh] sm:max-h-[85vh] z-10 overflow-hidden"
         >
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-bg/40">
@@ -213,7 +213,7 @@ export default function DashboardShareModal({
           )}
 
           {/* Body Content */}
-          <div className="flex-1 overflow-y-auto p-6 bg-bg flex flex-col md:flex-row gap-6">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-bg flex flex-col md:flex-row gap-6">
             {/* Left Action & Status Column */}
             <div className="w-full md:w-1/4 space-y-6 flex flex-col justify-between">
               <div className="space-y-4">
@@ -267,126 +267,57 @@ export default function DashboardShareModal({
               </div>
             </div>
 
-            {/* Right Printable Preview Column (Scrollable & scaled) */}
-            <div className="flex-1 bg-surface-elevated border border-border rounded-2xl overflow-auto p-4 flex justify-center items-start min-h-[350px] shadow-inner relative group">
-              
-              {/* Scaled Render Container (Maintains 800px standard with CSS zooming purely for UI previewing) */}
-              <div className="origin-top scale-[0.6] sm:scale-[0.8] md:scale-[0.9] lg:scale-[0.75] xl:scale-[0.9] transition-transform duration-300 pointer-events-none md:pointer-events-auto h-0" style={{ minWidth: '800px', height: 'fit-content', paddingBottom: '1100px' }}>
-                
-                {/* 
-                  THE ACTUAL PRINT/IMAGE LAYOUT (White background, black text high-fidelity PDF) 
-                  We force standard styles here for gorgeous PDF-like look
-                */}
-                <div 
-                  ref={pdfRef}
-                  id="shift-report-pdf-target"
-                  style={{ width: '800px', backgroundColor: '#ffffff', color: '#111827', padding: '36px' }}
-                  className="rounded-lg shadow-xl text-left font-sans select-none overflow-hidden"
-                >
-                  {/* PDF Cover / Header */}
-                  <div className="border-b-4 border-gray-905 pb-5 mb-6 flex justify-between items-start">
-                    <div>
-                      <h1 className="text-2xl font-extrabold uppercase tracking-tight text-gray-900 leading-none">
-                        RESUMEN DE TURNO: {selectedShift?.name || 'TURNO'}
-                      </h1>
-                      <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-1.5 flex items-center gap-1.5">
-                        REPORTE DE PRODUCTIVIDAD Y STOCKS
-                      </p>
-                      <div className="mt-3 flex gap-4 text-xs font-semibold text-gray-700">
-                        <div>
-                          <span className="text-gray-400 font-bold uppercase tracking-wider text-[10px] block">Fecha de Turno</span>
-                          <span className="text-lg font-extrabold text-blue-900">{displayDate}</span>
-                        </div>
-                        <div className="border-l border-gray-300 pl-4">
-                          <span className="text-gray-400 font-bold uppercase tracking-wider text-[10px] block">Horario de Operación</span>
-                          <span className="text-sm font-extrabold text-gray-900">{shiftTimeLabel || 'N/A'}</span>
-                        </div>
-                      </div>
-                    </div>
+            {/* Right Screen-adapted Live Preview - Clean fluid flow no scale-hacks */}
+            <div className="flex-1 bg-surface-elevated border border-border rounded-2xl overflow-y-auto p-4 sm:p-6 max-h-[50vh] sm:max-h-[60vh] md:max-h-[70vh] shadow-inner">
+               <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
+                 <span className="text-[10.5px] font-black text-text-main uppercase tracking-widest flex items-center gap-1.5">
+                   <Activity size={13} className="text-primary" />
+                   Vista Previa del Reporte
+                 </span>
+                 <span className="text-[9px] font-mono font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                   800 x 1150 px PNG
+                 </span>
+               </div>
 
-                    <div className="text-right">
-                      <div className="font-mono text-[22px] font-black tracking-tighter text-blue-950 leading-none">PSCQube</div>
-                      <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mt-1">Holcim Argentina S.A.</span>
-                      <div className="mt-4 text-[10px] text-gray-500 font-bold tracking-tight">
-                        <p>Impreso: {currentDateTimeStr}</p>
-                      </div>
+               <div className="space-y-6 text-left text-sm text-text-main">
+                  {/* Header widget */}
+                  <div className="bg-bg/50 p-4 rounded-xl border border-border/80 flex flex-col sm:flex-row justify-between gap-3 text-xs">
+                    <div>
+                      <h4 className="font-extrabold text-text-main uppercase tracking-widest">
+                        {selectedShift?.name || 'Turno'} • {displayDate}
+                      </h4>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted mt-1">
+                        {shiftTimeLabel}
+                      </p>
+                    </div>
+                    <div className="text-left sm:text-right">
+                      <span className="text-[10px] font-black text-primary uppercase tracking-widest block">PSCQube</span>
+                      <span className="text-[9px] font-black text-text-muted uppercase tracking-wider block mt-0.5">Holcim Argentina S.A.</span>
                     </div>
                   </div>
 
-                  {/* Section 1: Stock e Insumos */}
+                  {/* Inventories Preview */}
                   {hasAnyInventory && (
-                    <div className="mb-8">
-                      <h2 className="text-xs font-black text-gray-800 uppercase tracking-[0.2em] border-b border-gray-300 pb-1 mb-3 flex items-center gap-1.5">
-                        <span className="w-1.5 h-3.5 bg-blue-600 rounded-sm"></span>
-                        I. RESUMEN DE INVENTARIOS & STOCK CONTADO
-                      </h2>
-
-                      {/* Productive & BigBags Summary Grid */}
-                      {(inventorySummary.productive.length > 0 || inventorySummary.bigbags.length > 0) && (
-                        <div className="grid grid-cols-2 gap-3 mb-4">
-                          {[...inventorySummary.productive, ...inventorySummary.bigbags].map((item, idx) => {
-                            const unit = item.isUnitary ? 'U' : 'TN';
-                            const decimals = item.isUnitary ? 0 : 1;
-                            return (
-                              <div key={idx} className="border border-gray-200 bg-gray-50 p-3 rounded-lg flex justify-between items-center">
-                                <div>
-                                  <span className="text-[10px] font-extrabold text-gray-800 uppercase block truncate max-w-[200px]">{item.name}</span>
-                                  <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest block mt-0.5">
-                                    {item.isBigBag ? 'Contenedor Big Bag' : 'Silo Productivo'}
-                                  </span>
-                                </div>
-                                <div className="text-right">
-                                  <span className="text-xs font-bold text-gray-500 block text-[9px] uppercase tracking-wider">Total Disponible</span>
-                                  <span className="font-mono text-base font-black text-blue-900">{item.total.toFixed(decimals)} {unit}</span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {/* Side-by-side secondary tables */}
-                      <div className="grid grid-cols-2 gap-4">
-                        {[
-                          { label: 'Detalle de Tarimas (Pallets)', data: inventorySummary.tarimas },
-                          { label: 'Detalle de Insumos', data: inventorySummary.insumos },
-                          { label: 'No Productivos y Otros', data: inventorySummary.others }
-                        ].filter(g => g.data.length > 0).slice(0, 2).map((group, groupIdx) => {
-                          const hasProd = group.data.some((it: any) => it.isProductive);
+                    <div className="space-y-3">
+                      <h5 className="text-[10px] font-black text-text-main uppercase tracking-wider flex items-center gap-1.5">
+                        <span className="w-1.5 h-3 bg-primary rounded-sm"></span>
+                        I. RESUMEN DE INVENTARIOS
+                      </h5>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {[...inventorySummary.productive, ...inventorySummary.bigbags].map((item, idx) => {
+                          const unit = item.isUnitary ? 'U' : 'TN';
+                          const decimals = item.isUnitary ? 0 : 1;
                           return (
-                            <div key={groupIdx} className="border border-gray-200 rounded-lg overflow-hidden">
-                              <div className="bg-gray-100 px-3 py-1.5 border-b border-gray-200 flex justify-between items-center">
-                                <span className="text-[9px] font-extrabold text-gray-800 uppercase tracking-wider">{group.label}</span>
-                                <span className="text-[8px] font-bold text-gray-500 font-mono">{group.data.length} ítems</span>
+                            <div key={idx} className="bg-bg/30 border border-border/60 p-3 rounded-xl flex justify-between items-center text-xs">
+                              <div>
+                                <span className="text-[10px] font-extrabold text-text-main uppercase block truncate max-w-[150px]">{item.name}</span>
+                                <span className="text-[8px] font-black text-text-muted uppercase tracking-widest mt-0.5 block">
+                                  {item.isBigBag ? 'Contenedor Big Bag' : 'Silo Productivo'}
+                                </span>
                               </div>
-                              <table className="w-full text-left text-[10px]">
-                                <thead className="bg-gray-50 text-[9px] font-bold text-gray-400 uppercase border-b border-gray-200">
-                                  <tr>
-                                    <th className="px-3 py-1.5">Material</th>
-                                    {hasProd && <th className="px-2 py-1.5 text-right">S.Inicial</th>}
-                                    <th className="px-3 py-1.5 text-right">Total Disp.</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-150">
-                                  {group.data.map((item: any, idx: number) => {
-                                    const unit = item.isUnitary ? 'U' : 'TN';
-                                    const decimals = item.isUnitary ? 0 : 1;
-                                    return (
-                                      <tr key={idx} className="hover:bg-gray-50">
-                                        <td className="px-3 py-1.5 font-bold text-gray-700 uppercase truncate max-w-[130px]">{item.name}</td>
-                                        {hasProd && (
-                                          <td className="px-2 py-1.5 text-right font-mono text-gray-500">
-                                            {item.isProductive ? item.stock.toFixed(decimals) : '-'}
-                                          </td>
-                                        )}
-                                        <td className="px-3 py-1.5 text-right font-mono font-extrabold text-blue-900">
-                                          {item.total.toFixed(decimals)} {unit}
-                                        </td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
+                              <div className="text-right shrink-0">
+                                <span className="font-mono text-xs font-black text-primary">{item.total.toFixed(decimals)} {unit}</span>
+                              </div>
                             </div>
                           );
                         })}
@@ -394,132 +325,35 @@ export default function DashboardShareModal({
                     </div>
                   )}
 
-                  {/* Section 2: Productividad */}
-                  <div className="mb-8">
-                    <h2 className="text-xs font-black text-gray-800 uppercase tracking-[0.2em] border-b border-gray-300 pb-1 mb-3 flex items-center gap-1.5">
-                      <span className="w-1.5 h-3.5 bg-blue-600 rounded-sm"></span>
-                      II. RENDIMIENTO EN LÍNEAS DE PRODUCCIÓN
-                    </h2>
-
-                    <div className="space-y-4">
-                      {palletizerData.map(({ palletizer, topStops, tonsByMaterial, runHours, oee, availability, performance, activeNozzles, totalTons }, idx) => (
-                        <div key={idx} className="border border-gray-300 rounded-lg p-4">
-                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline border-b border-gray-150 pb-2 mb-3 gap-2">
-                            <span className="text-xs font-extrabold text-blue-950 uppercase">{palletizer.name}</span>
-                            <div className="flex flex-wrap items-center gap-3">
-                              <div className="flex items-center gap-1">
-                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Marcha:</span>
-                                <span className="text-xs font-black text-blue-800 font-mono">{runHours}hs</span>
-                              </div>
-                              <div className="flex items-center gap-1 border-l border-gray-200 pl-2">
-                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">OEE:</span>
-                                <span className="text-xs font-black text-emerald-700 font-mono">{oee || 0}%</span>
-                              </div>
-                              <div className="flex items-center gap-1 border-l border-gray-200 pl-2">
-                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Disp:</span>
-                                <span className="text-xs font-black text-indigo-700 font-mono">{availability || 0}%</span>
-                              </div>
-                              <div className="flex items-center gap-1 border-l border-gray-200 pl-2">
-                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Rend:</span>
-                                <span className="text-xs font-black text-rose-700 font-mono">{performance || 0}%</span>
-                              </div>
-                            </div>
+                  {/* Production performance preview */}
+                  <div className="space-y-3">
+                    <h5 className="text-[10px] font-black text-text-main uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="w-1.5 h-3 bg-primary rounded-sm"></span>
+                      II. RENDIMIENTO EN EMBALADO / ENSACADO
+                    </h5>
+                    <div className="space-y-3">
+                      {palletizerData.map(({ palletizer, runHours, oee, availability, performance, totalTons }, idx) => (
+                        <div key={idx} className="bg-bg/20 border border-border/80 rounded-xl p-3.5 space-y-3">
+                          <div className="flex justify-between items-center border-b border-border pb-1.5">
+                            <span className="text-[10px] font-black text-text-main uppercase">{palletizer.name}</span>
+                            <span className="font-mono text-[10.5px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-md">{totalTons.toFixed(1)} TN PRODUCIDOS</span>
                           </div>
-
-                          <div className="grid grid-cols-3 gap-4">
-                            {/* Producción */}
-                            <div className="col-span-1 border-r border-gray-200 pr-3">
-                              <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-wider block mb-1">Volumen Producido</span>
-                              {Object.entries(tonsByMaterial).length > 0 ? (
-                                <div className="space-y-1.5">
-                                  {Object.entries(tonsByMaterial).map(([mId, tons]) => {
-                                    const t = tons as number;
-                                    const mName = masters.materials.find((m: any) => m.id === mId)?.name || 'Material';
-                                    return (
-                                      <div key={mId} className="flex justify-between items-baseline text-[9px] font-bold text-gray-800 uppercase">
-                                        <span className="truncate max-w-[100px]">{mName}</span>
-                                        <span className="font-mono text-gray-900">{t.toFixed(1)} TN</span>
-                                      </div>
-                                    );
-                                  })}
-                                  <div className="pt-1.5 border-t border-dashed border-gray-200 flex justify-between font-extrabold text-[10px] text-blue-900">
-                                    <span>TOTAL</span>
-                                    <span className="font-mono">{totalTons.toFixed(1)} TN</span>
-                                  </div>
-                                </div>
-                              ) : (
-                                <p className="text-[9px] text-gray-400 italic mt-3">Sin producción registrada</p>
-                              )}
+                          <div className="grid grid-cols-4 gap-2 text-center">
+                            <div className="bg-bg/40 p-1.5 rounded-lg border border-border/20">
+                              <span className="block text-[7px] text-text-muted uppercase font-black tracking-wider">Marcha</span>
+                              <span className="font-mono text-[10px] font-black text-text-main">{runHours}h</span>
                             </div>
-
-                            {/* Boquillas */}
-                            <div className="col-span-1 border-r border-gray-200 pr-3">
-                              <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-wider block mb-2">Boquillas Activas / Envasadora</span>
-                              {activeNozzles.length > 0 ? (
-                                <div className="grid grid-cols-1 gap-1">
-                                  {activeNozzles.map((nozzle, nidx) => (
-                                    <div key={nidx} className="bg-gray-50 border border-gray-200 px-2 py-1 rounded flex flex-col gap-0.5 text-[9px]">
-                                      <div className="flex justify-between items-center w-full">
-                                        <span className="font-bold text-gray-700 uppercase truncate flex-1 mr-2">{nozzle.baggerName}</span>
-                                        <span className="font-mono font-extrabold text-amber-600 shrink-0">{nozzle.nozzles}</span>
-                                      </div>
-                                      {nozzle.observations && nozzle.observations.length > 0 && (
-                                        <div className="text-[7.5px] text-gray-400 italic border-t border-gray-150 pt-0.5 mt-0.5 leading-tight w-full">
-                                          {nozzle.observations.map((obs: string, oIdx: number) => (
-                                            <div 
-                                              key={oIdx} 
-                                              className="leading-relaxed"
-                                              style={{
-                                                whiteSpace: 'normal',
-                                                overflowWrap: 'break-word',
-                                                wordBreak: 'break-word',
-                                                lineHeight: '1.35',
-                                                maxWidth: '100%'
-                                              }}
-                                              title={obs}
-                                            >
-                                              • {obs}
-                                            </div>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="text-[9px] text-gray-400 italic">No hay boquillas reportadas</p>
-                              )}
+                            <div className="bg-bg/40 p-1.5 rounded-lg border border-border/20">
+                              <span className="block text-[7px] text-text-muted uppercase font-black tracking-wider">OEE</span>
+                              <span className="font-mono text-[10px] font-bold text-emerald-500">{oee || 0}%</span>
                             </div>
-
-                            {/* Incidentes */}
-                            <div className="col-span-1">
-                              <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-wider block mb-2">Paros / Alarmas de Operación</span>
-                              {topStops.length > 0 ? (
-                                <div className="space-y-2">
-                                  {topStops.slice(0, 4).map((stop, sidx) => {
-                                    const causeText = stop.causeText || masters.causes.find((c: any) => c.id === stop.causeId)?.text || 'Error registrado';
-                                    return (
-                                      <div key={sidx} className="flex justify-between items-start text-[9px] font-semibold text-gray-800 leading-tight border-b border-gray-100/50 pb-1.5 last:border-none last:pb-0">
-                                        <div className="flex-1 min-w-0 pr-2">
-                                          <p className="font-bold text-red-700 uppercase leading-snug break-words">
-                                            {causeText}
-                                          </p>
-                                          <span className="text-[7px] text-gray-500 font-mono block mt-0.5 font-semibold">
-                                            HAC: {stop.hacName || 'Genérico'}
-                                          </span>
-                                        </div>
-                                        <div className="shrink-0 text-right">
-                                          <span className="font-mono text-red-700 font-black bg-red-50 border border-red-200 px-1.5 py-0.5 rounded text-[8px] block inline-block">
-                                            {stop.durationMinutes}m
-                                          </span>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              ) : (
-                                <p className="text-[9px] text-gray-400 italic">Operación limpia. Sin paros registrados.</p>
-                              )}
+                            <div className="bg-bg/40 p-1.5 rounded-lg border border-border/20">
+                              <span className="block text-[7px] text-text-muted uppercase font-black tracking-wider">Disp</span>
+                              <span className="font-mono text-[10px] font-bold text-indigo-500">{availability || 0}%</span>
+                            </div>
+                            <div className="bg-bg/40 p-1.5 rounded-lg border border-border/20">
+                              <span className="block text-[7px] text-text-muted uppercase font-black tracking-wider">Rend</span>
+                              <span className="font-mono text-[10px] font-bold text-rose-500">{performance || 0}%</span>
                             </div>
                           </div>
                         </div>
@@ -527,89 +361,390 @@ export default function DashboardShareModal({
                     </div>
                   </div>
 
-                  {/* Section 3: Calles de Carga */}
-                  <div className="mb-6">
-                    <h2 className="text-xs font-black text-gray-800 uppercase tracking-[0.2em] border-b border-gray-300 pb-1 mb-3 flex items-center gap-1.5">
-                      <span className="w-1.5 h-3.5 bg-blue-600 rounded-sm"></span>
-                      III. DISPONIBILIDAD EN CALLES DE CARGA & DESPACHO
-                    </h2>
-
-                    <div className="border border-gray-250 rounded-lg overflow-hidden">
-                      <table className="w-full text-left text-[10px]">
-                        <thead className="bg-gray-100 text-[9px] font-bold text-gray-500 uppercase border-b border-gray-200">
-                          <tr>
-                            <th className="px-4 py-2">Identificador</th>
-                            <th className="px-4 py-2">Estado</th>
-                            <th className="px-4 py-2">Tipo de Logística / Restricciones</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-150">
-                          {Object.entries(groupedLoadingPoints).flatMap(([type, points]: [string, any[]]) => 
-                            points.map(lp => {
-                              const status = laneStatuses.find((s: any) => s.loadingPointId === lp.id);
-                              const isEnabled = status ? status.isEnabled : true;
-                              return (
-                                <tr key={lp.id} className="hover:bg-gray-50">
-                                  <td className="px-4 py-2 font-bold text-gray-900 border-r border-gray-100 max-w-[180px] truncate uppercase flex items-center gap-2">
-                                    <span className={cn(
-                                      "w-1.5 h-1.5 rounded-full inline-block",
-                                      type === 'BOLSA' ? "bg-blue-500" : "bg-amber-500"
-                                    )}></span>
-                                    {lp.name}
-                                  </td>
-                                  <td className="px-4 py-2">
-                                    <span className={cn(
-                                      "px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-wider block text-center w-24",
-                                      isEnabled ? "bg-emerald-100 text-emerald-800 border border-emerald-200" : "bg-red-100 text-red-800 border border-red-200"
-                                    )}>
-                                      {isEnabled ? 'OPERATIVA' : 'FUERA SERV.'}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-2 text-gray-600 uppercase font-semibold">
-                                    {isEnabled ? (
-                                      status && status.materialIds.length > 0 ? (
-                                        <div className="flex flex-wrap gap-1">
-                                          {status.materialIds.map((mid: string) => (
-                                            <span key={mid} className="px-1 bg-blue-50 text-blue-900 rounded border border-blue-100 text-[8px] font-extrabold uppercase">
-                                              {masters.materials.find((m: any) => m.id === mid)?.name}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      ) : (
-                                        <span className="text-[8px] text-emerald-600 block">Disponible para carga y stock general</span>
-                                      )
-                                    ) : (
-                                      <span className="text-[9px] text-red-600 font-bold block max-w-[320px] truncate leading-tight">
-                                        RESTRICCIONES: {status?.observation || 'Avería mecánica interna'}
-                                      </span>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                      </table>
+                  {/* Loading point preview */}
+                  <div className="space-y-3">
+                    <h5 className="text-[10px] font-black text-text-main uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="w-1.5 h-3 bg-primary rounded-sm"></span>
+                      III. DISPONIBILIDAD DE CALLES DE CARGA
+                    </h5>
+                    <div className="bg-bg/10 border border-border rounded-xl divide-y divide-border/65 overflow-hidden">
+                      {Object.entries(groupedLoadingPoints).flatMap(([type, points]: [string, any[]]) => 
+                        points.map(lp => {
+                          const status = laneStatuses.find((s: any) => s.loadingPointId === lp.id);
+                          const isEnabled = status ? status.isEnabled : true;
+                          return (
+                            <div key={lp.id} className="p-2.5 flex items-center justify-between text-[10px] uppercase font-bold">
+                              <span className="text-text-main flex items-center gap-1.5">
+                                <span className={cn(
+                                  "w-1.5 h-1.5 rounded-full inline-block",
+                                  type === 'BOLSA' ? "bg-blue-500" : "bg-amber-500"
+                                )}></span>
+                                {lp.name}
+                              </span>
+                              <span className={cn(
+                                "px-1.5 py-0.5 rounded-[5px] text-[8px] font-extrabold uppercase tracking-wider border",
+                                isEnabled ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/15" : "bg-red-500/10 text-red-500 border-red-500/15"
+                              )}>
+                                {isEnabled ? 'OPERATIVA' : 'FUERA SERV.'}
+                              </span>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </div>
 
-                  {/* Summary Signature / Verification row */}
-                  <div className="mt-8 pt-4 border-t border-gray-300 flex justify-between items-end text-[9px] text-gray-400 font-bold uppercase tracking-wider">
-                    <div className="text-right">
-                      <p>DOCUMENTO DE REGISTRO INTERNO - HOLCIM (ARGENTINA) S.A.</p>
-                      <p className="mt-0.5 font-mono text-[8px] text-gray-300">CRC-SHA256: 8D72F3EFA9201C</p>
-                    </div>
-                  </div>
-
-                </div> {/* END OF ACTUAL PRINT/IMAGE LAYOUT */}
-
-              </div> {/* END OF SCALED WRAPPER */}
-
-            </div> {/* END OF PREVIEW WINDOW */}
+               </div>
+            </div>
 
           </div> {/* END OF BODY */}
 
         </motion.div>
+      </div>
+
+      {/* 
+        ========================================================================
+        OFFSCREEN RENDERING CONTAINER - FOR HIGH FIDELITY PNG EXTRACTION ONLY
+        ========================================================================
+        This component is placed offscreen, keeping standard width and full styling.
+        It avoids viewport scaling, which removes scrolling glitches or crop defects.
+      */}
+      <div 
+        style={{
+          position: 'fixed',
+          left: '-9999px',
+          top: '0',
+          width: '800px',
+          pointerEvents: 'none',
+          zIndex: -110
+        }}
+        aria-hidden="true"
+      >
+        <div 
+          ref={pdfRef}
+          id="shift-report-pdf-target"
+          style={{ width: '800px', backgroundColor: '#ffffff', color: '#111827', padding: '36px' }}
+          className="rounded-lg shadow-xl text-left font-sans select-none overflow-hidden"
+        >
+          {/* PDF Cover / Header */}
+          <div className="border-b-4 border-gray-905 pb-5 mb-6 flex justify-between items-start">
+            <div>
+              <h1 className="text-2xl font-extrabold uppercase tracking-tight text-gray-900 leading-none">
+                RESUMEN DE TURNO: {selectedShift?.name || 'TURNO'}
+              </h1>
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-1.5 flex items-center gap-1.5">
+                REPORTE DE PRODUCTIVIDAD Y STOCKS
+              </p>
+              <div className="mt-3 flex gap-4 text-xs font-semibold text-gray-700">
+                <div>
+                  <span className="text-gray-400 font-bold uppercase tracking-wider text-[10px] block">Fecha de Turno</span>
+                  <span className="text-lg font-extrabold text-blue-900">{displayDate}</span>
+                </div>
+                <div className="border-l border-gray-300 pl-4">
+                  <span className="text-gray-400 font-bold uppercase tracking-wider text-[10px] block">Horario de Operación</span>
+                  <span className="text-sm font-extrabold text-gray-900">{shiftTimeLabel || 'N/A'}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-right">
+              <div className="font-mono text-[22px] font-black tracking-tighter text-blue-950 leading-none">PSCQube</div>
+              <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mt-1">Holcim Argentina S.A.</span>
+              <div className="mt-4 text-[10px] text-gray-500 font-bold tracking-tight">
+                <p>Impreso: {currentDateTimeStr}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 1: Stock e Insumos */}
+          {hasAnyInventory && (
+            <div className="mb-8">
+              <h2 className="text-xs font-black text-gray-800 uppercase tracking-[0.2em] border-b border-gray-300 pb-1 mb-3 flex items-center gap-1.5">
+                <span className="w-1.5 h-3.5 bg-blue-600 rounded-sm"></span>
+                I. RESUMEN DE INVENTARIOS & STOCK CONTADO
+              </h2>
+
+              {/* Productive & BigBags Summary Grid */}
+              {(inventorySummary.productive.length > 0 || inventorySummary.bigbags.length > 0) && (
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  {[...inventorySummary.productive, ...inventorySummary.bigbags].map((item, idx) => {
+                    const unit = item.isUnitary ? 'U' : 'TN';
+                    const decimals = item.isUnitary ? 0 : 1;
+                    return (
+                      <div key={idx} className="border border-gray-200 bg-gray-50 p-3 rounded-lg flex justify-between items-center">
+                        <div>
+                          <span className="text-[10px] font-extrabold text-gray-800 uppercase block truncate max-w-[200px]">{item.name}</span>
+                          <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest block mt-0.5">
+                            {item.isBigBag ? 'Contenedor Big Bag' : 'Silo Productivo'}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs font-bold text-gray-500 block text-[9px] uppercase tracking-wider">Total Disponible</span>
+                          <span className="font-mono text-base font-black text-blue-900">{item.total.toFixed(decimals)} {unit}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Side-by-side secondary tables */}
+              <div className="grid grid-cols-2 gap-4">
+                {[
+                  { label: 'Detalle de Tarimas (Pallets)', data: inventorySummary.tarimas },
+                  { label: 'Detalle de Insumos', data: inventorySummary.insumos },
+                  { label: 'No Productivos y Otros', data: inventorySummary.others }
+                ].filter(g => g.data.length > 0).slice(0, 2).map((group, groupIdx) => {
+                  const hasProd = group.data.some((it: any) => it.isProductive);
+                  return (
+                    <div key={groupIdx} className="border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="bg-gray-100 px-3 py-1.5 border-b border-gray-200 flex justify-between items-center">
+                        <span className="text-[9px] font-extrabold text-gray-800 uppercase tracking-wider">{group.label}</span>
+                        <span className="text-[8px] font-bold text-gray-500 font-mono">{group.data.length} ítems</span>
+                      </div>
+                      <table className="w-full text-left text-[10px]">
+                        <thead className="bg-gray-50 text-[9px] font-bold text-gray-400 uppercase border-b border-gray-200">
+                          <tr>
+                            <th className="px-3 py-1.5">Material</th>
+                            {hasProd && <th className="px-2 py-1.5 text-right">S.Inicial</th>}
+                            <th className="px-3 py-1.5 text-right">Total Disp.</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-150">
+                          {group.data.map((item: any, idx: number) => {
+                            const unit = item.isUnitary ? 'U' : 'TN';
+                            const decimals = item.isUnitary ? 0 : 1;
+                            return (
+                              <tr key={idx} className="hover:bg-gray-50">
+                                <td className="px-3 py-1.5 font-bold text-gray-700 uppercase truncate max-w-[130px]">{item.name}</td>
+                                {hasProd && (
+                                  <td className="px-2 py-1.5 text-right font-mono text-gray-500">
+                                    {item.isProductive ? item.stock.toFixed(decimals) : '-'}
+                                  </td>
+                                )}
+                                <td className="px-3 py-1.5 text-right font-mono font-extrabold text-blue-900">
+                                  {item.total.toFixed(decimals)} {unit}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Section 2: Productividad */}
+          <div className="mb-8">
+            <h2 className="text-xs font-black text-gray-800 uppercase tracking-[0.2em] border-b border-gray-300 pb-1 mb-3 flex items-center gap-1.5">
+              <span className="w-1.5 h-3.5 bg-blue-600 rounded-sm"></span>
+              II. RENDIMIENTO EN LÍNEAS DE PRODUCCIÓN
+            </h2>
+
+            <div className="space-y-4">
+              {palletizerData.map(({ palletizer, topStops, tonsByMaterial, runHours, oee, availability, performance, activeNozzles, totalTons }, idx) => (
+                <div key={idx} className="border border-gray-300 rounded-lg p-4">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline border-b border-gray-150 pb-2 mb-3 gap-2">
+                    <span className="text-xs font-extrabold text-blue-950 uppercase">{palletizer.name}</span>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="flex items-center gap-1">
+                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Marcha:</span>
+                        <span className="text-xs font-black text-blue-800 font-mono">{runHours}hs</span>
+                      </div>
+                      <div className="flex items-center gap-1 border-l border-gray-200 pl-2">
+                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">OEE:</span>
+                        <span className="text-xs font-black text-emerald-700 font-mono">{oee || 0}%</span>
+                      </div>
+                      <div className="flex items-center gap-1 border-l border-gray-200 pl-2">
+                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Disp:</span>
+                        <span className="text-xs font-black text-indigo-700 font-mono">{availability || 0}%</span>
+                      </div>
+                      <div className="flex items-center gap-1 border-l border-gray-200 pl-2">
+                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Rend:</span>
+                        <span className="text-xs font-black text-rose-700 font-mono">{performance || 0}%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    {/* Producción */}
+                    <div className="col-span-1 border-r border-gray-200 pr-3">
+                      <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-wider block mb-1">Volumen Producido</span>
+                      {Object.entries(tonsByMaterial).length > 0 ? (
+                        <div className="space-y-1.5">
+                          {Object.entries(tonsByMaterial).map(([mId, tons]) => {
+                            const t = tons as number;
+                            const mName = masters.materials.find((m: any) => m.id === mId)?.name || 'Material';
+                            return (
+                              <div key={mId} className="flex justify-between items-baseline text-[9px] font-bold text-gray-800 uppercase">
+                                <span className="truncate max-w-[100px]">{mName}</span>
+                                <span className="font-mono text-gray-900">{t.toFixed(1)} TN</span>
+                              </div>
+                            );
+                          })}
+                          <div className="pt-1.5 border-t border-dashed border-gray-200 flex justify-between font-extrabold text-[10px] text-blue-900">
+                            <span>TOTAL</span>
+                            <span className="font-mono">{totalTons.toFixed(1)} TN</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-[9px] text-gray-400 italic mt-3">Sin producción registrada</p>
+                      )}
+                    </div>
+
+                    {/* Boquillas */}
+                    <div className="col-span-1 border-r border-gray-200 pr-3">
+                      <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-wider block mb-2">Boquillas Activas / Envasadora</span>
+                      {activeNozzles.length > 0 ? (
+                        <div className="grid grid-cols-1 gap-1">
+                          {activeNozzles.map((nozzle, nidx) => (
+                            <div key={nidx} className="bg-gray-50 border border-gray-200 px-2 py-1 rounded flex flex-col gap-0.5 text-[9px]">
+                              <div className="flex justify-between items-center w-full">
+                                <span className="font-bold text-gray-700 uppercase truncate flex-1 mr-2">{nozzle.baggerName}</span>
+                                <span className="font-mono font-extrabold text-amber-600 shrink-0">{nozzle.nozzles}</span>
+                              </div>
+                              {nozzle.observations && nozzle.observations.length > 0 && (
+                                <div className="text-[7.5px] text-gray-400 italic border-t border-gray-150 pt-0.5 mt-0.5 leading-tight w-full">
+                                  {nozzle.observations.map((obs: string, oIdx: number) => (
+                                    <div 
+                                      key={oIdx} 
+                                      className="leading-relaxed"
+                                      style={{
+                                        whiteSpace: 'normal',
+                                        overflowWrap: 'break-word',
+                                        wordBreak: 'break-word',
+                                        lineHeight: '1.35',
+                                        maxWidth: '105%'
+                                      }}
+                                      title={obs}
+                                    >
+                                      • {obs}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[9px] text-gray-400 italic">No hay boquillas reportadas</p>
+                      )}
+                    </div>
+
+                    {/* Incidentes */}
+                    <div className="col-span-1">
+                      <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-wider block mb-2">Paros / Alarmas de Operación</span>
+                      {topStops.length > 0 ? (
+                        <div className="space-y-2">
+                          {topStops.slice(0, 4).map((stop, sidx) => {
+                            const causeText = stop.causeText || masters.causes.find((c: any) => c.id === stop.causeId)?.text || 'Error registrado';
+                            return (
+                              <div key={sidx} className="flex justify-between items-start text-[9px] font-semibold text-gray-800 leading-tight border-b border-gray-100/50 pb-1.5 last:border-none last:pb-0">
+                                <div className="flex-1 min-w-0 pr-2">
+                                  <p className="font-bold text-red-700 uppercase leading-snug break-words">
+                                    {causeText}
+                                  </p>
+                                  <span className="text-[7px] text-gray-500 font-mono block mt-0.5 font-semibold">
+                                    HAC: {stop.hacName || 'Genérico'}
+                                  </span>
+                                </div>
+                                <div className="shrink-0 text-right">
+                                  <span className="font-mono text-red-700 font-black bg-red-50 border border-red-200 px-1.5 py-0.5 rounded text-[8px] block inline-block">
+                                    {stop.durationMinutes}m
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-[9px] text-gray-400 italic">Operación limpia. Sin paros registrados.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Section 3: Calles de Carga */}
+          <div className="mb-6">
+            <h2 className="text-xs font-black text-gray-800 uppercase tracking-[0.2em] border-b border-gray-300 pb-1 mb-3 flex items-center gap-1.5">
+              <span className="w-1.5 h-3.5 bg-blue-600 rounded-sm"></span>
+              III. DISPONIBILIDAD EN CALLES DE CARGA & DESPACHO
+            </h2>
+
+            <div className="border border-gray-250 rounded-lg overflow-hidden">
+              <table className="w-full text-left text-[10px]">
+                <thead className="bg-gray-100 text-[9px] font-bold text-gray-500 uppercase border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-2">Identificador</th>
+                    <th className="px-4 py-2">Estado</th>
+                    <th className="px-4 py-2">Tipo de Logística / Restricciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-150">
+                  {Object.entries(groupedLoadingPoints).flatMap(([type, points]: [string, any[]]) => 
+                    points.map(lp => {
+                      const status = laneStatuses.find((s: any) => s.loadingPointId === lp.id);
+                      const isEnabled = status ? status.isEnabled : true;
+                      return (
+                        <tr key={lp.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-2 font-bold text-gray-900 border-r border-gray-100 max-w-[180px] truncate uppercase flex items-center gap-2">
+                            <span className={cn(
+                              "w-1.5 h-1.5 rounded-full inline-block",
+                              type === 'BOLSA' ? "bg-blue-500" : "bg-amber-500"
+                            )}></span>
+                            {lp.name}
+                          </td>
+                          <td className="px-4 py-2">
+                            <span className={cn(
+                              "px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-wider block text-center w-24",
+                              isEnabled ? "bg-emerald-100 text-emerald-800 border border-emerald-200" : "bg-red-100 text-red-800 border border-red-200"
+                            )}>
+                              {isEnabled ? 'OPERATIVA' : 'FUERA SERV.'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2 text-gray-600 uppercase font-semibold">
+                            {isEnabled ? (
+                              status && status.materialIds.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {status.materialIds.map((mid: string) => (
+                                    <span key={mid} className="px-1 bg-blue-50 text-blue-900 rounded border border-blue-100 text-[8px] font-extrabold uppercase">
+                                      {masters.materials.find((m: any) => m.id === mid)?.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-[8px] text-emerald-600 block">Disponible para carga y stock general</span>
+                              )
+                            ) : (
+                              <span className="text-[9px] text-red-600 font-bold block max-w-[320px] truncate leading-tight">
+                                RESTRICCIONES: {status?.observation || 'Avería mecánica interna'}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Summary Signature / Verification row */}
+          <div className="mt-8 pt-4 border-t border-gray-300 flex justify-between items-end text-[9px] text-gray-400 font-bold uppercase tracking-wider">
+            <div className="text-right">
+              <p>DOCUMENTO DE REGISTRO INTERNO - HOLCIM (ARGENTINA) S.A.</p>
+              <p className="mt-0.5 font-mono text-[8px] text-gray-300">CRC-SHA256: 8D72F3EFA9201C</p>
+            </div>
+          </div>
+
+        </div> {/* END OF ACTUAL PRINT/IMAGE LAYOUT */}
       </div>
     </AnimatePresence>
   );
