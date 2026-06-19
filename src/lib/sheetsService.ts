@@ -254,10 +254,6 @@ export async function fetchTableFromSheets(
     const cached = getBrowserCache(sheetName, filters);
     if (cached) {
       console.log(`[Browser Cache Hit] Loaded table ${sheetName} (isMaster: ${isMaster})`);
-      // Completely comment out automatic background revalidation so no API queries are run on cache hit
-      // if (!isMaster) {
-      //   triggerBackgroundRevalidation(sheetName, cached, filters);
-      // }
       return { success: true, data: cached };
     }
   }
@@ -438,67 +434,6 @@ Para que la aplicación funcione en tiempo real con Google Sheets, debes agregar
 
 ⚠️ **IMPORTANTE:** Recuerda compartir tu documento de Google Sheet con el correo de la cuenta de servicio (\`GOOGLE_SERVICE_ACCOUNT_EMAIL\`) con permisos de **Editor** para que el sistema pueda leer y escribir.
 `;
-
-/**
- * Triggers an asynchronous background revalidation of a table's data.
- * If the fresh data differs from the cached data, the cache is updated and a custom
- * window event is dispatched so React state can synchronize seamlessly.
- */
-function triggerBackgroundRevalidation(
-  sheetName: string, 
-  cachedData: any[], 
-  filters?: { date?: string; shiftId?: string; palletizerId?: string }
-) {
-  if (MASTER_TABLES.includes(sheetName)) return; // Skip background revalidation for master/catalog databases
-
-  setTimeout(async () => {
-    try {
-      let queryParams = "bypassCache=true";
-      if (filters) {
-        if (filters.date) queryParams += `&date=${encodeURIComponent(filters.date)}`;
-      }
-
-      let url = `/api/sheets?table=${sheetName}&${queryParams}`;
-      if (sheetName === "PRODUCCIONV2") {
-        url = `/api/produccion?${queryParams}`;
-      } else if (sheetName === "PAROSV2") {
-        url = `/api/paros?${queryParams}`;
-      }
-
-      const response = await fetch(url);
-      if (!response.ok) return;
-      
-      const result = await response.json();
-      if (result.success && Array.isArray(result.data)) {
-        let different = false;
-        if (cachedData.length !== result.data.length) {
-          different = true;
-        } else {
-          try {
-            different = JSON.stringify(cachedData) !== JSON.stringify(result.data);
-          } catch {
-            different = true;
-          }
-        }
-
-        if (different) {
-          console.log(`[Background Revalidation] Cache out of date for ${sheetName}. Refreshing Cache and dispatching event...`);
-          
-          setBrowserCache(sheetName, result.data, filters);
-
-          // Emit global custom event so React registers the fresh updates
-          window.dispatchEvent(new CustomEvent('table-data-updated', {
-            detail: { tableName: sheetName, data: result.data }
-          }));
-        } else {
-          console.log(`[Background Revalidation] Cache is up-to-date for ${sheetName}.`);
-        }
-      }
-    } catch (e) {
-      console.warn("[Background Revalidation Error]", e);
-    }
-  }, 100); // small delay to give thread breathing room
-}
 
 /**
  * Preloads all master catalogs from the backend in a single efficient HTTP request,
