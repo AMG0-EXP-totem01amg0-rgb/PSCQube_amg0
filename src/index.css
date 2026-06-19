@@ -181,3 +181,11 @@
   mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
   -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
 }
+
+/* Carousel Functional Menu Specific style for Dark Mode readability */
+[data-theme="dark"] .carousel-tab:not(.btn-active-highlight) {
+  color: #FFFFFF !important;
+}
+[data-theme="dark"] .carousel-tab:not(.btn-active-highlight):hover {
+  color: #FFFFFF !important;
+}

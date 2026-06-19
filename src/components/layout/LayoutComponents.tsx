@@ -307,7 +307,10 @@ export function Header({
                      className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-all active:scale-95 group"
                    >
                      <Calendar size={12} className="text-primary group-hover:text-primary transition-colors shrink-0" />
-                     <span className="text-[11px] font-black text-primary uppercase tracking-wider group-hover:text-primary whitespace-nowrap">{displayDate}</span>
+                     <span className={cn(
+                        "text-[11px] font-black uppercase tracking-wider whitespace-nowrap transition-colors",
+                        isDark ? "text-white group-hover:text-white" : "text-primary group-hover:text-primary"
+                      )}>{displayDate}</span>
                    </div>
                    {/* Overlay Input for robust Native Calendar Triggering across all devices (including iOS Safari) */}
                    <input 
@@ -395,7 +398,7 @@ export function Header({
                           "flex-1 sm:flex-none px-4 sm:px-3 h-full rounded-full text-[10px] font-black uppercase tracking-widest transition-all",
                           isActive 
                             ? "btn-active-highlight" 
-                            : "text-text-muted hover:text-text-main"
+                            : isDark ? "text-white/90 hover:text-white" : "text-text-muted hover:text-text-main"
                         )}
                       >
                         {shiftLabels[s.name] || s.name}

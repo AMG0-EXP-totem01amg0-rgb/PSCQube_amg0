@@ -2032,7 +2032,7 @@ function ProductivitySubTab({ active, icon, label, onClick }: any) {
       onClick={onClick}
       data-active={active}
       className={cn(
-        "px-4 py-1.5 rounded-md flex items-center gap-2 transition-all flex-none text-[10px] font-bold uppercase tracking-widest whitespace-nowrap min-w-fit",
+        "carousel-tab px-4 py-1.5 rounded-md flex items-center gap-2 transition-all flex-none text-[10px] font-bold uppercase tracking-widest whitespace-nowrap min-w-fit",
         active 
           ? "btn-active-highlight" 
           : "text-text-muted hover:text-text-main hover:bg-bg"
