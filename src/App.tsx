@@ -9,7 +9,8 @@ import { format, parse, differenceInMinutes } from 'date-fns';
 import { 
   AlertTriangle, Package, ClipboardList, Fuel, Wrench,
   Activity, PlusCircle, ShieldCheck, Settings, Bot,
-  ChevronLeft, ChevronRight, Truck, Droplet, Layers, MapPin
+  ChevronLeft, ChevronRight, Truck, Droplet, Layers, MapPin,
+  RefreshCw
 } from 'lucide-react';
 
 // Modules
@@ -152,6 +153,79 @@ type AppSection = 'PRODUCTIVITY' | 'SAFETY' | 'ENVIRONMENT' | 'HR' | 'ADMIN';
 type ProductivityTab = 'DASHBOARD' | 'PAROS' | 'PRODUCCION' | 'DATER' | 'SCALE' | 'STOCK' | 'PALLET_CLASS' | 'GASOIL' | 'MANTENIMIENTO' | 'CHANGE' | 'LOADING_LANES' | 'DESPACHOS';
 
 export default function App() {
+  const [loadedVersion, setLoadedVersion] = useState<string | null>(null);
+  const [showVersionAlert, setShowVersionAlert] = useState(false);
+
+  const checkAppVersion = async (isStartup = false) => {
+    try {
+      const res = await fetch('/api/version');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && data.success && data.version) {
+        const serverVer = data.version;
+        if (isStartup) {
+          console.log(`[Version Control] App initialized server version: ${serverVer}`);
+          setLoadedVersion(serverVer);
+          localStorage.setItem("pscqube_app_version", serverVer);
+        } else {
+          const localVer = localStorage.getItem("pscqube_app_version") || loadedVersion;
+          if (localVer && localVer !== serverVer) {
+            console.warn(`[Version Control] Version mismatch! Browser: ${localVer} vs Server: ${serverVer}`);
+            setShowVersionAlert(true);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("[Version Control] Error checking version:", err);
+    }
+  };
+
+  useEffect(() => {
+    checkAppVersion(true);
+
+    let lastCheckTime = Date.now();
+    const tenMinutes = 10 * 60 * 1000;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const timeElapsed = Date.now() - lastCheckTime;
+        if (timeElapsed > tenMinutes) {
+          console.log("[Version Control] Visibility check. Surveying server for version updates...");
+          checkAppVersion(false);
+          lastCheckTime = Date.now();
+        }
+      }
+    };
+
+    const slowInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        console.log("[Version Control] Regular slow background update integrity query.");
+        checkAppVersion(false);
+        lastCheckTime = Date.now();
+      }
+    }, 12 * 60 * 1000);
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(slowInterval);
+    };
+  }, [loadedVersion]);
+
+  useEffect(() => {
+    if (showVersionAlert) {
+      console.log("[Version Control] Refresh timeout set for 5s.");
+      const reloadTimeout = setTimeout(() => {
+        try {
+          localStorage.clear();
+          sessionStorage.clear();
+        } catch (e) {}
+        window.location.reload();
+      }, 5000);
+      return () => clearTimeout(reloadTimeout);
+    }
+  }, [showVersionAlert]);
+
   const [activeSection, setActiveSection] = useState<AppSection>('PRODUCTIVITY');
   const [prodTab, setProdTab] = useState<ProductivityTab>('DASHBOARD');
   const [adminTab, setAdminTab] = useState('SHIFTS');
@@ -1302,6 +1376,69 @@ export default function App() {
 
   return (
     <>
+      <AnimatePresence>
+        {showVersionAlert && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/95 backdrop-blur-xl z-[99999] flex flex-col items-center justify-center p-4 text-center"
+          >
+            <div className="max-w-md w-full bg-[#1c1d24] border border-[#ef4444]/30 p-8 rounded-2xl shadow-2xl flex flex-col items-center space-y-6">
+              <div className="w-16 h-16 bg-[#ef4444]/15 rounded-full flex items-center justify-center text-[#ef4444] animate-pulse">
+                <RefreshCw size={32} className="animate-spin duration-3000" />
+              </div>
+              
+              <div className="space-y-2">
+                <h3 className="text-xl font-extrabold tracking-tight text-white uppercase">
+                  Actualización Requerida
+                </h3>
+                <p className="text-xs text-primary font-bold uppercase tracking-[0.2em]">
+                  Control de Versión PSCQUBE
+                </p>
+              </div>
+
+              <div className="bg-white/5 p-4 rounded-xl text-left w-full space-y-3 border border-white/5">
+                <p className="text-xs text-[#a0a5b5] leading-relaxed">
+                  Para evitar consultas inconsistentes en segundo plano y optimizar el consumo de recursos de base de datos, las pestañas antiguas del navegador se bloquean automáticamente.
+                </p>
+                <div className="space-y-1.5 pt-2 border-t border-white/5">
+                  <div className="flex items-center space-x-2 text-[11px] text-green-400 font-bold uppercase tracking-wider">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-ping" />
+                    <span>✓ Sesión de base de datos preservada</span>
+                  </div>
+                  <div className="flex items-center space-x-2 text-[11px] text-green-400 font-bold uppercase tracking-wider">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-ping" />
+                    <span>✓ Caché local invalidada</span>
+                  </div>
+                  <div className="flex items-center space-x-2 text-[11px] text-primary font-bold uppercase tracking-wider">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                    <span>⌛ Listo para reiniciar versión</span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  try {
+                    localStorage.clear();
+                    sessionStorage.clear();
+                  } catch (e) {}
+                  window.location.reload();
+                }}
+                className="w-full bg-[#ef4444] hover:bg-[#ef4444]/80 text-white py-3.5 px-6 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-lg active:scale-98"
+              >
+                Actualizar Ahora
+              </button>
+              
+              <p className="text-[10px] text-[#a0a5b5] uppercase tracking-widest">
+                La aplicación se recargará automáticamente en breve
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence mode="wait">
         {isSyncing && (
           <motion.div

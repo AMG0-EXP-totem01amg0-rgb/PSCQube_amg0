@@ -245,6 +245,16 @@ export async function fetchTableFromSheets(
     sheetName = `${sheetName}V2`;
   }
 
+  // Guard visibility for operational queries: Do not call remote endpoints if tab is inactive/hidden in browser background
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+    console.log(`[Visibility Guard Check] Thread blocked network fetch for ${sheetName} since user tab is hidden/backgrounded.`);
+    const cachedCombined = getBrowserCache(sheetName, filters);
+    if (cachedCombined) {
+      return { success: true, data: cachedCombined };
+    }
+    return { success: true, data: [] };
+  }
+
   const isMaster = MASTER_TABLES.includes(sheetName);
   const isForcedManual = (window as any).forceRefreshMasters === true;
 

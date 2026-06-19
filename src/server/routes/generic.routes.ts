@@ -190,6 +190,16 @@ router.get("/api/supabase-test", async (req, res) => {
   }
 });
 
+const APP_BUILD_VERSION = process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_APP_VERSION || "v1.0.3-boot-" + Date.now();
+
+// GET Version Endpoint
+router.get("/api/version", (req, res) => {
+  return res.json({
+    success: true,
+    version: APP_BUILD_VERSION
+  });
+});
+
 // GET Status Endpoint (Google Sheets status is now mock-returned as we operate purely on Supabase)
 router.get("/api/sheets/status", async (req, res) => {
   return res.json({
