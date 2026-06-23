@@ -265,8 +265,10 @@ router.get("/api/produccion", async (req, res) => {
     let list = await GenericRepository.findAll("PRODUCCIONV2");
 
     // Apply active filters at backend level if provided!
-    const { date } = req.query as Record<string, string>;
-    if (date) {
+    const { date, dateFrom, dateTo } = req.query as Record<string, string>;
+    if (dateFrom && dateTo) {
+      list = list.filter((r: any) => r.date && r.date >= dateFrom && r.date <= dateTo);
+    } else if (date) {
       list = list.filter((r: any) => r.date === date);
     }
 
@@ -290,8 +292,10 @@ router.get("/api/paros", async (req, res) => {
     let list = await GenericRepository.findAll("PAROSV2");
 
     // Apply active filters at backend level if provided!
-    const { date } = req.query as Record<string, string>;
-    if (date) {
+    const { date, dateFrom, dateTo } = req.query as Record<string, string>;
+    if (dateFrom && dateTo) {
+      list = list.filter((r: any) => r.date && r.date >= dateFrom && r.date <= dateTo);
+    } else if (date) {
       list = list.filter((r: any) => r.date === date);
     }
 
@@ -336,8 +340,10 @@ router.get("/api/sheets", async (req, res) => {
     ];
 
     if (filterableTables.includes(upperTable)) {
-      const { date } = req.query as Record<string, string>;
-      if (date) {
+      const { date, dateFrom, dateTo } = req.query as Record<string, string>;
+      if (dateFrom && dateTo) {
+        list = list.filter((r: any) => r.date && r.date >= dateFrom && r.date <= dateTo);
+      } else if (date) {
         list = list.filter((r: any) => r.date === date);
       }
     }

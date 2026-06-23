@@ -1,11 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ClipboardList, Plus, Trash2, Save, Printer, Calendar, FilterX } from 'lucide-react';
+import { ClipboardList, Plus, Trash2, Save, Printer, Calendar, FilterX, RefreshCcw } from 'lucide-react';
 import { MasterData, DaterControl, AppUser } from '../../../types';
 import { DataTable, Column, TableActions } from '../../ui/DataTable';
 import { GlassCard, GlassButton, GlassInput, GlassSelect, ConfirmModal } from '../../ui/GlassUI';
 import { cn } from '../../../lib/utils';
 import { format, isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
+import { fetchTableFromSheets } from '../../../lib/sheetsService';
 
 interface Props {
   masters: MasterData;
@@ -31,6 +32,36 @@ export default function DaterControlView({ masters, currentUser, onSave, onDelet
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
 
+  const [localRangeHistory, setLocalRangeHistory] = useState<DaterControl[] | null>(null);
+  const [isRangeLoading, setIsRangeLoading] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  useEffect(() => {
+    if (dateFrom && dateTo) {
+      let active = true;
+      setIsRangeLoading(true);
+      fetchTableFromSheets("CONTROL_FECHADORV2", true, { dateFrom, dateTo }, "DaterControlView.range")
+        .then(result => {
+          if (active && result.success && result.data) {
+            setLocalRangeHistory(result.data as DaterControl[]);
+          }
+        })
+        .catch(err => {
+          console.warn("Error loading range for dater controls:", err);
+        })
+        .finally(() => {
+          if (active) {
+            setIsRangeLoading(false);
+          }
+        });
+      return () => {
+        active = false;
+      };
+    } else {
+      setLocalRangeHistory(null);
+    }
+  }, [dateFrom, dateTo, refreshTrigger]);
+
   const [formData, setFormData] = useState<Partial<DaterControl>>({
     purge: 'SI',
     containerLevel: 'COMPLETO',
@@ -47,36 +78,37 @@ export default function DaterControlView({ masters, currentUser, onSave, onDelet
 
   // Filter history based on range or selectedDate and shift
   const filteredHistory = useMemo(() => {
+    const baseList = localRangeHistory !== null ? localRangeHistory : history;
     if (dateFrom && dateTo) {
       try {
         const start = startOfDay(parseISO(dateFrom));
         const end = endOfDay(parseISO(dateTo));
-        return history.filter(item => {
+        return baseList.filter(item => {
           if (!item) return false;
           const itemDate = parseISO(item.date);
           return isWithinInterval(itemDate, { start, end });
         });
       } catch (e) {
-        return history;
+        return baseList;
       }
     }
-    return history.filter(item => {
+    return baseList.filter(item => {
       if (!item) return false;
       const isSameDate = item.date === selectedDate;
       const isSameShift = !selectedShiftId || String(item.shiftId || '').trim().toUpperCase() === String(selectedShiftId).trim().toUpperCase();
       return isSameDate && isSameShift;
     });
-  }, [history, dateFrom, dateTo, selectedDate, selectedShiftId]);
+  }, [history, localRangeHistory, dateFrom, dateTo, selectedDate, selectedShiftId]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     const report: DaterControl = {
       id: editingId || `CTRL-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
-      date: selectedDate,
+      date: editingId ? (formData.date || selectedDate) : selectedDate,
       userId: editingId ? (formData.userId || currentUser?.dni || '') : (currentUser?.dni || ''),
       userName: editingId ? (formData.userName || currentUser?.name || '') : (currentUser?.name || ''),
-      shiftId: selectedShiftId || '',
+      shiftId: editingId ? (formData.shiftId || selectedShiftId || '') : (selectedShiftId || ''),
       hac: formData.hac || '',
       purge: formData.purge as 'SI' | 'NO',
       containerLevel: formData.containerLevel as any,
@@ -88,6 +120,18 @@ export default function DaterControlView({ masters, currentUser, onSave, onDelet
     };
 
     onSave(report);
+    if (localRangeHistory) {
+      setLocalRangeHistory(prev => {
+        if (!prev) return prev;
+        const exists = prev.some(item => item.id === report.id);
+        if (exists) {
+          return prev.map(item => item.id === report.id ? report : item);
+        } else {
+          return [report, ...prev];
+        }
+      });
+    }
+
     setIsFormOpen(false);
     setEditingId(null);
     setFormData({ purge: 'SI', containerLevel: 'COMPLETO', printQuality: 'BUENO', inkStock: 0, solventStock: 0, headsStock: 0, observations: '' });
@@ -165,7 +209,21 @@ export default function DaterControlView({ masters, currentUser, onSave, onDelet
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-bg/50 rounded-xl border border-border justify-between sm:justify-start">
             <div className="flex items-center gap-2">
-              <Calendar size={14} className="text-primary shrink-0" />
+              {isRangeLoading ? (
+                <RefreshCcw size={14} className="text-primary animate-spin shrink-0" />
+              ) : (
+                (dateFrom && dateTo) ? (
+                  <button 
+                    onClick={() => setRefreshTrigger(p => p + 1)} 
+                    title="Actualizar rango de datos" 
+                    className="hover:text-primary transition-colors shrink-0 text-text-muted"
+                  >
+                    <RefreshCcw size={14} className="shrink-0" />
+                  </button>
+                ) : (
+                  <Calendar size={14} className="text-primary shrink-0" />
+                )
+              )}
               <input 
                 type="date" 
                 value={dateFrom} 
@@ -283,7 +341,15 @@ export default function DaterControlView({ masters, currentUser, onSave, onDelet
       <ConfirmModal 
         isOpen={!!deletingId} 
         onClose={() => setDeletingId(null)} 
-        onConfirm={() => { deletingId && onDelete(deletingId); setDeletingId(null); }}
+        onConfirm={() => { 
+          if (deletingId) { 
+            onDelete(deletingId); 
+            if (localRangeHistory) {
+              setLocalRangeHistory(prev => prev ? prev.filter(item => item.id !== deletingId) : null);
+            }
+          } 
+          setDeletingId(null); 
+        }}
         title="Eliminar Registro"
         message="¿Estás seguro de eliminar este control de fechador?"
       />

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { RefreshCcw, Plus, Trash2, FileText, CheckCircle2, AlertCircle, Clock, FlaskConical, ChevronRight, Download, Info, Calendar, FilterX } from 'lucide-react';
 import { MasterData, ProductChange, AppUser, Company } from '../../../types';
@@ -8,6 +8,7 @@ import { cn } from '../../../lib/utils';
 import { format, isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { fetchTableFromSheets } from '../../../lib/sheetsService';
 
 interface Props {
   masters: MasterData;
@@ -28,8 +29,39 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
 
+  const [localRangeHistory, setLocalRangeHistory] = useState<ProductChange[] | null>(null);
+  const [isRangeLoading, setIsRangeLoading] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  useEffect(() => {
+    if (dateFrom && dateTo) {
+      let active = true;
+      setIsRangeLoading(true);
+      fetchTableFromSheets("CAMBIO_PRODUCTOV2", true, { dateFrom, dateTo }, "ProductChangeView.range")
+        .then(result => {
+          if (active && result.success && result.data) {
+            setLocalRangeHistory(result.data as ProductChange[]);
+          }
+        })
+        .catch(err => {
+          console.warn("Error loading range for product changes:", err);
+        })
+        .finally(() => {
+          if (active) {
+            setIsRangeLoading(false);
+          }
+        });
+      return () => {
+        active = false;
+      };
+    } else {
+      setLocalRangeHistory(null);
+    }
+  }, [dateFrom, dateTo, refreshTrigger]);
+
   const filteredHistory = useMemo(() => {
-    return history.filter(item => {
+    const baseList = localRangeHistory !== null ? localRangeHistory : history;
+    return baseList.filter(item => {
       // Always show pending items, regardless of date filters
       if (item.approvalStatus === 'PENDIENTE') {
         return true;
@@ -53,7 +85,7 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
         return item.date === selectedDate;
       }
     });
-  }, [history, dateFrom, dateTo, selectedShiftId, selectedDate]);
+  }, [history, localRangeHistory, dateFrom, dateTo, selectedShiftId, selectedDate]);
 
   const prioritizedHistory = useMemo(() => {
     return [...filteredHistory].sort((a, b) => {
@@ -160,6 +192,17 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
     }
 
     onSave(report);
+    if (localRangeHistory) {
+      setLocalRangeHistory(prev => {
+        if (!prev) return prev;
+        const exists = prev.some(item => item.id === report.id);
+        if (exists) {
+          return prev.map(item => item.id === report.id ? report : item);
+        } else {
+          return [report, ...prev];
+        }
+      });
+    }
     setIsModalOpen(false);
   };
 
@@ -442,7 +485,21 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto shrink-0">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-bg/50 rounded-xl border border-border justify-between sm:justify-start">
             <div className="flex items-center gap-2">
-              <Calendar size={14} className="text-primary shrink-0" />
+              {isRangeLoading ? (
+                <RefreshCcw size={14} className="text-primary animate-spin shrink-0" />
+              ) : (
+                (dateFrom && dateTo) ? (
+                  <button 
+                    onClick={() => setRefreshTrigger(p => p + 1)} 
+                    title="Actualizar rango de datos" 
+                    className="hover:text-primary transition-colors shrink-0 text-text-muted"
+                  >
+                    <RefreshCcw size={14} className="shrink-0" />
+                  </button>
+                ) : (
+                  <Calendar size={14} className="text-primary shrink-0" />
+                )
+              )}
               <input 
                 type="date" 
                 value={dateFrom} 
@@ -719,7 +776,12 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
         message="¿Querés eliminar este registro de cambio de producto?"
         onClose={() => setDeletingId(null)}
         onConfirm={() => {
-          if (deletingId) onDelete(deletingId);
+          if (deletingId) {
+            onDelete(deletingId);
+            if (localRangeHistory) {
+              setLocalRangeHistory(prev => prev ? prev.filter(item => item.id !== deletingId) : null);
+            }
+          }
           setDeletingId(null);
         }}
       />

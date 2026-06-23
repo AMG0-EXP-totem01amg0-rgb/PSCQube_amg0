@@ -68,11 +68,19 @@ export const MASTER_TABLES = [
 /**
  * Reads cached data for a given table from browser localStorage or sessionStorage.
  */
-function getBrowserCache(tableName: string, filters?: { date?: string; shiftId?: string; palletizerId?: string }): any[] | null {
+function getBrowserCache(tableName: string, filters?: { date?: string; shiftId?: string; palletizerId?: string; dateFrom?: string; dateTo?: string }): any[] | null {
   try {
     let key = `app_cache_v2_${tableName.toUpperCase()}`;
-    if (filters && filters.date) {
-      key += `_${filters.date}`;
+    if (filters) {
+      if (filters.date) {
+        key += `_${filters.date}`;
+      }
+      if (filters.dateFrom) {
+        key += `_from_${filters.dateFrom}`;
+      }
+      if (filters.dateTo) {
+        key += `_to_${filters.dateTo}`;
+      }
     }
     const value = localStorage.getItem(key);
     if (!value) return null;
@@ -96,11 +104,19 @@ function getBrowserCache(tableName: string, filters?: { date?: string; shiftId?:
 /**
  * Saves table data into local browser cache.
  */
-function setBrowserCache(tableName: string, data: any[], filters?: { date?: string; shiftId?: string; palletizerId?: string }): void {
+function setBrowserCache(tableName: string, data: any[], filters?: { date?: string; shiftId?: string; palletizerId?: string; dateFrom?: string; dateTo?: string }): void {
   try {
     let key = `app_cache_v2_${tableName.toUpperCase()}`;
-    if (filters && filters.date) {
-      key += `_${filters.date}`;
+    if (filters) {
+      if (filters.date) {
+        key += `_${filters.date}`;
+      }
+      if (filters.dateFrom) {
+        key += `_from_${filters.dateFrom}`;
+      }
+      if (filters.dateTo) {
+        key += `_to_${filters.dateTo}`;
+      }
     }
     localStorage.setItem(key, JSON.stringify({
       timestamp: Date.now(),
@@ -238,7 +254,7 @@ export async function syncTableToSheets(tableName: string, data: any[]): Promise
 export async function fetchTableFromSheets(
   tableName: string, 
   forceBypass = false,
-  filters?: { date?: string; shiftId?: string; palletizerId?: string },
+  filters?: { date?: string; shiftId?: string; palletizerId?: string; dateFrom?: string; dateTo?: string },
   source = "unspecified"
 ): Promise<FetchResult> {
   let sheetName = tableName.toUpperCase();
@@ -276,6 +292,8 @@ export async function fetchTableFromSheets(
     }
     if (filters) {
       if (filters.date) queryParams += `date=${encodeURIComponent(filters.date)}&`;
+      if (filters.dateFrom) queryParams += `dateFrom=${encodeURIComponent(filters.dateFrom)}&`;
+      if (filters.dateTo) queryParams += `dateTo=${encodeURIComponent(filters.dateTo)}&`;
     }
     queryParams += `source=${encodeURIComponent(source)}&`;
     if (queryParams.endsWith("&")) {
