@@ -253,7 +253,7 @@ export async function fetchTableFromSheets(
     if (cachedCombined) {
       return { success: true, data: cachedCombined };
     }
-    return { success: true, data: [] };
+    return { success: false, error: "Query skipped: Tab is backgrounded and cache is absent" };
   }
 
   const isMaster = MASTER_TABLES.includes(sheetName);

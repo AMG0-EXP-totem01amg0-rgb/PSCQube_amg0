@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { format, parse, differenceInMinutes } from 'date-fns';
 import { 
@@ -911,86 +911,117 @@ export default function App() {
     productChangesRef.current = productChanges;
   }, [productChanges]);
 
+  // Keep track of the last time operational transactions were fetched
+  const lastOperationalFetchTimeRef = useRef<number>(Date.now());
+
+  const fetchFilteredTransactions = useCallback(async (isMountedRef?: { current: boolean }) => {
+    try {
+      const filters = {
+        date: userContext.selectedDate,
+        shiftId: userContext.selectedShiftId
+      };
+      
+      const [
+        resStops,
+        resProd,
+        resDater,
+        resScale,
+        resInventory,
+        resClass,
+        resChange,
+        resDespachos,
+        resLoadingLanes,
+        resFuel
+      ] = await Promise.all([
+        fetchTableFromSheets("PAROSV2", false, filters, "App.fetchFilteredTransactions"),
+        fetchTableFromSheets("PRODUCCIONV2", false, filters, "App.fetchFilteredTransactions"),
+        fetchTableFromSheets("CONTROL_FECHADORV2", false, filters, "App.fetchFilteredTransactions"),
+        fetchTableFromSheets("CONTROL_BALANZAV2", false, filters, "App.fetchFilteredTransactions"),
+        fetchTableFromSheets("INVENTARIO_FISICOV2", false, filters, "App.fetchFilteredTransactions"),
+        fetchTableFromSheets("CLASISFICACION_PALLETSV2", false, filters, "App.fetchFilteredTransactions"),
+        fetchTableFromSheets("CAMBIO_PRODUCTOV2", false, filters, "App.fetchFilteredTransactions"),
+        fetchTableFromSheets("DESPACHOSV2", false, filters, "App.fetchFilteredTransactions"),
+        fetchTableFromSheets("ESTADO_CALLESV2", false, filters, "App.fetchFilteredTransactions"),
+        fetchTableFromSheets("CARGA_COMBUSTIBLEV2", false, filters, "App.fetchFilteredTransactions")
+      ]);
+
+      if (isMountedRef && !isMountedRef.current) return;
+
+      if (resStops.success && resStops.data) {
+        const freshStops = resStops.data as MachineStop[];
+        setStops(freshStops.filter(s => s && !deletedStopIdsRef.current.has(s.id)));
+      }
+      if (resProd.success && resProd.data) {
+        setProductionReports(resProd.data);
+      }
+      if (resDater.success && resDater.data) {
+        setDaterControls(resDater.data);
+      }
+      if (resScale.success && resScale.data) {
+        setScaleControls(resScale.data);
+      }
+      if (resInventory.success && resInventory.data) {
+        setInventoryEntries(resInventory.data);
+      }
+      if (resClass.success && resClass.data) {
+        setPalletClassifications(resClass.data);
+      }
+      if (resChange.success && resChange.data) {
+        setProductChanges(resChange.data);
+      }
+      if (resDespachos.success && resDespachos.data) {
+        setDispatchEntries(resDespachos.data);
+      }
+      if (resLoadingLanes.success && resLoadingLanes.data) {
+        setLaneStatuses(resLoadingLanes.data);
+      }
+      if (resFuel.success && resFuel.data) {
+        setFuelLoads(resFuel.data);
+      }
+
+      // Update the timestamp of the last successful fetch
+      lastOperationalFetchTimeRef.current = Date.now();
+
+    } catch (err) {
+      console.warn("Error fetching filtered transactions silently:", err);
+    }
+  }, [userContext.selectedDate, userContext.selectedShiftId]);
+
   // On-demand fetch of transactional data when filters change (without fetching master tables)
   useEffect(() => {
     if (!hasEnteredApp) return;
 
-    let isMounted = true;
-    const fetchFilteredTransactions = async () => {
-      try {
-        const filters = {
-          date: userContext.selectedDate
-        };
+    const isMountedRef = { current: true };
+    fetchFilteredTransactions(isMountedRef);
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [hasEnteredApp, fetchFilteredTransactions]);
+
+  // Operational background visibility tracking for focus refresh
+  useEffect(() => {
+    if (!hasEnteredApp) return;
+
+    const handleVisibilityChangeOperational = () => {
+      if (document.visibilityState === 'visible') {
+        const elapsed = Date.now() - lastOperationalFetchTimeRef.current;
+        const tenMinutes = 10 * 60 * 1000;
         
-        const [
-          resStops,
-          resProd,
-          resDater,
-          resScale,
-          resInventory,
-          resClass,
-          resChange,
-          resDespachos,
-          resLoadingLanes,
-          resFuel
-        ] = await Promise.all([
-          fetchTableFromSheets("PAROSV2", false, filters, "App.fetchFilteredTransactions"),
-          fetchTableFromSheets("PRODUCCIONV2", false, filters, "App.fetchFilteredTransactions"),
-          fetchTableFromSheets("CONTROL_FECHADORV2", false, filters, "App.fetchFilteredTransactions"),
-          fetchTableFromSheets("CONTROL_BALANZAV2", false, filters, "App.fetchFilteredTransactions"),
-          fetchTableFromSheets("INVENTARIO_FISICOV2", false, filters, "App.fetchFilteredTransactions"),
-          fetchTableFromSheets("CLASISFICACION_PALLETSV2", false, filters, "App.fetchFilteredTransactions"),
-          fetchTableFromSheets("CAMBIO_PRODUCTOV2", false, filters, "App.fetchFilteredTransactions"),
-          fetchTableFromSheets("DESPACHOSV2", false, filters, "App.fetchFilteredTransactions"),
-          fetchTableFromSheets("ESTADO_CALLESV2", false, filters, "App.fetchFilteredTransactions"),
-          fetchTableFromSheets("CARGA_COMBUSTIBLEV2", false, filters, "App.fetchFilteredTransactions")
-        ]);
-
-        if (!isMounted) return;
-
-        if (resStops.success && resStops.data) {
-          const freshStops = resStops.data as MachineStop[];
-          setStops(freshStops.filter(s => s && !deletedStopIdsRef.current.has(s.id)));
+        if (elapsed > tenMinutes) {
+          console.log(`[Operational Refresh] Focus restorer detected elapsed time is ${Math.round(elapsed / 1000)}s (> 10 mins). Executing silent operational refresh.`);
+          fetchFilteredTransactions();
+        } else {
+          console.log(`[Operational Refresh] Focus restorer skipped fetch. Elapsed: ${Math.round(elapsed / 1000)}s (< 10 mins).`);
         }
-        if (resProd.success && resProd.data) {
-          setProductionReports(resProd.data);
-        }
-        if (resDater.success && resDater.data) {
-          setDaterControls(resDater.data);
-        }
-        if (resScale.success && resScale.data) {
-          setScaleControls(resScale.data);
-        }
-        if (resInventory.success && resInventory.data) {
-          setInventoryEntries(resInventory.data);
-        }
-        if (resClass.success && resClass.data) {
-          setPalletClassifications(resClass.data);
-        }
-        if (resChange.success && resChange.data) {
-          setProductChanges(resChange.data);
-        }
-        if (resDespachos.success && resDespachos.data) {
-          setDispatchEntries(resDespachos.data);
-        }
-        if (resLoadingLanes.success && resLoadingLanes.data) {
-          setLaneStatuses(resLoadingLanes.data);
-        }
-        if (resFuel.success && resFuel.data) {
-          setFuelLoads(resFuel.data);
-        }
-
-      } catch (err) {
-        console.warn("Error fetching filtered transactions silently:", err);
       }
     };
 
-    fetchFilteredTransactions();
-
+    document.addEventListener('visibilitychange', handleVisibilityChangeOperational);
     return () => {
-      isMounted = false;
+      document.removeEventListener('visibilitychange', handleVisibilityChangeOperational);
     };
-  }, [hasEnteredApp, userContext.selectedDate]);
+  }, [hasEnteredApp, fetchFilteredTransactions]);
 
   // --- Centralized, Synchronized & Toast-Enabled handlers ---
   
