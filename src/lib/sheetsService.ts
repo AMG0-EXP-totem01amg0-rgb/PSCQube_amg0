@@ -292,6 +292,8 @@ export async function fetchTableFromSheets(
     }
     if (filters) {
       if (filters.date) queryParams += `date=${encodeURIComponent(filters.date)}&`;
+      if (filters.shiftId) queryParams += `shiftId=${encodeURIComponent(filters.shiftId)}&`;
+      if (filters.palletizerId) queryParams += `palletizerId=${encodeURIComponent(filters.palletizerId)}&`;
       if (filters.dateFrom) queryParams += `dateFrom=${encodeURIComponent(filters.dateFrom)}&`;
       if (filters.dateTo) queryParams += `dateTo=${encodeURIComponent(filters.dateTo)}&`;
     }

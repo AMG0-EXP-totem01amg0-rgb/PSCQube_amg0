@@ -886,14 +886,21 @@ export default function App() {
   };
 
   const handleRefreshCurrentFilters = async () => {
-    addToast("Limpiando caché general y recargando toda la aplicación...", "info");
-    const activeDni = currentUser.profile?.dni || sessionStorage.getItem('pscqube_user_dni') || '';
+    addToast("Sincronizando datos operativos de la vista actual...", "info");
     try {
-      await handleSyncOnEnter(activeDni);
-      addToast("¡Sincronización completa de la aplicación exitosa!", "success");
+      const tables = OPERATIONAL_TABLES_MAP[prodTab] || [];
+      const date = userContext.selectedDate;
+      const shiftId = userContext.selectedShiftId;
+      tables.forEach(tableName => {
+        const key = getCooldownKey(tableName, date, shiftId);
+        delete tableCooldownsRef.current[key];
+      });
+
+      await refreshOperationalDataForView(activeSection, prodTab, true, "ManualRefreshButton");
+      addToast("¡Datos operativos actualizados con éxito!", "success");
     } catch (err) {
-      console.error("Error recharging all databases:", err);
-      addToast("Error al recargar la aplicación", "error");
+      console.error("Error refreshing current view:", err);
+      addToast("Error al actualizar la vista actual", "error");
     }
   };
 
@@ -914,92 +921,143 @@ export default function App() {
   // Keep track of the last time operational transactions were fetched
   const lastOperationalFetchTimeRef = useRef<number>(Date.now());
 
-  const fetchFilteredTransactions = useCallback(async (isMountedRef?: { current: boolean }) => {
-    try {
-      const filters = {
-        date: userContext.selectedDate,
-        shiftId: userContext.selectedShiftId
-      };
-      
-      const [
-        resStops,
-        resProd,
-        resDater,
-        resScale,
-        resInventory,
-        resClass,
-        resChange,
-        resDespachos,
-        resLoadingLanes,
-        resFuel
-      ] = await Promise.all([
-        fetchTableFromSheets("PAROSV2", false, filters, "App.fetchFilteredTransactions"),
-        fetchTableFromSheets("PRODUCCIONV2", false, filters, "App.fetchFilteredTransactions"),
-        fetchTableFromSheets("CONTROL_FECHADORV2", false, filters, "App.fetchFilteredTransactions"),
-        fetchTableFromSheets("CONTROL_BALANZAV2", false, filters, "App.fetchFilteredTransactions"),
-        fetchTableFromSheets("INVENTARIO_FISICOV2", false, filters, "App.fetchFilteredTransactions"),
-        fetchTableFromSheets("CLASISFICACION_PALLETSV2", false, filters, "App.fetchFilteredTransactions"),
-        fetchTableFromSheets("CAMBIO_PRODUCTOV2", false, filters, "App.fetchFilteredTransactions"),
-        fetchTableFromSheets("DESPACHOSV2", false, filters, "App.fetchFilteredTransactions"),
-        fetchTableFromSheets("ESTADO_CALLESV2", false, filters, "App.fetchFilteredTransactions"),
-        fetchTableFromSheets("CARGA_COMBUSTIBLEV2", false, filters, "App.fetchFilteredTransactions")
-      ]);
+  // Define operational tables map for each view tab
+  const OPERATIONAL_TABLES_MAP = useMemo<Record<ProductivityTab, string[]>>(() => ({
+    DASHBOARD: ["PAROSV2", "PRODUCCIONV2", "INVENTARIO_FISICOV2", "DESPACHOSV2", "ESTADO_CALLESV2"],
+    PAROS: ["PAROSV2", "PRODUCCIONV2"],
+    PRODUCCION: ["PRODUCCIONV2", "PAROSV2"],
+    CHANGE: ["CAMBIO_PRODUCTOV2"],
+    DESPACHOS: ["DESPACHOSV2"],
+    STOCK: ["INVENTARIO_FISICOV2"],
+    LOADING_LANES: ["ESTADO_CALLESV2"],
+    GASOIL: ["CARGA_COMBUSTIBLEV2"],
+    DATER: ["CONTROL_FECHADORV2"],
+    SCALE: ["CONTROL_BALANZAV2"],
+    PALLET_CLASS: ["CLASISFICACION_PALLETSV2"],
+    MANTENIMIENTO: []
+  }), []);
 
-      if (isMountedRef && !isMountedRef.current) return;
+  // Cooldown tracker per table-date-shift (60s)
+  const tableCooldownsRef = useRef<Record<string, number>>({});
 
-      if (resStops.success && resStops.data) {
-        const freshStops = resStops.data as MachineStop[];
-        setStops(freshStops.filter(s => s && !deletedStopIdsRef.current.has(s.id)));
-      }
-      if (resProd.success && resProd.data) {
-        setProductionReports(resProd.data);
-      }
-      if (resDater.success && resDater.data) {
-        setDaterControls(resDater.data);
-      }
-      if (resScale.success && resScale.data) {
-        setScaleControls(resScale.data);
-      }
-      if (resInventory.success && resInventory.data) {
-        setInventoryEntries(resInventory.data);
-      }
-      if (resClass.success && resClass.data) {
-        setPalletClassifications(resClass.data);
-      }
-      if (resChange.success && resChange.data) {
-        setProductChanges(resChange.data);
-      }
-      if (resDespachos.success && resDespachos.data) {
-        setDispatchEntries(resDespachos.data);
-      }
-      if (resLoadingLanes.success && resLoadingLanes.data) {
-        setLaneStatuses(resLoadingLanes.data);
-      }
-      if (resFuel.success && resFuel.data) {
-        setFuelLoads(resFuel.data);
-      }
+  // Active in-flight requests tracker to avoid parallel identical queries
+  const inFlightFetchesRef = useRef<Record<string, Promise<any>>>({});
 
-      // Update the timestamp of the last successful fetch
-      lastOperationalFetchTimeRef.current = Date.now();
+  const getCooldownKey = useCallback((tableName: string, date: string, shiftId: string) => {
+    return `${tableName.toUpperCase()}_${date}_${shiftId}`;
+  }, []);
 
-    } catch (err) {
-      console.warn("Error fetching filtered transactions silently:", err);
+  const updateTableState = useCallback((tableName: string, data: any[]) => {
+    const upper = tableName.toUpperCase();
+    if (upper === "PAROSV2") {
+      setStops(data.filter(s => s && !deletedStopIdsRef.current.has(s.id)));
+    } else if (upper === "PRODUCCIONV2") {
+      setProductionReports(data);
+    } else if (upper === "CONTROL_FECHADORV2") {
+      setDaterControls(data);
+    } else if (upper === "CONTROL_BALANZAV2") {
+      setScaleControls(data);
+    } else if (upper === "INVENTARIO_FISICOV2") {
+      setInventoryEntries(data);
+    } else if (upper === "CLASISFICACION_PALLETSV2") {
+      setPalletClassifications(data);
+    } else if (upper === "CAMBIO_PRODUCTOV2") {
+      setProductChanges(data);
+    } else if (upper === "DESPACHOSV2") {
+      setDispatchEntries(data);
+    } else if (upper === "ESTADO_CALLESV2") {
+      setLaneStatuses(data);
+    } else if (upper === "CARGA_COMBUSTIBLEV2") {
+      setFuelLoads(data);
     }
-  }, [userContext.selectedDate, userContext.selectedShiftId]);
+  }, []);
 
-  // On-demand fetch of transactional data when filters change (without fetching master tables)
+  const fetchTableWithGuards = useCallback(async (tableName: string, bypassCache = false, source = "unspecified") => {
+    const date = userContext.selectedDate;
+    const shiftId = userContext.selectedShiftId;
+    const key = getCooldownKey(tableName, date, shiftId);
+
+    // 1. Cooldown Check (60 seconds)
+    if (!bypassCache) {
+      const lastFetch = tableCooldownsRef.current[key] || 0;
+      const now = Date.now();
+      if (now - lastFetch < 60000) {
+        console.log(`[Cooldown Guard] Skipping fetch for ${tableName} (last fetch ${Math.round((now - lastFetch)/1000)}s ago)`);
+        return;
+      }
+    }
+
+    // 2. In-flight Guard Check
+    if (inFlightFetchesRef.current[key]) {
+      console.log(`[In-Flight Guard] Request for ${tableName} already in progress. Re-using existing query.`);
+      return inFlightFetchesRef.current[key];
+    }
+
+    // 3. Perform Fetch with fetchTableFromSheets
+    const filters = { date, shiftId };
+    const fetchPromise = (async () => {
+      try {
+        const res = await fetchTableFromSheets(tableName, bypassCache, filters, source);
+        if (res.success && res.data) {
+          updateTableState(tableName, res.data);
+          tableCooldownsRef.current[key] = Date.now();
+        }
+        return res;
+      } finally {
+        delete inFlightFetchesRef.current[key];
+      }
+    })();
+
+    inFlightFetchesRef.current[key] = fetchPromise;
+    return fetchPromise;
+  }, [userContext.selectedDate, userContext.selectedShiftId, getCooldownKey, updateTableState]);
+
+  const refreshOperationalDataForView = useCallback(async (
+    section: AppSection, 
+    tab: ProductivityTab, 
+    bypassCache = false, 
+    source = "unspecified"
+  ) => {
+    if (section !== 'PRODUCTIVITY') return;
+    const tables = OPERATIONAL_TABLES_MAP[tab];
+    if (!tables || tables.length === 0) return;
+
+    console.log(`[Navigation Sync] Refreshing operational data for view: ${tab} with tables: ${tables.join(", ")} (bypassCache: ${bypassCache}, source: ${source})`);
+
+    try {
+      await Promise.all(
+        tables.map(table => fetchTableWithGuards(table, bypassCache, source))
+      );
+      lastOperationalFetchTimeRef.current = Date.now();
+    } catch (err) {
+      console.error(`[Navigation Sync] Error refreshing operational data for ${tab}:`, err);
+    }
+  }, [fetchTableWithGuards, OPERATIONAL_TABLES_MAP]);
+
+  // Keep track of the debounced timeout ref
+  const tabChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Centralized Navigation Sync Effect with Debounce (300-500 ms)
   useEffect(() => {
     if (!hasEnteredApp) return;
 
-    const isMountedRef = { current: true };
-    fetchFilteredTransactions(isMountedRef);
+    if (tabChangeTimeoutRef.current) {
+      clearTimeout(tabChangeTimeoutRef.current);
+    }
+
+    tabChangeTimeoutRef.current = setTimeout(() => {
+      console.log(`[Navigation Sync] Debounce trigger activeSection: ${activeSection}, prodTab: ${prodTab}`);
+      refreshOperationalDataForView(activeSection, prodTab, false, "NavigationDebounce");
+    }, 400);
 
     return () => {
-      isMountedRef.current = false;
+      if (tabChangeTimeoutRef.current) {
+        clearTimeout(tabChangeTimeoutRef.current);
+      }
     };
-  }, [hasEnteredApp, fetchFilteredTransactions]);
+  }, [activeSection, prodTab, hasEnteredApp, userContext.selectedDate, userContext.selectedShiftId, refreshOperationalDataForView]);
 
-  // Operational background visibility tracking for focus refresh
+  // Operational focus restorer detection (after > 10 minutes)
   useEffect(() => {
     if (!hasEnteredApp) return;
 
@@ -1010,7 +1068,15 @@ export default function App() {
         
         if (elapsed > tenMinutes) {
           console.log(`[Operational Refresh] Focus restorer detected elapsed time is ${Math.round(elapsed / 1000)}s (> 10 mins). Executing silent operational refresh.`);
-          fetchFilteredTransactions();
+          // Clear cooldowns for current view's tables to guarantee fresh fetch
+          const tables = OPERATIONAL_TABLES_MAP[prodTab] || [];
+          const date = userContext.selectedDate;
+          const shiftId = userContext.selectedShiftId;
+          tables.forEach(tableName => {
+            const key = getCooldownKey(tableName, date, shiftId);
+            delete tableCooldownsRef.current[key];
+          });
+          refreshOperationalDataForView(activeSection, prodTab, true, "FocusRestorer");
         } else {
           console.log(`[Operational Refresh] Focus restorer skipped fetch. Elapsed: ${Math.round(elapsed / 1000)}s (< 10 mins).`);
         }
@@ -1021,7 +1087,20 @@ export default function App() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChangeOperational);
     };
-  }, [hasEnteredApp, fetchFilteredTransactions]);
+  }, [hasEnteredApp, prodTab, activeSection, userContext.selectedDate, userContext.selectedShiftId, refreshOperationalDataForView, getCooldownKey, OPERATIONAL_TABLES_MAP]);
+
+  // Helper to force cache bypass for a single table after local CRUD mutations
+  const forceRefreshTable = useCallback((tableName: string) => {
+    const date = userContext.selectedDate;
+    const shiftId = userContext.selectedShiftId;
+    const key = getCooldownKey(tableName, date, shiftId);
+    
+    // Invalidate local cooldown for this combination
+    delete tableCooldownsRef.current[key];
+    
+    // Trigger guarded fetch with bypassCache = true
+    fetchTableWithGuards(tableName, true, `CRUD_${tableName}`);
+  }, [userContext.selectedDate, userContext.selectedShiftId, getCooldownKey, fetchTableWithGuards]);
 
   // --- Centralized, Synchronized & Toast-Enabled handlers ---
   
@@ -1043,6 +1122,7 @@ export default function App() {
     actionPromise.then(res => {
       if (res.success) {
         addToast(exists ? "Despacho actualizado con éxito" : "Despacho guardado con éxito", "success");
+        forceRefreshTable("DESPACHOSV2");
       } else {
         addToast("Guardado localmente. Error al sincronizar con base de datos.", "warning");
       }
@@ -1059,6 +1139,7 @@ export default function App() {
     deleteRecordInSheets("DESPACHOSV2", id).then(res => {
       if (res.success) {
         addToast("Despacho eliminado", "success");
+        forceRefreshTable("DESPACHOSV2");
       } else {
         addToast("Eliminado localmente. Error al sincronizar con base de datos.", "warning");
       }
@@ -1081,26 +1162,11 @@ export default function App() {
       ? updateRecordInSheets("PAROSV2", stop.id, stop)
       : createRecordInSheets("PAROSV2", stop);
 
-    const activeFilters = {
-      date: stop.date || userContext.selectedDate,
-      shiftId: stop.shiftId || userContext.selectedShiftId,
-      palletizerId: stop.machineId || userContext.selectedPalletizerId
-    };
-
     actionPromise.then(res => {
       if (res.success) {
         addToast(exists ? "Paro actualizado con éxito" : "Paro registrado con éxito", "success");
-        // Re-read both PAROSV2 and PRODUCCIONV2 with filter parameters applied to keep resource usage minimum
-        fetchTableFromSheets("PAROSV2", true, activeFilters, "App.handleSaveStop").then(sRes => {
-          if (sRes.success && sRes.data) {
-            setStops(sRes.data);
-          }
-        });
-        fetchTableFromSheets("PRODUCCIONV2", true, activeFilters, "App.handleSaveStop").then(pRes => {
-          if (pRes.success && pRes.data) {
-            setProductionReports(pRes.data);
-          }
-        });
+        forceRefreshTable("PAROSV2");
+        forceRefreshTable("PRODUCCIONV2");
       } else {
         addToast("Registrado localmente. Error al sincronizar con base de datos.", "warning");
       }
@@ -1109,34 +1175,17 @@ export default function App() {
 
   const handleDeleteStop = (id: string) => {
     let nextStops: MachineStop[] = [];
-    let deletedItem: MachineStop | undefined;
     setStops(prev => {
-      deletedItem = prev.find(s => s.id === id);
       nextStops = prev.filter(s => s.id !== id);
       return nextStops;
     });
     deletedStopIdsRef.current.add(id);
 
-    const activeFilters = {
-      date: deletedItem?.date || userContext.selectedDate,
-      shiftId: deletedItem?.shiftId || userContext.selectedShiftId,
-      palletizerId: deletedItem?.machineId || userContext.selectedPalletizerId
-    };
-
     deleteRecordInSheets("PAROSV2", id).then(res => {
       if (res.success) {
         addToast("Paro eliminado", "success");
-        // Re-read both PAROSV2 and PRODUCCIONV2 with filter parameters applied
-        fetchTableFromSheets("PAROSV2", true, activeFilters, "App.handleDeleteStop").then(sRes => {
-          if (sRes.success && sRes.data) {
-            setStops(sRes.data);
-          }
-        });
-        fetchTableFromSheets("PRODUCCIONV2", true, activeFilters, "App.handleDeleteStop").then(pRes => {
-          if (pRes.success && pRes.data) {
-            setProductionReports(pRes.data);
-          }
-        });
+        forceRefreshTable("PAROSV2");
+        forceRefreshTable("PRODUCCIONV2");
       } else {
         addToast("Eliminado localmente. Error al sincronizar con base de datos.", "warning");
       }
@@ -1158,21 +1207,10 @@ export default function App() {
       ? updateRecordInSheets("PRODUCCIONV2", report.id, report)
       : createRecordInSheets("PRODUCCIONV2", report);
 
-    const activeFilters = {
-      date: report.date || userContext.selectedDate,
-      shiftId: report.shiftId || userContext.selectedShiftId,
-      palletizerId: report.palletizerId || userContext.selectedPalletizerId
-    };
-
     actionPromise.then(res => {
       if (res.success) {
         addToast(exists ? "Producción actualizada con éxito" : "Producción guardada con éxito", "success");
-        // FETCH the updated table from Sheets/Supabase to get exact recalculated metrics and nested fields!
-        fetchTableFromSheets("PRODUCCIONV2", true, activeFilters, "App.handleSaveProductionReport").then(pRes => {
-          if (pRes.success && pRes.data) {
-            setProductionReports(pRes.data);
-          }
-        });
+        forceRefreshTable("PRODUCCIONV2");
       } else {
         addToast("Guardada localmente. Error al sincronizar con base de datos.", "warning");
       }
@@ -1181,28 +1219,15 @@ export default function App() {
 
   const handleDeleteProductionReport = (id: string) => {
     let nextReports: ProductionReport[] = [];
-    let deletedItem: ProductionReport | undefined;
     setProductionReports(prev => {
-      deletedItem = prev.find(r => r.id === id);
       nextReports = prev.filter(r => r.id !== id);
       return nextReports;
     });
 
-    const activeFilters = {
-      date: deletedItem?.date || userContext.selectedDate,
-      shiftId: deletedItem?.shiftId || userContext.selectedShiftId,
-      palletizerId: deletedItem?.palletizerId || userContext.selectedPalletizerId
-    };
-
     deleteRecordInSheets("PRODUCCIONV2", id).then(res => {
       if (res.success) {
         addToast("Reporte de producción eliminado de base de datos", "success");
-        // FETCH the updated table from Sheets/Supabase to keep frontend state perfectly synchronized
-        fetchTableFromSheets("PRODUCCIONV2", true, activeFilters, "App.handleDeleteProductionReport").then(pRes => {
-          if (pRes.success && pRes.data) {
-            setProductionReports(pRes.data);
-          }
-        });
+        forceRefreshTable("PRODUCCIONV2");
       } else {
         addToast("Eliminado localmente. Error al sincronizar con base de datos.", "warning");
       }
@@ -1227,6 +1252,7 @@ export default function App() {
     actionPromise.then(res => {
       if (res.success) {
         addToast(exists ? "Control fechador actualizado con éxito" : "Control fechador registrado con éxito", "success");
+        forceRefreshTable("CONTROL_FECHADORV2");
       } else {
         addToast("Registrado localmente. Error al sincronizar con base de datos.", "warning");
       }
@@ -1243,6 +1269,7 @@ export default function App() {
     deleteRecordInSheets("CONTROL_FECHADORV2", id).then(res => {
       if (res.success) {
         addToast("Control fechador eliminado de Google Sheets", "success");
+        forceRefreshTable("CONTROL_FECHADORV2");
       } else {
         addToast("Eliminado localmente. Error al sincronizar con base de datos.", "warning");
       }
@@ -1267,6 +1294,7 @@ export default function App() {
     actionPromise.then(res => {
       if (res.success) {
         addToast(exists ? "Control de balanza actualizado con éxito" : "Control de balanza registrado con éxito", "success");
+        forceRefreshTable("CONTROL_BALANZAV2");
       } else {
         addToast("Registrado localmente. Error al sincronizar con base de datos.", "warning");
       }
@@ -1283,6 +1311,7 @@ export default function App() {
     deleteRecordInSheets("CONTROL_BALANZAV2", id).then(res => {
       if (res.success) {
         addToast("Control de balanza eliminado", "success");
+        forceRefreshTable("CONTROL_BALANZAV2");
       } else {
         addToast("Eliminado localmente. Error al sincronizar con base de datos.", "warning");
       }
@@ -1307,6 +1336,7 @@ export default function App() {
     actionPromise.then(res => {
       if (res.success) {
         addToast(exists ? "Registro de insumo actualizado" : "Registro de insumo guardado", "success");
+        forceRefreshTable("INVENTARIO_FISICOV2");
       } else {
         addToast("Guardado localmente. Error al sincronizar con base de datos.", "warning");
       }
@@ -1323,6 +1353,7 @@ export default function App() {
     deleteRecordInSheets("INVENTARIO_FISICOV2", id).then(res => {
       if (res.success) {
         addToast("Registro de insumo eliminado", "success");
+        forceRefreshTable("INVENTARIO_FISICOV2");
       } else {
         addToast("Eliminado localmente. Error al sincronizar con base de datos.", "warning");
       }
@@ -1347,6 +1378,7 @@ export default function App() {
     actionPromise.then(res => {
       if (res.success) {
         addToast(exists ? "Registro de pallet actualizado" : "Registro de pallet guardado", "success");
+        forceRefreshTable("CLASISFICACION_PALLETSV2");
       } else {
         addToast("Guardado localmente. Error al sincronizar con base de datos.", "warning");
       }
@@ -1363,6 +1395,7 @@ export default function App() {
     deleteRecordInSheets("CLASISFICACION_PALLETSV2", id).then(res => {
       if (res.success) {
         addToast("Registro de pallet eliminado", "success");
+        forceRefreshTable("CLASISFICACION_PALLETSV2");
       } else {
         addToast("Eliminado localmente. Error al sincronizar con base de datos.", "warning");
       }
@@ -1387,6 +1420,7 @@ export default function App() {
     actionPromise.then(res => {
       if (res.success) {
         addToast(exists ? "Cambio de producto actualizado con éxito" : "Cambio de producto registrado con éxito", "success");
+        forceRefreshTable("CAMBIO_PRODUCTOV2");
       } else {
         addToast("Registrado localmente. Error al sincronizar con base de datos.", "warning");
       }
@@ -1403,6 +1437,7 @@ export default function App() {
     deleteRecordInSheets("CAMBIO_PRODUCTOV2", id).then(res => {
       if (res.success) {
         addToast("Cambio de producto eliminado", "success");
+        forceRefreshTable("CAMBIO_PRODUCTOV2");
       } else {
         addToast("Eliminado localmente. Error al sincronizar con base de datos.", "warning");
       }
@@ -1445,6 +1480,7 @@ export default function App() {
             : (exists ? "Calle de carga actualizada con éxito" : "Calle de carga registrada con éxito"),
           "success"
         );
+        forceRefreshTable("ESTADO_CALLESV2");
       } else {
         addToast("Sincronizado parcialmente en base de datos.", "warning");
       }
@@ -1463,6 +1499,7 @@ export default function App() {
     deleteRecordInSheets("ESTADO_CALLESV2", id).then(res => {
       if (res.success) {
         addToast("Calle de carga eliminada", "success");
+        forceRefreshTable("ESTADO_CALLESV2");
       } else {
         addToast("Eliminada localmente. Error al sincronizar con base de datos.", "warning");
       }
@@ -1487,6 +1524,7 @@ export default function App() {
     actionPromise.then(res => {
       if (res.success) {
         addToast(exists ? "Carga de combustible actualizada con éxito" : "Carga de combustible registrada con éxito", "success");
+        forceRefreshTable("CARGA_COMBUSTIBLEV2");
       } else {
         addToast("Guardada localmente. Error al sincronizar con base de datos.", "warning");
       }
@@ -1503,6 +1541,7 @@ export default function App() {
     deleteRecordInSheets("CARGA_COMBUSTIBLEV2", id).then(res => {
       if (res.success) {
         addToast("Carga de combustible eliminada con éxito", "success");
+        forceRefreshTable("CARGA_COMBUSTIBLEV2");
       } else {
         addToast("Eliminada localmente. Error al sincronizar con base de datos.", "warning");
       }
