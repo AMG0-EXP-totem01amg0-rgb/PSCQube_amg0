@@ -714,7 +714,81 @@ export default function App() {
     return [...list].reverse();
   }, [productChanges, masters.materials]);
 
-  // On-demand database synchronization triggered by pressing "Ingresar"
+  // --- Persistent Segmented Operational Cache ---
+  // Define operational tables map for each view tab
+  const OPERATIONAL_TABLES_MAP = useMemo<Record<ProductivityTab, string[]>>(() => ({
+    DASHBOARD: ["PAROSV2", "PRODUCCIONV2", "INVENTARIO_FISICOV2", "DESPACHOSV2", "ESTADO_CALLESV2"],
+    PAROS: ["PAROSV2", "PRODUCCIONV2"],
+    PRODUCCION: ["PRODUCCIONV2", "PAROSV2"],
+    CHANGE: ["CAMBIO_PRODUCTOV2"],
+    DESPACHOS: ["DESPACHOSV2"],
+    STOCK: ["INVENTARIO_FISICOV2"],
+    LOADING_LANES: ["ESTADO_CALLESV2"],
+    GASOIL: ["CARGA_COMBUSTIBLEV2"],
+    DATER: ["CONTROL_FECHADORV2"],
+    SCALE: ["CONTROL_BALANZAV2"],
+    PALLET_CLASS: ["CLASISFICACION_PALLETSV2"],
+    MANTENIMIENTO: []
+  }), []);
+
+  // Cooldown tracker per table-date-shift (60s)
+  const tableCooldownsRef = useRef<Record<string, number>>({});
+
+  // Active in-flight requests tracker to avoid parallel identical queries
+  const inFlightFetchesRef = useRef<Record<string, Promise<any>>>({});
+
+  // In-memory segmented cache by tableName_date_shiftId
+  const operationalDataByKeyRef = useRef<Record<string, any[]>>({});
+
+  const getCooldownKey = useCallback((tableName: string, date: string, shiftId: string) => {
+    return `${tableName.toUpperCase()}_${date}_${shiftId}`;
+  }, []);
+
+  const updateTableState = useCallback((tableName: string, data: any[], targetDate?: string, targetShiftId?: string) => {
+    const upper = tableName.toUpperCase();
+    
+    // Only update active React states if the incoming data corresponds to the currently active context view
+    const isCurrentContext = (!targetDate || targetDate === userContext.selectedDate) &&
+                             (!targetShiftId || targetShiftId === userContext.selectedShiftId);
+    
+    if (isCurrentContext) {
+      if (upper === "PAROSV2") {
+        setStops(data.filter(s => s && !deletedStopIdsRef.current.has(s.id)));
+      } else if (upper === "PRODUCCIONV2") {
+        setProductionReports(data);
+      } else if (upper === "CONTROL_FECHADORV2") {
+        setDaterControls(data);
+      } else if (upper === "CONTROL_BALANZAV2") {
+        setScaleControls(data);
+      } else if (upper === "INVENTARIO_FISICOV2") {
+        setInventoryEntries(data);
+      } else if (upper === "CLASISFICACION_PALLETSV2") {
+        setPalletClassifications(data);
+      } else if (upper === "CAMBIO_PRODUCTOV2") {
+        setProductChanges(data);
+      } else if (upper === "DESPACHOSV2") {
+        setDispatchEntries(data);
+      } else if (upper === "ESTADO_CALLESV2") {
+        setLaneStatuses(data);
+      } else if (upper === "CARGA_COMBUSTIBLEV2") {
+        setFuelLoads(data);
+      }
+    }
+
+    // Always update cache and persist to localStorage
+    const actualDate = targetDate || userContext.selectedDate;
+    const actualShiftId = targetShiftId || userContext.selectedShiftId;
+    const key = getCooldownKey(tableName, actualDate, actualShiftId);
+    
+    operationalDataByKeyRef.current[key] = data;
+    try {
+      localStorage.setItem('pscqube_op_cache_' + key, JSON.stringify(data));
+    } catch (e) {
+      console.warn("[Cache Save] LocalStorage quota or error on saving", key, e);
+    }
+  }, [userContext.selectedDate, userContext.selectedShiftId, getCooldownKey]);
+
+  // --- On-demand database synchronization triggered by pressing "Ingresar"
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState('Sincronizando información...');
 
@@ -797,15 +871,18 @@ export default function App() {
 
         setSyncMessage('Preparando sistema...');
 
-        if (resStops.success && resStops.data) setStops(resStops.data);
-        if (resProduction.success && resProduction.data) setProductionReports(resProduction.data);
-        if (resDater.success && resDater.data) setDaterControls(resDater.data);
-        if (resScale.success && resScale.data) setScaleControls(resScale.data);
-        if (resStock.success && resStock.data) setInventoryEntries(resStock.data);
-        if (resPalletClassifications.success && resPalletClassifications.data) setPalletClassifications(resPalletClassifications.data);
-        if (resChange.success && resChange.data) setProductChanges(resChange.data);
-        if (resDespachos.success && resDespachos.data) setDispatchEntries(resDespachos.data);
-        if (resLoadingLanes.success && resLoadingLanes.data) setLaneStatuses(resLoadingLanes.data);
+        const entDate = userContext.selectedDate;
+        const entShift = userContext.selectedShiftId;
+
+        if (resStops.success && resStops.data) updateTableState("PAROSV2", resStops.data, entDate, entShift);
+        if (resProduction.success && resProduction.data) updateTableState("PRODUCCIONV2", resProduction.data, entDate, entShift);
+        if (resDater.success && resDater.data) updateTableState("CONTROL_FECHADORV2", resDater.data, entDate, entShift);
+        if (resScale.success && resScale.data) updateTableState("CONTROL_BALANZAV2", resScale.data, entDate, entShift);
+        if (resStock.success && resStock.data) updateTableState("INVENTARIO_FISICOV2", resStock.data, entDate, entShift);
+        if (resPalletClassifications.success && resPalletClassifications.data) updateTableState("CLASISFICACION_PALLETSV2", resPalletClassifications.data, entDate, entShift);
+        if (resChange.success && resChange.data) updateTableState("CAMBIO_PRODUCTOV2", resChange.data, entDate, entShift);
+        if (resDespachos.success && resDespachos.data) updateTableState("DESPACHOSV2", resDespachos.data, entDate, entShift);
+        if (resLoadingLanes.success && resLoadingLanes.data) updateTableState("ESTADO_CALLESV2", resLoadingLanes.data, entDate, entShift);
         
         // Set Masters if present
         if (resShifts.success && resShifts.data) setShifts(resShifts.data);
@@ -847,7 +924,7 @@ export default function App() {
         if (resLoadingPoints.success && resLoadingPoints.data) setLoadingPoints(resLoadingPoints.data);
         if (resBagSuppliers.success && resBagSuppliers.data) setBagSuppliers(resBagSuppliers.data);
         if (resVehicles.success && resVehicles.data) setVehicles(resVehicles.data);
-        if (resFuelLoads.success && resFuelLoads.data) setFuelLoads(resFuelLoads.data);
+        if (resFuelLoads.success && resFuelLoads.data) updateTableState("CARGA_COMBUSTIBLEV2", resFuelLoads.data, entDate, entShift);
 
         addToast("Sincronización con base de datos completada exitosamente.", "success");
         console.log("[SheetsConfig] Google Sheets database successfully synced on login.");
@@ -921,56 +998,45 @@ export default function App() {
   // Keep track of the last time operational transactions were fetched
   const lastOperationalFetchTimeRef = useRef<number>(Date.now());
 
-  // Define operational tables map for each view tab
-  const OPERATIONAL_TABLES_MAP = useMemo<Record<ProductivityTab, string[]>>(() => ({
-    DASHBOARD: ["PAROSV2", "PRODUCCIONV2", "INVENTARIO_FISICOV2", "DESPACHOSV2", "ESTADO_CALLESV2"],
-    PAROS: ["PAROSV2", "PRODUCCIONV2"],
-    PRODUCCION: ["PRODUCCIONV2", "PAROSV2"],
-    CHANGE: ["CAMBIO_PRODUCTOV2"],
-    DESPACHOS: ["DESPACHOSV2"],
-    STOCK: ["INVENTARIO_FISICOV2"],
-    LOADING_LANES: ["ESTADO_CALLESV2"],
-    GASOIL: ["CARGA_COMBUSTIBLEV2"],
-    DATER: ["CONTROL_FECHADORV2"],
-    SCALE: ["CONTROL_BALANZAV2"],
-    PALLET_CLASS: ["CLASISFICACION_PALLETSV2"],
-    MANTENIMIENTO: []
-  }), []);
-
-  // Cooldown tracker per table-date-shift (60s)
-  const tableCooldownsRef = useRef<Record<string, number>>({});
-
-  // Active in-flight requests tracker to avoid parallel identical queries
-  const inFlightFetchesRef = useRef<Record<string, Promise<any>>>({});
-
-  const getCooldownKey = useCallback((tableName: string, date: string, shiftId: string) => {
-    return `${tableName.toUpperCase()}_${date}_${shiftId}`;
-  }, []);
-
-  const updateTableState = useCallback((tableName: string, data: any[]) => {
-    const upper = tableName.toUpperCase();
-    if (upper === "PAROSV2") {
-      setStops(data.filter(s => s && !deletedStopIdsRef.current.has(s.id)));
-    } else if (upper === "PRODUCCIONV2") {
-      setProductionReports(data);
-    } else if (upper === "CONTROL_FECHADORV2") {
-      setDaterControls(data);
-    } else if (upper === "CONTROL_BALANZAV2") {
-      setScaleControls(data);
-    } else if (upper === "INVENTARIO_FISICOV2") {
-      setInventoryEntries(data);
-    } else if (upper === "CLASISFICACION_PALLETSV2") {
-      setPalletClassifications(data);
-    } else if (upper === "CAMBIO_PRODUCTOV2") {
-      setProductChanges(data);
-    } else if (upper === "DESPACHOSV2") {
-      setDispatchEntries(data);
-    } else if (upper === "ESTADO_CALLESV2") {
-      setLaneStatuses(data);
-    } else if (upper === "CARGA_COMBUSTIBLEV2") {
-      setFuelLoads(data);
-    }
-  }, []);
+  // Immediate Cache/Snapshot Restore on view or context change (instant UI responsiveness)
+  useEffect(() => {
+    if (!hasEnteredApp) return;
+    
+    const date = userContext.selectedDate;
+    const shiftId = userContext.selectedShiftId;
+    const tables = OPERATIONAL_TABLES_MAP[prodTab] || [];
+    
+    console.log(`[Immediate Restore] Context changed to Date: ${date}, Shift: ${shiftId}, Tab: ${prodTab}. Restoring snapshots.`);
+    
+    tables.forEach(tableName => {
+      const key = getCooldownKey(tableName, date, shiftId);
+      
+      // Try memory ref first
+      let cachedData = operationalDataByKeyRef.current[key];
+      
+      // If not in memory, check localStorage
+      if (cachedData === undefined) {
+        const raw = localStorage.getItem('pscqube_op_cache_' + key);
+        if (raw) {
+          try {
+            cachedData = JSON.parse(raw);
+            operationalDataByKeyRef.current[key] = cachedData;
+          } catch (e) {
+            console.warn("[Immediate Restore] Error parsing localStorage cache for", key, e);
+          }
+        }
+      }
+      
+      if (cachedData !== undefined) {
+        console.log(`[Immediate Restore] Found snapshot for ${tableName} (key: ${key}). Restoring.`);
+        updateTableState(tableName, cachedData, date, shiftId);
+      } else {
+        // First-time visit or no cache: clear the state to prevent leaking previous context's data in local UI filters
+        console.log(`[Immediate Restore] No snapshot found for ${tableName} (key: ${key}). Clearing state.`);
+        updateTableState(tableName, [], date, shiftId);
+      }
+    });
+  }, [hasEnteredApp, userContext.selectedDate, userContext.selectedShiftId, prodTab, getCooldownKey, updateTableState, OPERATIONAL_TABLES_MAP]);
 
   const fetchTableWithGuards = useCallback(async (tableName: string, bypassCache = false, source = "unspecified") => {
     const date = userContext.selectedDate;
@@ -983,6 +1049,21 @@ export default function App() {
       const now = Date.now();
       if (now - lastFetch < 60000) {
         console.log(`[Cooldown Guard] Skipping fetch for ${tableName} (last fetch ${Math.round((now - lastFetch)/1000)}s ago)`);
+        
+        // Ensure state contains latest cache as a fallback/guard
+        let cachedData = operationalDataByKeyRef.current[key];
+        if (cachedData === undefined) {
+          const raw = localStorage.getItem('pscqube_op_cache_' + key);
+          if (raw) {
+            try {
+              cachedData = JSON.parse(raw);
+              operationalDataByKeyRef.current[key] = cachedData;
+            } catch {}
+          }
+        }
+        if (cachedData !== undefined) {
+          updateTableState(tableName, cachedData, date, shiftId);
+        }
         return;
       }
     }
@@ -999,7 +1080,7 @@ export default function App() {
       try {
         const res = await fetchTableFromSheets(tableName, bypassCache, filters, source);
         if (res.success && res.data) {
-          updateTableState(tableName, res.data);
+          updateTableState(tableName, res.data, date, shiftId);
           tableCooldownsRef.current[key] = Date.now();
         }
         return res;
