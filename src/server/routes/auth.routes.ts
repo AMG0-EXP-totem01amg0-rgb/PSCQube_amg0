@@ -4,15 +4,6 @@ import { AuthService } from "../services/auth.service.js";
 
 const router = Router();
 
-// Retrieve Supabase Public Credentials configuration for Client Sign-In
-router.get("/api/auth/supabase/config", (req, res) => {
-  return res.json({
-    success: true,
-    supabaseUrl: process.env.SUPABASE_URL || "",
-    supabaseKey: process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || ""
-  });
-});
-
 // Generate Google OAuth Authorization URL
 router.get("/api/auth/google/url", (req, res) => {
   const customRedirect = req.query.redirectUri as string;
