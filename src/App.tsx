@@ -40,6 +40,47 @@ import { syncTableToSheets, getBackendSheetsStatus, fetchTableFromSheets, clearC
 import { ToastContainer, ToastMessage } from './components/ui/Toast';
 
 // --- Utilities ---
+const saveToLocalStorageSafe = (
+  key: string, 
+  value: string, 
+  onQuotaExceeded?: () => void
+): boolean => {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (e: any) {
+    const isQuota = e?.name === 'QuotaExceededError' || 
+                    e?.code === 22 || 
+                    e?.code === 1014;
+    if (isQuota) {
+      console.warn("[Cache] localStorage lleno. Limpiando entradas antiguas de PSCQUBE...");
+      // Limpiar solo las entradas del cache operacional de PSCQUBE
+      const keysToDelete: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('pscqube_op_cache_')) {
+          keysToDelete.push(k);
+        }
+      }
+      // Eliminar todas las entradas del cache operacional
+      keysToDelete.forEach(k => localStorage.removeItem(k));
+      console.warn(`[Cache] Se eliminaron ${keysToDelete.length} entradas del cache operacional.`);
+      
+      // Reintentar el guardado
+      try {
+        localStorage.setItem(key, value);
+        return true;
+      } catch (e2) {
+        console.error("[Cache] No se pudo guardar en localStorage incluso después de limpiar.", e2);
+        if (onQuotaExceeded) onQuotaExceeded();
+        return false;
+      }
+    }
+    console.error("[Cache] Error inesperado al guardar en localStorage.", e);
+    return false;
+  }
+};
+
 const getCurrentShift = (shifts: Shift[]): Shift | null => {
   const now = new Date();
   const timeStr = format(now, 'HH:mm');
@@ -773,11 +814,14 @@ export default function App() {
     const key = getCooldownKey(tableName, actualDate, actualShiftId);
     
     operationalDataByKeyRef.current[key] = data;
-    try {
-      localStorage.setItem('pscqube_op_cache_' + key, JSON.stringify(data));
-    } catch (e) {
-      console.warn("[Cache Save] LocalStorage quota or error on saving", key, e);
-    }
+    saveToLocalStorageSafe(
+      'pscqube_op_cache_' + key,
+      JSON.stringify(data),
+      () => addToast(
+        "El almacenamiento local está lleno. Algunos datos en caché fueron limpiados automáticamente. La información sigue disponible desde la base de datos.",
+        "warning"
+      )
+    );
   }, [userContext.selectedDate, userContext.selectedShiftId, getCooldownKey]);
 
   // --- On-demand database synchronization triggered by pressing "Ingresar"
