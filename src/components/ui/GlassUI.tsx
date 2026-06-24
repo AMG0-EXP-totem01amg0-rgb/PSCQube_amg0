@@ -15,7 +15,7 @@ export function GlassInput({ label, className, ...props }: any) {
       <label className="text-xs font-semibold text-text-muted ml-0.5">{label}</label>
       <input 
         className={cn(
-          "h-11 bg-bg-input text-sm border-border text-text-main placeholder:text-text-muted/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/5 transition-all rounded-lg px-3.5 border outline-none caret-text-main",
+          "h-11 bg-bg-input text-sm border-border text-text-main placeholder:text-text-muted/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/5 transition-all rounded-lg px-3.5 border outline-none",
           className
         )} 
         {...props} 
@@ -287,7 +287,7 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
                   }
                 }}
                 placeholder="Buscar..."
-                className="w-full bg-transparent border-none text-xs text-text-main focus:outline-none placeholder:text-text-muted/50 py-1 caret-text-main"
+                className="w-full bg-transparent border-none text-xs text-text-main focus:outline-none placeholder:text-text-muted/50 py-1"
               />
               {search && (
                 <button 

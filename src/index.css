@@ -189,3 +189,16 @@
 [data-theme="dark"] .carousel-tab:not(.btn-active-highlight):hover {
   color: #FFFFFF !important;
 }
+
+input,
+textarea,
+select {
+  caret-color: var(--text-primary);
+}
+
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  caret-color: var(--text-primary);
+}
+
