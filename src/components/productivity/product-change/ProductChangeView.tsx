@@ -97,7 +97,7 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
     });
   }, [filteredHistory]);
 
-  const isLabUser = currentUser.profile === 'Laboratorio' || currentUser.position === 'Laboratórista';
+  const isLabUser = currentUser.profile === 'Laboratorio' || currentUser.position === 'Laboratórista' || currentUser.position === 'Laboratorista';
   const isMaquinista = currentUser.profile === 'Operario' || currentUser.position === 'Operario Maquinista';
   const isAdmin = currentUser.profile === 'Administrador';
 

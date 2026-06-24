@@ -2873,48 +2873,40 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                     />
                   </div>
                   <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <GlassSelect
+                    <GlassSearchableSelect
                       label="PUESTO"
                       options={[
-                        {
-                          label: "Operario Maquinista",
-                          value: "Operario Maquinista",
-                        },
-                        {
-                          label: "Operario Técnico",
-                          value: "Operario Técnico",
-                        },
-                        {
-                          label: "Operario Autoelevador",
-                          value: "Operario Autoelevador",
-                        },
+                        { label: "Laboratorista", value: "Laboratorista" },
+                        { label: "Operario Autoelevador", value: "Operario Autoelevador" },
                         { label: "Operario Granel", value: "Operario Granel" },
-                        {
-                          label: "Operario Supervisor",
-                          value: "Operario Supervisor",
-                        },
                         { label: "Operario Líbero", value: "Operario Líbero" },
-                        { label: "Laboratórista", value: "Laboratórista" },
+                        { label: "Operario Maquinista", value: "Operario Maquinista" },
+                        { label: "Operario Supervisor", value: "Operario Supervisor" },
+                        { label: "Operario Técnico", value: "Operario Técnico" },
                       ]}
                       value={formData.position || ""}
-                      onChange={(e: any) =>
-                        setFormData({ ...formData, position: e.target.value })
-                      }
+                      onChange={(e: any) => {
+                        console.log("PUESTO selected", e.target.value);
+                        setFormData({ ...formData, position: e.target.value });
+                      }}
+                      placeholder="Seleccionar puesto..."
                     />
-                    <GlassSelect
+                    <GlassSearchableSelect
                       label="PERFIL"
                       options={[
                         { label: "Administrador", value: "Administrador" },
-                        { label: "Operario", value: "Operario" },
-                        { label: "Técnico", value: "Técnico" },
                         { label: "Administrativo", value: "Administrativo" },
-                        { label: "Supervisor", value: "Supervisor" },
                         { label: "Laboratorio", value: "Laboratorio" },
+                        { label: "Operario", value: "Operario" },
+                        { label: "Supervisor", value: "Supervisor" },
+                        { label: "Técnico", value: "Técnico" },
                       ]}
                       value={formData.profile || ""}
-                      onChange={(e: any) =>
-                        setFormData({ ...formData, profile: e.target.value })
-                      }
+                      onChange={(e: any) => {
+                        console.log("PERFIL selected", e.target.value);
+                        setFormData({ ...formData, profile: e.target.value });
+                      }}
+                      placeholder="Seleccionar perfil..."
                     />
                   </div>
 

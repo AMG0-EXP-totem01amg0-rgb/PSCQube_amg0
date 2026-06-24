@@ -59,7 +59,7 @@ export function NotificationBellDropdown({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const isLabUser = currentUser.profile === 'Laboratorio' || currentUser.position === 'Laboratórista';
+  const isLabUser = currentUser.profile === 'Laboratorio' || currentUser.position === 'Laboratórista' || currentUser.position === 'Laboratorista';
   const isMaquinista = currentUser.profile === 'Operario' || currentUser.position === 'Operario Maquinista';
   const isAdmin = currentUser.profile === 'Administrador';
 
@@ -235,7 +235,7 @@ export function Header({
   const dateInputRef = useRef<HTMLInputElement>(null);
   const selected = palletizers.find(p => p.id === selectedId);
   const selectedShift = shifts.find(s => s.id === selectedShiftId);
-  const isLabUser = currentUser?.profile === 'Laboratorio' || currentUser?.position === 'Laboratórista';
+  const isLabUser = currentUser?.profile === 'Laboratorio' || currentUser?.position === 'Laboratórista' || currentUser?.position === 'Laboratorista';
 
   const handleDateClick = (e: React.MouseEvent) => {
     e.preventDefault();
