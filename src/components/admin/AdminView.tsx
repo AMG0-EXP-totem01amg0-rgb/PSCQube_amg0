@@ -2886,7 +2886,6 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                       ]}
                       value={formData.position || ""}
                       onChange={(e: any) => {
-                        console.log("PUESTO selected", e.target.value);
                         setFormData({ ...formData, position: e.target.value });
                       }}
                       placeholder="Seleccionar puesto..."
@@ -2903,7 +2902,6 @@ function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                       ]}
                       value={formData.profile || ""}
                       onChange={(e: any) => {
-                        console.log("PERFIL selected", e.target.value);
                         setFormData({ ...formData, profile: e.target.value });
                       }}
                       placeholder="Seleccionar perfil..."
