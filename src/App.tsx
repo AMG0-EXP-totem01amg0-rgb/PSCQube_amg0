@@ -357,10 +357,10 @@ export default function App() {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
+        // Si hay una actualización pendiente y no hay cambios sin guardar, recargar
         if (pendingVersionUpdate) {
           const activeUnsaved = hasUnsavedChanges || checkHasUnsavedChanges();
           if (!activeUnsaved && !isSaving) {
-            console.log("[Version Control] Visibility change: silent reload of pending version.");
             try {
               clearClientCache();
               localStorage.removeItem("pscqube_app_version");
@@ -370,6 +370,7 @@ export default function App() {
           }
         }
 
+        // Chequear versión solo si pasaron más de 10 minutos desde el último chequeo
         const timeElapsed = Date.now() - lastCheckTime;
         if (timeElapsed > tenMinutes) {
           console.log("[Version Control] Visibility check. Checking for updates...");
@@ -379,18 +380,9 @@ export default function App() {
       }
     };
 
-    const slowInterval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        console.log("[Version Control] Regular background updates query.");
-        checkAppVersion(false);
-        lastCheckTime = Date.now();
-      }
-    }, 12 * 60 * 1000);
-
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      clearInterval(slowInterval);
     };
   }, [loadedVersion, pendingVersionUpdate, hasUnsavedChanges, isSaving]);
 
