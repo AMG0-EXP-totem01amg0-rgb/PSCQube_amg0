@@ -2,6 +2,16 @@ import { Router } from "express";
 import { google } from "googleapis";
 import { AuthService } from "../services/auth.service.js";
 
+// Escapa caracteres especiales HTML para prevenir XSS
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 const router = Router();
 
 // Generate Google OAuth Authorization URL
@@ -99,7 +109,7 @@ router.get(["/auth/callback", "/auth/callback/"], async (req, res) => {
               </div>
               <h1 class="text-2xl font-bold text-white mb-2">Acceso No Autorizado</h1>
               <p class="text-sm text-gray-400 mb-6 font-medium leading-relaxed">
-                La dirección de correo electrónico <strong class="text-red-400 font-semibold">${googleEmail}</strong> no está registrada como usuario habilitado en el sistema <strong>PSCQUBE</strong>.
+                La dirección de correo electrónico <strong class="text-red-400 font-semibold">${escapeHtml(googleEmail)}</strong> no está registrada como usuario habilitado en el sistema <strong>PSCQUBE</strong>.
               </p>
               <div class="bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-4 text-left mb-6 text-xs text-yellow-300/90 leading-relaxed font-mono">
                 Póngase en contacto con el Super Usuario o Administrador del sistema para que registre este correo en las columnas email o email2 de la tabla "usuariosv2".
@@ -114,7 +124,7 @@ router.get(["/auth/callback", "/auth/callback/"], async (req, res) => {
                   window.opener.postMessage({ 
                     type: 'OAUTH_AUTH_ERROR', 
                     error: 'Correo no autorizado',
-                    detail: 'El correo ${googleEmail} no está registrado en la base de datos de usuarios (usuariosv2).'
+                    detail: 'El correo ${escapeHtml(googleEmail)} no está registrado en la base de datos de usuarios (usuariosv2).'
                   }, '*');
                   window.close();
                 } else {
@@ -167,7 +177,7 @@ router.get(["/auth/callback", "/auth/callback/"], async (req, res) => {
               window.opener.postMessage({ 
                 type: 'OAUTH_AUTH_SUCCESS', 
                 user: matchedUserObj,
-                googleEmail: "${googleEmail}"
+                googleEmail: "${escapeHtml(googleEmail)}"
               }, '*');
               window.close();
             } else {
