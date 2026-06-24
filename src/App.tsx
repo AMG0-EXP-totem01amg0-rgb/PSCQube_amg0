@@ -818,30 +818,14 @@ export default function App() {
           palletizerId: userContext.selectedPalletizerId
         };
 
-        // Parallel fetching of master & transactional data with explicit cache bypass to get manual DB updates
+        // Una sola llamada para todos los maestros
+        const maestrosRes = await fetch('/api/sync/maestros');
+        const maestrosData = await maestrosRes.json();
+
+        // 9 llamadas para operacionales (igual que antes)
         const [
-          resStops,
-          resProduction,
-          resDater,
-          resScale,
-          resStock,
-          resPalletClassifications,
-          resChange,
-          resDespachos,
-          resLoadingLanes,
-          // Masters (loaded directly from new browser cache populated by preloadMasterCatalogs)
-          resShifts,
-          resPalletizers,
-          resBaggers,
-          resHacs,
-          resCauses,
-          resMaterials,
-          resCapacities,
-          resUsers,
-          resCompanies,
-          resLoadingPoints,
-          resBagSuppliers,
-          resVehicles,
+          resStops, resProduction, resDater, resScale, resStock,
+          resPalletClassifications, resChange, resDespachos, resLoadingLanes,
           resFuelLoads
         ] = await Promise.all([
           fetchTableFromSheets("PAROSV2", true, initialFilters, "App.handleSyncOnEnter"),
@@ -853,19 +837,6 @@ export default function App() {
           fetchTableFromSheets("CAMBIO_PRODUCTOV2", true, initialFilters, "App.handleSyncOnEnter"),
           fetchTableFromSheets("DESPACHOSV2", true, initialFilters, "App.handleSyncOnEnter"),
           fetchTableFromSheets("ESTADO_CALLESV2", true, initialFilters, "App.handleSyncOnEnter"),
-          // Masters (resolved instantly from cache with false flag)
-          fetchTableFromSheets("TURNOSV2", false, undefined, "App.handleSyncOnEnter"),
-          fetchTableFromSheets("PALETIZADORAV2", false, undefined, "App.handleSyncOnEnter"),
-          fetchTableFromSheets("ENSACADORAV2", false, undefined, "App.handleSyncOnEnter"),
-          fetchTableFromSheets("HACSV2", false, undefined, "App.handleSyncOnEnter"),
-          fetchTableFromSheets("CAUSASV2", false, undefined, "App.handleSyncOnEnter"),
-          fetchTableFromSheets("MATERIALESV2", false, undefined, "App.handleSyncOnEnter"),
-          fetchTableFromSheets("CAPACIDADESV2", false, undefined, "App.handleSyncOnEnter"),
-          fetchTableFromSheets("USUARIOSV2", false, undefined, "App.handleSyncOnEnter"),
-          fetchTableFromSheets("EMPRESASV2", false, undefined, "App.handleSyncOnEnter"),
-          fetchTableFromSheets("PUNTOS_CARGAV2", false, undefined, "App.handleSyncOnEnter"),
-          fetchTableFromSheets("PROVEEDORES_BOLSAV2", false, undefined, "App.handleSyncOnEnter"),
-          fetchTableFromSheets("VEHICULOSV2", false, undefined, "App.handleSyncOnEnter"),
           fetchTableFromSheets("CARGA_COMBUSTIBLEV2", true, initialFilters, "App.handleSyncOnEnter")
         ]);
 
@@ -885,45 +856,48 @@ export default function App() {
         if (resLoadingLanes.success && resLoadingLanes.data) updateTableState("ESTADO_CALLESV2", resLoadingLanes.data, entDate, entShift);
         
         // Set Masters if present
-        if (resShifts.success && resShifts.data) setShifts(resShifts.data);
-        if (resPalletizers.success && resPalletizers.data) setPalletizers(resPalletizers.data);
-        if (resBaggers.success && resBaggers.data) setBaggers(resBaggers.data);
-        if (resHacs.success && resHacs.data) setHacs(resHacs.data);
-        if (resCauses.success && resCauses.data) setCauses(resCauses.data);
-        if (resMaterials.success && resMaterials.data) setMaterials(resMaterials.data);
-        if (resCapacities.success && resCapacities.data) setCapacities(resCapacities.data);
-        if (resUsers.success && resUsers.data) {
-          // Normalize user permissions lists right on fetch to heal any data in Google Sheets / Supabase
-          const normalized = (resUsers.data as any[]).map(u => {
-            let perms = u.permissions || u.permisos;
-            if (typeof perms === 'string' && perms.trim() !== '') {
-              try {
-                perms = JSON.parse(perms);
-              } catch {
-                perms = [];
+        if (maestrosData.success && maestrosData.data) {
+          const mData = maestrosData.data;
+          if (mData.turnos) setShifts(mData.turnos);
+          if (mData.paletizadoras) setPalletizers(mData.paletizadoras);
+          if (mData.ensacadoras) setBaggers(mData.ensacadoras);
+          if (mData.hacs) setHacs(mData.hacs);
+          if (mData.causas) setCauses(mData.causas);
+          if (mData.materiales) setMaterials(mData.materiales);
+          if (mData.capacidades) setCapacities(mData.capacidades);
+          if (mData.usuarios) {
+            // Normalize user permissions lists right on fetch to heal any data in Google Sheets / Supabase
+            const normalized = (mData.usuarios as any[]).map(u => {
+              let perms = u.permissions || u.permisos;
+              if (typeof perms === 'string' && perms.trim() !== '') {
+                try {
+                  perms = JSON.parse(perms);
+                } catch {
+                  perms = [];
+                }
               }
-            }
-            if (!Array.isArray(perms) || perms.length === 0) {
-              const level = u.profile === 'Administrador' ? 'EDIT' : 'VIEW';
-              perms = SYSTEM_VIEWS.map(v => ({
-                viewId: v.id,
-                label: v.label,
-                section: v.section,
-                level: level
-              }));
-            }
-            return {
-              ...u,
-              permissions: perms
-            };
-          });
-          setUsers(normalized);
-          finalUsers = normalized;
+              if (!Array.isArray(perms) || perms.length === 0) {
+                const level = u.profile === 'Administrador' ? 'EDIT' : 'VIEW';
+                perms = SYSTEM_VIEWS.map(v => ({
+                  viewId: v.id,
+                  label: v.label,
+                  section: v.section,
+                  level: level
+                }));
+              }
+              return {
+                ...u,
+                permissions: perms
+              };
+            });
+            setUsers(normalized);
+            finalUsers = normalized;
+          }
+          if (mData.empresas) setCompanies(mData.empresas);
+          if (mData.puntoscarga) setLoadingPoints(mData.puntoscarga);
+          if (mData.proveedoresbolsa) setBagSuppliers(mData.proveedoresbolsa);
+          if (mData.vehiculos) setVehicles(mData.vehiculos);
         }
-        if (resCompanies.success && resCompanies.data) setCompanies(resCompanies.data);
-        if (resLoadingPoints.success && resLoadingPoints.data) setLoadingPoints(resLoadingPoints.data);
-        if (resBagSuppliers.success && resBagSuppliers.data) setBagSuppliers(resBagSuppliers.data);
-        if (resVehicles.success && resVehicles.data) setVehicles(resVehicles.data);
         if (resFuelLoads.success && resFuelLoads.data) updateTableState("CARGA_COMBUSTIBLEV2", resFuelLoads.data, entDate, entShift);
 
         addToast("Sincronización con base de datos completada exitosamente.", "success");

@@ -7,6 +7,7 @@ import maestrosRoutes from "./routes/maestros.routes.js";
 import parosRoutes from "./routes/paros.routes.js";
 import productionRoutes from "./routes/production.routes.js";
 import genericRoutes from "./routes/generic.routes.js";
+import syncRoutes from "./routes/sync.routes.js";
 
 const app = express();
 
@@ -40,5 +41,6 @@ app.use(maestrosRoutes);
 app.use(parosRoutes);
 app.use(productionRoutes);
 app.use(genericRoutes);
+app.use(syncRoutes);
 
 export default app;
