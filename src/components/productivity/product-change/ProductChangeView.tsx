@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { RefreshCcw, Plus, Trash2, FileText, CheckCircle2, AlertCircle, Clock, FlaskConical, ChevronRight, Download, Info, Calendar, FilterX } from 'lucide-react';
 import { MasterData, ProductChange, AppUser, Company } from '../../../types';
 import { DataTable, Column, TableActions } from '../../ui/DataTable';
-import { GlassCard, GlassButton, GlassInput, GlassSelect, ConfirmModal, Modal } from '../../ui/GlassUI';
+import { GlassCard, GlassButton, GlassInput, GlassSelect, ConfirmModal, Modal, GlassSearchableSelect } from '../../ui/GlassUI';
 import { cn } from '../../../lib/utils';
 import { format, isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import jsPDF from 'jspdf';
@@ -567,29 +567,32 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
                         <h4 className="text-[11px] font-black uppercase tracking-widest text-text-muted">Sección Maquinista</h4>
                     </div>
 
-                    <GlassSelect 
+                    <GlassSearchableSelect 
                         label="Lugar de Muestreo"
                         options={samplingMachines.map(m => ({ label: m.name, value: m.id }))}
                         value={formData.machineId || ''}
                         onChange={(e:any) => setFormData({...formData, machineId: e.target.value})}
+                        placeholder="Seleccionar máquina..."
                     />
 
                     <div className="grid grid-cols-2 gap-4">
-                        <GlassSelect 
+                        <GlassSearchableSelect 
                             label="Producto Anterior"
                             options={productiveMaterials.map(m => ({ label: m.name, value: m.id }))}
                             value={formData.previousMaterialId || ''}
                             onChange={(e:any) => setFormData({...formData, previousMaterialId: e.target.value})}
+                            placeholder="Seleccionar producto..."
                         />
-                        <GlassSelect 
+                        <GlassSearchableSelect 
                             label="Producto a Producir"
                             options={productiveMaterials.filter(m => m.id !== formData.previousMaterialId).map(m => ({ label: m.name, value: m.id }))}
                             value={formData.newMaterialId || ''}
                             onChange={(e:any) => setFormData({...formData, newMaterialId: e.target.value})}
+                            placeholder="Seleccionar producto..."
                         />
                     </div>
 
-                    <GlassSelect 
+                    <GlassSearchableSelect 
                         label="Motivo del Cambio"
                         options={[
                             { label: 'Demanda de producto', value: 'DEMAND' },
@@ -598,6 +601,7 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
                         ]}
                         value={formData.changeReason || ''}
                         onChange={(e:any) => setFormData({...formData, changeReason: e.target.value})}
+                        placeholder="Seleccionar motivo..."
                     />
 
                     {/* Checklist Grid */}
