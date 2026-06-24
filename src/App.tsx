@@ -35,8 +35,8 @@ import { getSupabaseClient } from './lib/supabaseClient';
 // Lib & Types
 import { cn } from './lib/utils';
 import { Shift, MachineStop, ProductionReport, DaterControl, ScaleControl, InventoryEntry, PalletClassification, UserContext, MasterData, AppUser, ProductChange, Company, FuelLoad, AlertNotification } from './types';
-import { SHIFTS, PALLETIZERS, BAGGERS, MATERIALS, HACS, CAUSES, CAPACITIES, USERS, SYSTEM_VIEWS, COMPANIES, LOADING_POINTS, LANE_STATUSES } from './lib/mockData';
-import { syncTableToSheets, getBackendSheetsStatus, fetchTableFromSheets, clearClientCache, createRecordInSheets as rawCreateRecordInSheets, updateRecordInSheets as rawUpdateRecordInSheets, deleteRecordInSheets as rawDeleteRecordInSheets, preloadMasterCatalogs } from './lib/sheetsService';
+import { SYSTEM_VIEWS } from './lib/mockData';
+import { fetchTable, createRecord as rawCreateRecord, updateRecord as rawUpdateRecord, deleteRecord as rawDeleteRecord, clearClientCache, syncTableToSheets } from './lib/dataService';
 import { ToastContainer, ToastMessage } from './components/ui/Toast';
 
 // --- Utilities ---
@@ -210,14 +210,12 @@ export default function App() {
   const [pendingVersionUpdate, setPendingVersionUpdate] = useState(false);
   const [isUserInteracting, setIsUserInteracting] = useState(false);
 
-  // Wrappers around sheetsService mutation API functions to track isSaving and hasUnsavedChanges dynamically
+  // Wrappers around dataService mutation API functions to track isSaving and hasUnsavedChanges dynamically
   const createRecordInSheets = async (tableName: string, record: any) => {
     setIsSaving(true);
     try {
-      const res = await rawCreateRecordInSheets(tableName, record);
-      if (res.success) {
-        setHasUnsavedChanges(false);
-      }
+      const res = await rawCreateRecord(tableName, record);
+      if (res.success) setHasUnsavedChanges(false);
       return res;
     } finally {
       setIsSaving(false);
@@ -227,10 +225,8 @@ export default function App() {
   const updateRecordInSheets = async (tableName: string, id: string, record: any) => {
     setIsSaving(true);
     try {
-      const res = await rawUpdateRecordInSheets(tableName, id, record);
-      if (res.success) {
-        setHasUnsavedChanges(false);
-      }
+      const res = await rawUpdateRecord(tableName, id, record);
+      if (res.success) setHasUnsavedChanges(false);
       return res;
     } finally {
       setIsSaving(false);
@@ -240,10 +236,8 @@ export default function App() {
   const deleteRecordInSheets = async (tableName: string, id: string) => {
     setIsSaving(true);
     try {
-      const res = await rawDeleteRecordInSheets(tableName, id);
-      if (res.success) {
-        setHasUnsavedChanges(false);
-      }
+      const res = await rawDeleteRecord(tableName, id);
+      if (res.success) setHasUnsavedChanges(false);
       return res;
     } finally {
       setIsSaving(false);
@@ -832,140 +826,90 @@ export default function App() {
     setIsSyncing(true);
     setSyncMessage('Iniciando sincronización...');
     try {
-      // Intentionally clear all browser-side caches to guarantee fresh database state on page refresh
       clearClientCache();
+      setSyncMessage('Cargando catálogos maestros...');
 
-      setSyncMessage('Estableciendo conexión con base de datos...');
-      const status = await getBackendSheetsStatus();
-      
-      let finalUsers: AppUser[] = [];
+      const maestrosRes = await fetch('/api/sync/maestros');
+      const maestrosData = await maestrosRes.json();
 
-      if (status.configured) {
-        setSyncMessage('Cargando catálogos maestros...');
-        // Preload ALL master tables in a single optimized HTTP request
-        await preloadMasterCatalogs(true, "App.handleSyncOnEnter");
+      setSyncMessage('Sincronizando datos operativos...');
 
-        setSyncMessage('Sincronizando información...');
-        
-        // Define initial filters to only query current shift records to avoid heavy initial historic downloads
-        const initialFilters = {
-          date: userContext.selectedDate,
-          shiftId: userContext.selectedShiftId,
-          palletizerId: userContext.selectedPalletizerId
-        };
+      const initialFilters = {
+        date: userContext.selectedDate,
+        shiftId: userContext.selectedShiftId,
+        palletizerId: userContext.selectedPalletizerId
+      };
 
-        // Una sola llamada para todos los maestros
-        const maestrosRes = await fetch('/api/sync/maestros');
-        const maestrosData = await maestrosRes.json();
+      const [
+        resStops, resProduction, resDater, resScale, resStock,
+        resPalletClassifications, resChange, resDespachos,
+        resLoadingLanes, resFuelLoads
+      ] = await Promise.all([
+        fetchTable("PAROSV2", true, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("PRODUCCIONV2", true, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("CONTROL_FECHADORV2", true, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("CONTROL_BALANZAV2", true, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("INVENTARIO_FISICOV2", true, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("CLASISFICACION_PALLETSV2", true, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("CAMBIO_PRODUCTOV2", true, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("DESPACHOSV2", true, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("ESTADO_CALLESV2", true, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("CARGA_COMBUSTIBLEV2", true, initialFilters, "App.handleSyncOnEnter")
+      ]);
 
-        // 9 llamadas para operacionales (igual que antes)
-        const [
-          resStops, resProduction, resDater, resScale, resStock,
-          resPalletClassifications, resChange, resDespachos, resLoadingLanes,
-          resFuelLoads
-        ] = await Promise.all([
-          fetchTableFromSheets("PAROSV2", true, initialFilters, "App.handleSyncOnEnter"),
-          fetchTableFromSheets("PRODUCCIONV2", true, initialFilters, "App.handleSyncOnEnter"),
-          fetchTableFromSheets("CONTROL_FECHADORV2", true, initialFilters, "App.handleSyncOnEnter"),
-          fetchTableFromSheets("CONTROL_BALANZAV2", true, initialFilters, "App.handleSyncOnEnter"),
-          fetchTableFromSheets("INVENTARIO_FISICOV2", true, initialFilters, "App.handleSyncOnEnter"),
-          fetchTableFromSheets("CLASISFICACION_PALLETSV2", true, initialFilters, "App.handleSyncOnEnter"),
-          fetchTableFromSheets("CAMBIO_PRODUCTOV2", true, initialFilters, "App.handleSyncOnEnter"),
-          fetchTableFromSheets("DESPACHOSV2", true, initialFilters, "App.handleSyncOnEnter"),
-          fetchTableFromSheets("ESTADO_CALLESV2", true, initialFilters, "App.handleSyncOnEnter"),
-          fetchTableFromSheets("CARGA_COMBUSTIBLEV2", true, initialFilters, "App.handleSyncOnEnter")
-        ]);
+      setSyncMessage('Preparando sistema...');
 
-        setSyncMessage('Preparando sistema...');
+      const entDate = userContext.selectedDate;
+      const entShift = userContext.selectedShiftId;
 
-        const entDate = userContext.selectedDate;
-        const entShift = userContext.selectedShiftId;
-
-        if (resStops.success && resStops.data) updateTableState("PAROSV2", resStops.data, entDate, entShift);
-        if (resProduction.success && resProduction.data) updateTableState("PRODUCCIONV2", resProduction.data, entDate, entShift);
-        if (resDater.success && resDater.data) updateTableState("CONTROL_FECHADORV2", resDater.data, entDate, entShift);
-        if (resScale.success && resScale.data) updateTableState("CONTROL_BALANZAV2", resScale.data, entDate, entShift);
-        if (resStock.success && resStock.data) updateTableState("INVENTARIO_FISICOV2", resStock.data, entDate, entShift);
-        if (resPalletClassifications.success && resPalletClassifications.data) updateTableState("CLASISFICACION_PALLETSV2", resPalletClassifications.data, entDate, entShift);
-        if (resChange.success && resChange.data) updateTableState("CAMBIO_PRODUCTOV2", resChange.data, entDate, entShift);
-        if (resDespachos.success && resDespachos.data) updateTableState("DESPACHOSV2", resDespachos.data, entDate, entShift);
-        if (resLoadingLanes.success && resLoadingLanes.data) updateTableState("ESTADO_CALLESV2", resLoadingLanes.data, entDate, entShift);
-        
-        // Set Masters if present
-        if (maestrosData.success && maestrosData.data) {
-          const mData = maestrosData.data;
-          if (mData.turnos) setShifts(mData.turnos);
-          if (mData.paletizadoras) setPalletizers(mData.paletizadoras);
-          if (mData.ensacadoras) setBaggers(mData.ensacadoras);
-          if (mData.hacs) setHacs(mData.hacs);
-          if (mData.causas) setCauses(mData.causas);
-          if (mData.materiales) setMaterials(mData.materiales);
-          if (mData.capacidades) setCapacities(mData.capacidades);
-          if (mData.usuarios) {
-            // Normalize user permissions lists right on fetch to heal any data in Google Sheets / Supabase
-            const normalized = (mData.usuarios as any[]).map(u => {
-              let perms = u.permissions || u.permisos;
-              if (typeof perms === 'string' && perms.trim() !== '') {
-                try {
-                  perms = JSON.parse(perms);
-                } catch {
-                  perms = [];
-                }
-              }
-              if (!Array.isArray(perms) || perms.length === 0) {
-                const level = u.profile === 'Administrador' ? 'EDIT' : 'VIEW';
-                perms = SYSTEM_VIEWS.map(v => ({
-                  viewId: v.id,
-                  label: v.label,
-                  section: v.section,
-                  level: level
-                }));
-              }
-              return {
-                ...u,
-                permissions: perms
-              };
-            });
-            setUsers(normalized);
-            finalUsers = normalized;
-          }
-          if (mData.empresas) setCompanies(mData.empresas);
-          if (mData.puntoscarga) setLoadingPoints(mData.puntoscarga);
-          if (mData.proveedoresbolsa) setBagSuppliers(mData.proveedoresbolsa);
-          if (mData.vehiculos) setVehicles(mData.vehiculos);
+      // Setear maestros desde /api/sync/maestros
+      if (maestrosData.success && maestrosData.data) {
+        const d = maestrosData.data;
+        if (d.turnos) setShifts(d.turnos);
+        if (d.paletizadoras) setPalletizers(d.paletizadoras);
+        if (d.ensacadoras) setBaggers(d.ensacadoras);
+        if (d.hacs) setHacs(d.hacs);
+        if (d.causas) setCauses(d.causas);
+        if (d.materiales) setMaterials(d.materiales);
+        if (d.capacidades) setCapacities(d.capacidades);
+        if (d.empresas) setCompanies(d.empresas);
+        if (d.puntoscarga) setLoadingPoints(d.puntoscarga);
+        if (d.proveedoresbolsa) setBagSuppliers(d.proveedoresbolsa);
+        if (d.vehiculos) setVehicles(d.vehiculos);
+        if (d.usuarios) {
+          const normalized = (d.usuarios as any[]).map(u => {
+            let perms = u.permissions || u.permisos;
+            if (typeof perms === 'string' && perms.trim() !== '') {
+              try { perms = JSON.parse(perms); } catch { perms = []; }
+            }
+            if (!Array.isArray(perms) || perms.length === 0) {
+              const level = u.profile === 'Administrador' ? 'EDIT' : 'VIEW';
+              perms = SYSTEM_VIEWS.map(v => ({ viewId: v.id, label: v.label, section: v.section, level }));
+            }
+            return { ...u, permissions: perms };
+          });
+          setUsers(normalized);
+          const activeDni = targetDni || sessionStorage.getItem('pscqube_user_dni') || (normalized[0]?.dni || '');
+          if (activeDni) setUserContext(prev => ({ ...prev, currentUserDni: activeDni }));
         }
-        if (resFuelLoads.success && resFuelLoads.data) updateTableState("CARGA_COMBUSTIBLEV2", resFuelLoads.data, entDate, entShift);
-
-        addToast("Sincronización con base de datos completada exitosamente.", "success");
-        console.log("[SheetsConfig] Google Sheets database successfully synced on login.");
-      } else {
-        setSyncMessage('Inicializando base de datos local...');
-        // Initialize local states with default mockData lists directly to establish robust offline mode
-        setShifts(SHIFTS);
-        setPalletizers(PALLETIZERS);
-        setBaggers(BAGGERS);
-        setMaterials(MATERIALS);
-        setHacs(HACS);
-        setCauses(CAUSES);
-        setCapacities(CAPACITIES);
-        setUsers(USERS);
-        finalUsers = USERS;
-        setCompanies(COMPANIES);
-        setLoadingPoints(LOADING_POINTS);
-        setLaneStatuses(LANE_STATUSES);
-        
-        addToast("Ejecutando en memoria local (credenciales no detectadas).", "warning");
-        console.log("[SheetsConfig] Google Sheets mode offline. Ready.");
       }
 
-      // Check for saved user session or target login
-      const activeDni = targetDni || sessionStorage.getItem('pscqube_user_dni') || (finalUsers[0] ? finalUsers[0].dni : '');
-      if (activeDni) {
-        setUserContext(prev => ({ ...prev, currentUserDni: activeDni }));
-      }
+      // Setear operacionales
+      if (resStops.success && resStops.data) updateTableState("PAROSV2", resStops.data, entDate, entShift);
+      if (resProduction.success && resProduction.data) updateTableState("PRODUCCIONV2", resProduction.data, entDate, entShift);
+      if (resDater.success && resDater.data) updateTableState("CONTROL_FECHADORV2", resDater.data, entDate, entShift);
+      if (resScale.success && resScale.data) updateTableState("CONTROL_BALANZAV2", resScale.data, entDate, entShift);
+      if (resStock.success && resStock.data) updateTableState("INVENTARIO_FISICOV2", resStock.data, entDate, entShift);
+      if (resPalletClassifications.success && resPalletClassifications.data) updateTableState("CLASISFICACION_PALLETSV2", resPalletClassifications.data, entDate, entShift);
+      if (resChange.success && resChange.data) updateTableState("CAMBIO_PRODUCTOV2", resChange.data, entDate, entShift);
+      if (resDespachos.success && resDespachos.data) updateTableState("DESPACHOSV2", resDespachos.data, entDate, entShift);
+      if (resLoadingLanes.success && resLoadingLanes.data) updateTableState("ESTADO_CALLESV2", resLoadingLanes.data, entDate, entShift);
+      if (resFuelLoads.success && resFuelLoads.data) updateTableState("CARGA_COMBUSTIBLEV2", resFuelLoads.data, entDate, entShift);
+
+      addToast("Sincronización completada exitosamente.", "success");
     } catch (err) {
-      console.error("[SheetsLoad] Error during on-demand synchronization:", err);
-      addToast("Error al sincronizar con base datos o inicializar offline.", "error");
+      console.error("[SyncOnEnter] Error durante sincronización:", err);
+      addToast("Error al sincronizar con base de datos.", "error");
     } finally {
       setIsSyncing(false);
       setHasEnteredApp(true);
@@ -1084,11 +1028,11 @@ export default function App() {
       return inFlightFetchesRef.current[key];
     }
 
-    // 3. Perform Fetch with fetchTableFromSheets
+    // 3. Perform Fetch with fetchTable
     const filters = { date, shiftId };
     const fetchPromise = (async () => {
       try {
-        const res = await fetchTableFromSheets(tableName, bypassCache, filters, source);
+        const res = await fetchTable(tableName, bypassCache, filters, source);
         if (res.success && res.data) {
           updateTableState(tableName, res.data, date, shiftId);
           tableCooldownsRef.current[key] = Date.now();

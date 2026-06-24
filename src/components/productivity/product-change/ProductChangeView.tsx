@@ -8,7 +8,7 @@ import { cn } from '../../../lib/utils';
 import { format, isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { fetchTableFromSheets } from '../../../lib/sheetsService';
+import { fetchTable } from '../../../lib/dataService';
 
 interface Props {
   masters: MasterData;
@@ -37,7 +37,7 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
     if (dateFrom && dateTo) {
       let active = true;
       setIsRangeLoading(true);
-      fetchTableFromSheets("CAMBIO_PRODUCTOV2", true, { dateFrom, dateTo }, "ProductChangeView.range")
+      fetchTable("CAMBIO_PRODUCTOV2", true, { dateFrom, dateTo }, "ProductChangeView.range")
         .then(result => {
           if (active && result.success && result.data) {
             setLocalRangeHistory(result.data as ProductChange[]);

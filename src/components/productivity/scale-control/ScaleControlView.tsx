@@ -6,7 +6,7 @@ import { DataTable, Column, TableActions } from '../../ui/DataTable';
 import { GlassCard, GlassButton, GlassInput, GlassSelect, ConfirmModal } from '../../ui/GlassUI';
 import { cn } from '../../../lib/utils';
 import { format, isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
-import { fetchTableFromSheets } from '../../../lib/sheetsService';
+import { fetchTable } from '../../../lib/dataService';
 
 interface Props {
   masters: MasterData;
@@ -40,7 +40,7 @@ export default function ScaleControlView({ masters, currentUser, onSave, onDelet
     if (dateFrom && dateTo) {
       let active = true;
       setIsRangeLoading(true);
-      fetchTableFromSheets("CONTROL_BALANZAV2", true, { dateFrom, dateTo }, "ScaleControlView.range")
+      fetchTable("CONTROL_BALANZAV2", true, { dateFrom, dateTo }, "ScaleControlView.range")
         .then(result => {
           if (active && result.success && result.data) {
             setLocalRangeHistory(result.data as ScaleControl[]);
