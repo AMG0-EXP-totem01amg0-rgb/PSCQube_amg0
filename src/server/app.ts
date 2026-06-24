@@ -19,7 +19,7 @@ const ALLOWED_ORIGINS = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+    if (!origin || ALLOWED_ORIGINS.includes(origin) || origin.endsWith(".run.app") || origin.includes(".run.app")) {
       callback(null, true);
     } else {
       callback(new Error(`CORS bloqueado para origen: ${origin}`));
