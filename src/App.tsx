@@ -193,6 +193,21 @@ const isStopForShift = (stop: any, shiftId: string | null | undefined, mastersAv
 type AppSection = 'PRODUCTIVITY' | 'SAFETY' | 'ENVIRONMENT' | 'HR' | 'ADMIN';
 type ProductivityTab = 'DASHBOARD' | 'PAROS' | 'PRODUCCION' | 'DATER' | 'SCALE' | 'STOCK' | 'PALLET_CLASS' | 'GASOIL' | 'MANTENIMIENTO' | 'CHANGE' | 'LOADING_LANES' | 'DESPACHOS';
 
+const productivityTabs = [
+  { id: 'LOADING_LANES', label: 'Calles Carga', icon: <MapPin size={14} /> },
+  { id: 'CHANGE', label: 'Cambio Producto', icon: <Bot size={14} /> },
+  { id: 'PALLET_CLASS', label: 'Clasificación Pallets', icon: <Layers size={14} /> },
+  { id: 'GASOIL', label: 'Combustible', icon: <Droplet size={14} /> },
+  { id: 'SCALE', label: 'Control Balanzas', icon: <Activity size={14} /> },
+  { id: 'DATER', label: 'Control Fechadores', icon: <ClipboardList size={14} /> },
+  { id: 'DASHBOARD', label: 'Dashboard', icon: <Activity size={14} /> },
+  { id: 'DESPACHOS', label: 'Despachos', icon: <Truck size={14} /> },
+  { id: 'STOCK', label: 'Insumos', icon: <PlusCircle size={14} /> },
+  { id: 'MANTENIMIENTO', label: 'Mantenimiento', icon: <Settings size={14} /> },
+  { id: 'PAROS', label: 'Paros', icon: <AlertTriangle size={14} /> },
+  { id: 'PRODUCCION', label: 'Producción', icon: <Package size={14} /> },
+] as const;
+
 export default function App() {
   // Toast notifications State (Moved to top for visibility in all functions)
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -1740,58 +1755,93 @@ export default function App() {
                   exit={{ opacity: 0, x: 20 }}
                   className="space-y-4 md:space-y-6"
                 >
-                  {/* Sub-nav Productivity - Encapsulated Pill Container */}
+                  {/* Sub-nav Productivity - Adaptativo */}
                   <div className="sticky top-16 z-30 bg-bg/80 backdrop-blur-md pt-4 pb-1 mb-8">
-                      <div className="bg-surface p-1.5 rounded-2xl border border-border shadow-md relative group">
-                        {/* Carousel Arrows - Only visible on desktop hover */}
-                        <div className="absolute inset-y-0 left-0 items-center pl-1 z-20 hidden md:flex opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
-                            onClick={() => {
-                              if (subNavRef.current) {
-                                subNavRef.current.scrollBy({ left: -200, behavior: 'smooth' });
-                              }
-                            }}
-                            className="w-6 h-6 rounded-full bg-surface shadow-md border border-border flex items-center justify-center text-text-muted hover:text-primary transition-colors"
-                          >
-                            <ChevronLeft size={14} />
-                          </button>
-                        </div>
-                        
-                        <div className="absolute inset-y-0 right-0 items-center pr-1 z-20 hidden md:flex opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
-                            onClick={() => {
-                              if (subNavRef.current) {
-                                subNavRef.current.scrollBy({ left: 200, behavior: 'smooth' });
-                              }
-                            }}
-                            className="w-6 h-6 rounded-full bg-surface shadow-md border border-border flex items-center justify-center text-text-muted hover:text-primary transition-colors"
-                          >
-                            <ChevronRight size={14} />
-                          </button>
-                        </div>
+                    {(() => {
+                      const visibleTabs = productivityTabs.filter(t => canView(t.id));
 
-                        {/* Carousel edge masks */}
-                        <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-surface to-transparent z-10 pointer-events-none" />
-                        <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-surface to-transparent z-10 pointer-events-none" />
-                        
-                        <div 
-                          ref={subNavRef}
-                          className="flex items-center gap-2 no-scrollbar py-1 scroll-smooth px-4 touch-horizontal touch-pan-x overscroll-x-contain overflow-x-auto"
-                        >
-                          {canView('LOADING_LANES') && <ProductivitySubTab active={prodTab === 'LOADING_LANES'} onClick={() => setProdTab('LOADING_LANES')} icon={<MapPin size={14} />} label="Calles Carga" />}
-                          {canView('CHANGE') && <ProductivitySubTab active={prodTab === 'CHANGE'} onClick={() => setProdTab('CHANGE')} icon={<Bot size={14} />} label="Cambio Producto" />}
-                          {canView('PALLET_CLASS') && <ProductivitySubTab active={prodTab === 'PALLET_CLASS'} onClick={() => setProdTab('PALLET_CLASS')} icon={<Layers size={14} />} label="Clasificación Pallets" />}
-                          {canView('GASOIL') && <ProductivitySubTab active={prodTab === 'GASOIL'} onClick={() => setProdTab('GASOIL')} icon={<Droplet size={14} />} label="Combustible" />}
-                          {canView('SCALE') && <ProductivitySubTab active={prodTab === 'SCALE'} onClick={() => setProdTab('SCALE')} icon={<Activity size={14} />} label="Control Balanzas" />}
-                          {canView('DATER') && <ProductivitySubTab active={prodTab === 'DATER'} onClick={() => setProdTab('DATER')} icon={<ClipboardList size={14} />} label="Control Fechadores" />}
-                          {canView('DASHBOARD') && <ProductivitySubTab active={prodTab === 'DASHBOARD'} onClick={() => setProdTab('DASHBOARD')} icon={<Activity size={14} />} label="Dashboard" />}
-                          {canView('DESPACHOS') && <ProductivitySubTab active={prodTab === 'DESPACHOS'} onClick={() => setProdTab('DESPACHOS')} icon={<Truck size={14} />} label="Despachos" />}
-                          {canView('STOCK') && <ProductivitySubTab active={prodTab === 'STOCK'} onClick={() => setProdTab('STOCK')} icon={<PlusCircle size={14} />} label="Insumos" />}
-                          {canView('MANTENIMIENTO') && <ProductivitySubTab active={prodTab === 'MANTENIMIENTO'} onClick={() => setProdTab('MANTENIMIENTO')} icon={<Settings size={14} />} label="Mantenimiento" />}
-                          {canView('PAROS') && <ProductivitySubTab active={prodTab === 'PAROS'} onClick={() => setProdTab('PAROS')} icon={<AlertTriangle size={14} />} label="Paros" />}
-                          {canView('PRODUCCION') && <ProductivitySubTab active={prodTab === 'PRODUCCION'} onClick={() => setProdTab('PRODUCCION')} icon={<Package size={14} />} label="Producción" />}
+                      // Una sola opción — mostrar como label sin contenedor
+                      if (visibleTabs.length === 1) {
+                        return (
+                          <div className="flex items-center gap-2.5 px-2 py-2">
+                            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                            <span className="text-[11px] font-black uppercase tracking-[0.15em] text-primary">
+                              {visibleTabs[0].label}
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      // 2 a 4 opciones — contenedor centrado que se achica al contenido
+                      if (visibleTabs.length <= 4) {
+                        return (
+                          <div className="flex justify-center">
+                            <div className="bg-surface p-1.5 rounded-2xl border border-border shadow-md inline-flex gap-2">
+                              {visibleTabs.map(tab => (
+                                <ProductivitySubTab
+                                  key={tab.id}
+                                  active={prodTab === tab.id}
+                                  onClick={() => setProdTab(tab.id as ProductivityTab)}
+                                  icon={tab.icon}
+                                  label={tab.label}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      // 5 o más opciones — carrusel completo con scroll y flechas
+                      return (
+                        <div className="bg-surface p-1.5 rounded-2xl border border-border shadow-md relative group">
+                          {/* Carousel Arrows - Only visible on desktop hover */}
+                          <div className="absolute inset-y-0 left-0 items-center pl-1 z-20 hidden md:flex opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => {
+                                if (subNavRef.current) {
+                                  subNavRef.current.scrollBy({ left: -200, behavior: 'smooth' });
+                                }
+                              }}
+                              className="w-6 h-6 rounded-full bg-surface shadow-md border border-border flex items-center justify-center text-text-muted hover:text-primary transition-colors"
+                            >
+                              <ChevronLeft size={14} />
+                            </button>
+                          </div>
+
+                          <div className="absolute inset-y-0 right-0 items-center pr-1 z-20 hidden md:flex opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => {
+                                if (subNavRef.current) {
+                                  subNavRef.current.scrollBy({ left: 200, behavior: 'smooth' });
+                                }
+                              }}
+                              className="w-6 h-6 rounded-full bg-surface shadow-md border border-border flex items-center justify-center text-text-muted hover:text-primary transition-colors"
+                            >
+                              <ChevronRight size={14} />
+                            </button>
+                          </div>
+
+                          {/* Carousel edge masks */}
+                          <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-surface to-transparent z-10 pointer-events-none" />
+                          <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-surface to-transparent z-10 pointer-events-none" />
+
+                          <div
+                            ref={subNavRef}
+                            className="flex items-center gap-2 no-scrollbar py-1 scroll-smooth px-4 touch-horizontal touch-pan-x overscroll-x-contain overflow-x-auto"
+                          >
+                            {visibleTabs.map(tab => (
+                              <ProductivitySubTab
+                                key={tab.id}
+                                active={prodTab === tab.id}
+                                onClick={() => setProdTab(tab.id as ProductivityTab)}
+                                icon={tab.icon}
+                                label={tab.label}
+                              />
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      );
+                    })()}
                   </div>
 
                   {prodTab === 'DASHBOARD' && (
