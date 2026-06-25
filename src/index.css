@@ -37,6 +37,7 @@
   --bg-header: #EAF0F6;
   --bg-input: #F9FAFB;
   --text-primary: #1F2A37;
+  --caret-color: #1F2A37;
   --text-secondary: #6B7280;
   --border-soft: rgba(0, 0, 0, 0.08);
   
@@ -63,6 +64,7 @@
   --bg-input: #0F1621;         /* Inputs (sunken effect) */
   
   --text-primary: #F9FAFB;     /* High contrast titles */
+  --caret-color: #F9FAFB;
   --text-secondary: #9CA3AF;   /* Readable body text */
   --border-soft: rgba(255, 255, 255, 0.08);
   --neutral: #8fa1b3;
@@ -96,7 +98,7 @@
   textarea,
   select {
     color: var(--text-primary);
-    caret-color: currentColor !important;
+    caret-color: var(--caret-color) !important;
     background-color: var(--bg-input);
   }
 
@@ -206,11 +208,11 @@
 input,
 textarea,
 select {
-  caret-color: currentColor !important;
+  caret-color: var(--caret-color) !important;
 }
 
 [data-theme="dark"] input,
 [data-theme="dark"] textarea,
 [data-theme="dark"] select {
-  caret-color: currentColor !important;
+  caret-color: var(--caret-color) !important;
 }
