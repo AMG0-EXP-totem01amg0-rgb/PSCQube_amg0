@@ -226,8 +226,8 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
         setIsOpen(false);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
   const selectedOption = options.find((o: any) => o && String(o.value) === String(value));
