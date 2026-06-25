@@ -305,7 +305,7 @@ export default function FuelView({ masters, currentUser, onSave, onDelete, histo
                 label="Unidad Móvil (Identificación)*"
                 options={vehicleOptions}
                 value={formData.unidad_movil}
-                onChange={(e: any) => setFormData({ ...formData, unidad_movil: e.target.value })}
+                onChange={(e: any) => setFormData(prev => ({ ...prev, unidad_movil: e.target.value }))}
                 required
               />
 
@@ -321,7 +321,7 @@ export default function FuelView({ masters, currentUser, onSave, onDelete, histo
                 label="Litros de Combustible*"
                 type="number"
                 value={formData.litros_combustible || ''}
-                onChange={(e: any) => setFormData({ ...formData, litros_combustible: e.target.value ? Number(e.target.value) : undefined })}
+                onChange={(e: any) => setFormData(prev => ({ ...prev, litros_combustible: e.target.value ? Number(e.target.value) : undefined }))}
                 placeholder="0"
                 min="0.1"
                 step="0.1"

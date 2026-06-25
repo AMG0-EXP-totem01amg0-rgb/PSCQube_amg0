@@ -571,7 +571,7 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
                         label="Lugar de Muestreo"
                         options={samplingMachines.map(m => ({ label: m.name, value: m.id }))}
                         value={formData.machineId || ''}
-                        onChange={(e:any) => setFormData({...formData, machineId: e.target.value})}
+                        onChange={(e:any) => setFormData(prev => ({...prev, machineId: e.target.value}))}
                         placeholder="Seleccionar máquina..."
                     />
 
@@ -580,14 +580,14 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
                             label="Producto Anterior"
                             options={productiveMaterials.map(m => ({ label: m.name, value: m.id }))}
                             value={formData.previousMaterialId || ''}
-                            onChange={(e:any) => setFormData({...formData, previousMaterialId: e.target.value})}
+                            onChange={(e:any) => setFormData(prev => ({...prev, previousMaterialId: e.target.value}))}
                             placeholder="Seleccionar producto..."
                         />
                         <GlassSearchableSelect 
                             label="Producto a Producir"
                             options={productiveMaterials.filter(m => m.id !== formData.previousMaterialId).map(m => ({ label: m.name, value: m.id }))}
                             value={formData.newMaterialId || ''}
-                            onChange={(e:any) => setFormData({...formData, newMaterialId: e.target.value})}
+                            onChange={(e:any) => setFormData(prev => ({...prev, newMaterialId: e.target.value}))}
                             placeholder="Seleccionar producto..."
                         />
                     </div>
@@ -600,7 +600,7 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
                             { label: 'Silo vacío', value: 'EMPTY_SILO' }
                         ]}
                         value={formData.changeReason || ''}
-                        onChange={(e:any) => setFormData({...formData, changeReason: e.target.value})}
+                        onChange={(e:any) => setFormData(prev => ({...prev, changeReason: e.target.value}))}
                         placeholder="Seleccionar motivo..."
                     />
 
@@ -609,57 +609,57 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
                         <ToggleItem 
                             label="Cierre Válvula Silo" 
                             checked={!!formData.siloValveClosed} 
-                            onChange={v => setFormData({...formData, siloValveClosed: v})} 
+                            onChange={v => setFormData(prev => ({...prev, siloValveClosed: v}))} 
                         />
                         <ToggleItem 
                             label="Vaciado Circuito" 
                             checked={!!formData.circuitEmptied} 
-                            onChange={v => setFormData({...formData, circuitEmptied: v})} 
+                            onChange={v => setFormData(prev => ({...prev, circuitEmptied: v}))} 
                         />
                         <ToggleItem 
                             label="Limpieza Máquina" 
                             checked={!!formData.machineCleaned} 
-                            onChange={v => setFormData({...formData, machineCleaned: v})} 
+                            onChange={v => setFormData(prev => ({...prev, machineCleaned: v}))} 
                         />
                         <ToggleItem 
                             label="Vaciado Tolva" 
                             checked={!!formData.hopperEmptied} 
-                            onChange={v => setFormData({...formData, hopperEmptied: v})} 
+                            onChange={v => setFormData(prev => ({...prev, hopperEmptied: v}))} 
                         />
                         <ToggleItem 
                             label="Cambio de Silo" 
                             checked={!!formData.siloChanged} 
-                            onChange={v => setFormData({...formData, siloChanged: v})} 
+                            onChange={v => setFormData(prev => ({...prev, siloChanged: v}))} 
                         />
                         <ToggleItem 
                             label="Setup de Máquina" 
                             checked={!!formData.setupChanged} 
-                            onChange={v => setFormData({...formData, setupChanged: v})} 
+                            onChange={v => setFormData(prev => ({...prev, setupChanged: v}))} 
                         />
                         <ToggleItem 
                             label="Cambio de Envases" 
                             checked={!!formData.packagingChanged} 
-                            onChange={v => setFormData({...formData, packagingChanged: v})} 
+                            onChange={v => setFormData(prev => ({...prev, packagingChanged: v}))} 
                         />
                         <ToggleItem 
                             label="Paletizado de dos Big Bag" 
                             checked={!!formData.twoBigBagsPalletized} 
-                            onChange={v => setFormData({...formData, twoBigBagsPalletized: v})} 
+                            onChange={v => setFormData(prev => ({...prev, twoBigBagsPalletized: v}))} 
                         />
                         <ToggleItem 
                             label="Muestreo de Color" 
                             checked={!!formData.colorSampling} 
-                            onChange={v => setFormData({...formData, colorSampling: v})} 
+                            onChange={v => setFormData(prev => ({...prev, colorSampling: v}))} 
                         />
                          <ToggleItem 
                             label="Muestra enviada" 
                             checked={!!formData.sampleSentToLab} 
-                            onChange={v => setFormData({...formData, sampleSentToLab: v})} 
+                            onChange={v => setFormData(prev => ({...prev, sampleSentToLab: v}))} 
                         />
                         <ToggleItem 
                             label="Liberación Producto" 
                             checked={!!formData.productReleased} 
-                            onChange={v => setFormData({...formData, productReleased: v})} 
+                            onChange={v => setFormData(prev => ({...prev, productReleased: v}))} 
                         />
                     </div>
                 </div>
@@ -689,19 +689,19 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
                                 label="Pérdida por Calinación (%)" 
                                 type="number" 
                                 value={formData.calcinationLoss || ''} 
-                                onChange={(e:any) => setFormData({...formData, calcinationLoss: parseFloat(e.target.value)})} 
+                                onChange={(e:any) => setFormData(prev => ({...prev, calcinationLoss: parseFloat(e.target.value)}))} 
                             />
                             <GlassInput 
                                 label="Aire Incorporado (%)" 
                                 type="number" 
                                 value={formData.incorporatedAir || ''} 
-                                onChange={(e:any) => setFormData({...formData, incorporatedAir: parseFloat(e.target.value)})} 
+                                onChange={(e:any) => setFormData(prev => ({...prev, incorporatedAir: parseFloat(e.target.value)}))} 
                             />
                             <GlassInput 
                                 label="% CK por DRX" 
                                 type="number" 
                                 value={formData.ckPercentageByDrx || ''} 
-                                onChange={(e:any) => setFormData({...formData, ckPercentageByDrx: parseFloat(e.target.value)})} 
+                                onChange={(e:any) => setFormData(prev => ({...prev, ckPercentageByDrx: parseFloat(e.target.value)}))} 
                             />
                         </div>
 
@@ -715,7 +715,7 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
                                     <span className="text-[11px] font-black uppercase tracking-widest text-text-main">Aprobación Final</span>
                                     <div className="flex items-center gap-2 bg-bg p-1 rounded-xl border border-border">
                                         <button 
-                                            onClick={() => setFormData({...formData, approvalStatus: 'APROBADO', rejectionObservation: ''})}
+                                            onClick={() => setFormData(prev => ({...prev, approvalStatus: 'APROBADO', rejectionObservation: ''}))}
                                             className={cn(
                                                 "px-4 py-1.5 rounded-lg text-[10px] font-black transition-all",
                                                 formData.approvalStatus === 'APROBADO' ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20" : "text-text-muted hover:text-emerald-500"
@@ -724,7 +724,7 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
                                             APROBAR
                                         </button>
                                         <button 
-                                            onClick={() => setFormData({...formData, approvalStatus: 'RECHAZADO'})}
+                                            onClick={() => setFormData(prev => ({...prev, approvalStatus: 'RECHAZADO'}))}
                                             className={cn(
                                                 "px-4 py-1.5 rounded-lg text-[10px] font-black transition-all",
                                                 formData.approvalStatus === 'RECHAZADO' ? "bg-red-500 text-white shadow-lg shadow-red-500/20" : "text-text-muted hover:text-red-500"
@@ -745,7 +745,7 @@ export default function ProductChangeView({ masters, currentUser, onSave, onDele
                                             <GlassInput 
                                                 label="Observación del Rechazo (Obligatorio)" 
                                                 value={formData.rejectionObservation || ''} 
-                                                onChange={(e:any) => setFormData({...formData, rejectionObservation: e.target.value})} 
+                                                onChange={(e:any) => setFormData(prev => ({...prev, rejectionObservation: e.target.value}))} 
                                                 placeholder="Describa el motivo del rechazo..."
                                             />
                                         </motion.div>

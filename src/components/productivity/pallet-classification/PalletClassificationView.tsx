@@ -400,7 +400,7 @@ export default function PalletClassificationView({
                     label="Tipo de Tarima*" 
                     options={palletMaterials.map(m => ({ label: m.name, value: m.name }))}
                     value={formData.palletType}
-                    onChange={(e: any) => setFormData({...formData, palletType: e.target.value})}
+                    onChange={(e: any) => setFormData(prev => ({...prev, palletType: e.target.value}))}
                     required
                   />
                 ) : (
@@ -414,7 +414,7 @@ export default function PalletClassificationView({
                 type="number" 
                 label="Cantidad* (unidades)" 
                 value={formData.quantity || ''} 
-                onChange={(e: any) => setFormData({...formData, quantity: e.target.value ? Number(e.target.value) : 0})} 
+                onChange={(e: any) => setFormData(prev => ({...prev, quantity: e.target.value ? Number(e.target.value) : 0}))} 
                 required
                 min="1"
               />

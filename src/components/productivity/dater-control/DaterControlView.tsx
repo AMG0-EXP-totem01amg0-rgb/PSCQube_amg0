@@ -276,50 +276,50 @@ export default function DaterControlView({ masters, currentUser, onSave, onDelet
                   label="HAC (Fechador)" 
                   options={daterHacs.map(h => ({ label: `${h.hac} - ${h.detail}`, value: h.hac }))}
                   value={formData.hac}
-                  onChange={e => setFormData({...formData, hac: e.target.value})}
+                  onChange={e => setFormData(prev => ({...prev, hac: e.target.value}))}
                   required
                 />
                 <GlassSelect 
                   label="Purga" 
                   options={[{label: 'SI', value: 'SI'}, {label: 'NO', value: 'NO'}]}
                   value={formData.purge}
-                  onChange={e => setFormData({...formData, purge: e.target.value as any})}
+                  onChange={e => setFormData(prev => ({...prev, purge: e.target.value as any}))}
                 />
                 <GlassSelect 
                   label="Nivel Recipiente" 
                   options={[{label: 'COMPLETO', value: 'COMPLETO'}, {label: 'MEDIO', value: 'MEDIO'}, {label: 'VACÍO', value: 'VACÍO'}]}
                   value={formData.containerLevel}
-                  onChange={e => setFormData({...formData, containerLevel: e.target.value as any})}
+                  onChange={e => setFormData(prev => ({...prev, containerLevel: e.target.value as any}))}
                 />
                 <GlassSelect 
                   label="Calidad Impresión" 
                   options={[{label: 'BUENO', value: 'BUENO'}, {label: 'REGULAR', value: 'REGULAR'}, {label: 'DEFICIENTE', value: 'DEFICIENTE'}]}
                   value={formData.printQuality}
-                  onChange={e => setFormData({...formData, printQuality: e.target.value as any})}
+                  onChange={e => setFormData(prev => ({...prev, printQuality: e.target.value as any}))}
                 />
                 <GlassInput 
                   type="number" 
                   label="Stock Tinta" 
                   value={formData.inkStock} 
-                  onChange={e => setFormData({...formData, inkStock: e.target.value})} 
+                  onChange={e => setFormData(prev => ({...prev, inkStock: e.target.value}))} 
                 />
                 <GlassInput 
                   type="number" 
                   label="Stock Solvente" 
                   value={formData.solventStock} 
-                  onChange={e => setFormData({...formData, solventStock: e.target.value})} 
+                  onChange={e => setFormData(prev => ({...prev, solventStock: e.target.value}))} 
                 />
                 <GlassInput 
                   type="number" 
                   label="Stock Cabezales" 
                   value={formData.headsStock} 
-                  onChange={e => setFormData({...formData, headsStock: e.target.value})} 
+                  onChange={e => setFormData(prev => ({...prev, headsStock: e.target.value}))} 
                 />
                 <div className="md:col-span-2">
                   <GlassInput 
                     label="Observaciones" 
                     value={formData.observations} 
-                    onChange={e => setFormData({...formData, observations: e.target.value})} 
+                    onChange={e => setFormData(prev => ({...prev, observations: e.target.value}))} 
                   />
                 </div>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 md:col-span-1">

@@ -946,13 +946,13 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                   label="Ensacadora/Línea" 
                   options={masters.baggers.map((e:any) => ({label: e.name, value: e.id}))} 
                   value={formData.baggerId} 
-                  onChange={e => setFormData({...formData, baggerId: (e.target as HTMLSelectElement).value})} 
+                  onChange={e => setFormData(prev => ({...prev, baggerId: (e.target as HTMLSelectElement).value}))} 
                 />
                 <GlassInput 
                   label="Boquillas Disponibles" 
                   type="number" 
                   value={formData.availableNozzlesShift} 
-                  onChange={e => setFormData({...formData, availableNozzlesShift: (e.target as HTMLInputElement).value})} 
+                  onChange={e => setFormData(prev => ({...prev, availableNozzlesShift: (e.target as HTMLInputElement).value}))} 
                   placeholder="Ej: 4"
                 />
                 <GlassInput 
@@ -960,7 +960,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                   type="number"
                   step="0.01"
                   value={formData.hsMarchaTis} 
-                  onChange={e => setFormData({...formData, hsMarchaTis: (e.target as HTMLInputElement).value})} 
+                  onChange={e => setFormData(prev => ({...prev, hsMarchaTis: (e.target as HTMLInputElement).value}))} 
                   placeholder="Ej: 7.50"
                 />
               </div>
@@ -1039,7 +1039,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                     label="Material / Producto" 
                     options={availableMaterialsOptions} 
                     value={activeDetail.materialId} 
-                    onChange={e => setActiveDetail({...activeDetail, materialId: (e.target as HTMLSelectElement).value})} 
+                    onChange={e => setActiveDetail(prev => ({...prev, materialId: (e.target as HTMLSelectElement).value}))} 
                   />
                 </div>
                 <div className="md:col-span-4">
@@ -1047,7 +1047,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                     label="Bolsas Producidas" 
                     type="number" 
                     value={activeDetail.bags} 
-                    onChange={e => setActiveDetail({...activeDetail, bags: (e.target as HTMLInputElement).value})} 
+                    onChange={e => setActiveDetail(prev => ({...prev, bags: (e.target as HTMLInputElement).value}))} 
                     placeholder="0"
                   />
                 </div>
@@ -1055,8 +1055,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                   <GlassSelect 
                     label="Proveedor de Bolsa" 
                     options={(masters.bagSuppliers || []).map((p: any) => ({ label: p.nombre, value: p.nombre }))}
-                    value={activeDetail.bagProvider || (masters.bagSuppliers?.[0]?.nombre || '')} 
-                    onChange={e => setActiveDetail({...activeDetail, bagProvider: (e.target as HTMLSelectElement).value})} 
+                    value={activeDetail.bagProvider} 
+                    onChange={e => setActiveDetail(prev => ({...prev, bagProvider: (e.target as HTMLSelectElement).value}))} 
                   />
                 </div>
                 
@@ -1065,8 +1065,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                   <GlassInput 
                     label="Observación de Producción" 
                     type="text" 
-                    value={activeDetail.observacion || ''} 
-                    onChange={e => setActiveDetail({...activeDetail, observacion: (e.target as HTMLInputElement).value})} 
+                    value={activeDetail.observacion} 
+                    onChange={e => setActiveDetail(prev => ({...prev, observacion: (e.target as HTMLInputElement).value}))} 
                     placeholder="Escribe alguna observación o detalle sobre este material..."
                   />
                 </div>
@@ -1081,25 +1081,25 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                       label="Ensacadora (Bas.)" 
                       type="number" 
                       value={activeDetail.discardedBagsBagger} 
-                      onChange={e => setActiveDetail({...activeDetail, discardedBagsBagger: (e.target as HTMLInputElement).value})} 
+                      onChange={e => setActiveDetail(prev => ({...prev, discardedBagsBagger: (e.target as HTMLInputElement).value}))} 
                     />
                     <GlassInput 
                       label="No Emboquilladas" 
                       type="number" 
                       value={activeDetail.notNozzledBags} 
-                      onChange={e => setActiveDetail({...activeDetail, notNozzledBags: (e.target as HTMLInputElement).value})} 
+                      onChange={e => setActiveDetail(prev => ({...prev, notNozzledBags: (e.target as HTMLInputElement).value}))} 
                     />
                     <GlassInput 
                       label="Ventocheck" 
                       type="number" 
                       value={activeDetail.discardedBagsVentocheck} 
-                      onChange={e => setActiveDetail({...activeDetail, discardedBagsVentocheck: (e.target as HTMLInputElement).value})} 
+                      onChange={e => setActiveDetail(prev => ({...prev, discardedBagsVentocheck: (e.target as HTMLInputElement).value}))} 
                     />
                     <GlassInput 
                       label="Transporte" 
                       type="number" 
                       value={activeDetail.discardedBagsTransport} 
-                      onChange={e => setActiveDetail({...activeDetail, discardedBagsTransport: (e.target as HTMLInputElement).value})} 
+                      onChange={e => setActiveDetail(prev => ({...prev, discardedBagsTransport: (e.target as HTMLInputElement).value}))} 
                     />
                   </div>
                 </div>

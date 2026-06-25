@@ -126,7 +126,7 @@ export default function InventoryView({ masters, currentUser, onSave, onDelete, 
                     options={masters.materials
                       .map(m => ({ label: m.name, value: m.id }))}
                     value={formData.materialId}
-                    onChange={e => setFormData({...formData, materialId: e.target.value})}
+                    onChange={e => setFormData(prev => ({...prev, materialId: e.target.value}))}
                     required
                   />
                 </div>
@@ -134,7 +134,7 @@ export default function InventoryView({ masters, currentUser, onSave, onDelete, 
                   type="number" 
                   label="Cantidad (Tarimas/Unid)" 
                   value={formData.quantity} 
-                  onChange={e => setFormData({...formData, quantity: e.target.value})} 
+                  onChange={e => setFormData(prev => ({...prev, quantity: e.target.value}))} 
                   required
                 />
                 <div className="flex items-end gap-3">

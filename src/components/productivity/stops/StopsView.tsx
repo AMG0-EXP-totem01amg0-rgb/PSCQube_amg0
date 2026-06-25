@@ -551,13 +551,13 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
                    label="Hora Inicio" 
                    type="time" 
                    value={formData.startTime} 
-                   onChange={e => setFormData({...formData, startTime: (e.target as HTMLInputElement).value})} 
+                   onChange={e => setFormData(prev => ({...prev, startTime: (e.target as HTMLInputElement).value}))} 
                  />
                  <GlassInput 
                    label="Hora Fin" 
                    type="time" 
                    value={formData.endTime} 
-                   onChange={e => setFormData({...formData, endTime: (e.target as HTMLInputElement).value})} 
+                   onChange={e => setFormData(prev => ({...prev, endTime: (e.target as HTMLInputElement).value}))} 
                  />
               </div>
 
@@ -581,7 +581,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
                   .filter((m: any) => m && m.isProductive === true)
                   .map((m: any) => ({ label: m.name || m.nombre, value: m.id }))}
                 value={formData.materialId}
-                onChange={e => setFormData({ ...formData, materialId: (e.target as HTMLSelectElement).value })}
+                onChange={e => setFormData(prev => ({ ...prev, materialId: (e.target as HTMLSelectElement).value }))}
               />
             </div>
 
@@ -625,7 +625,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
                     label="Equipo Afectado (HAC)" 
                     options={filteredHacs}
                     value={formData.hacId} 
-                    onChange={(e: any) => setFormData({...formData, hacId: e.target.value, causeId: ''})} 
+                    onChange={(e: any) => setFormData(prev => ({...prev, hacId: e.target.value, causeId: ''}))} 
                   />
                 );
               })()}
@@ -673,7 +673,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
                     label="Causa Específica" 
                     options={filteredOptions} 
                     value={formData.causeId} 
-                    onChange={(e: any) => setFormData({...formData, causeId: e.target.value})} 
+                    onChange={(e: any) => setFormData(prev => ({...prev, causeId: e.target.value}))} 
                     disabled={!formData.hacId} 
                     placeholder={!formData.hacId ? "Selecciona un equipo primero..." : "Buscar causa específica..."}
                   />
@@ -689,7 +689,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
                   className="w-full bg-bg/50 border border-white/10 rounded-xl p-3 text-sm text-text-main focus:outline-none focus:ring-1 focus:ring-primary/50 min-h-[108px] transition-all"
                   placeholder="Describe brevemente la anomalía o el motivo del aviso..."
                   value={formData.noticeText}
-                  onChange={e => setFormData({...formData, noticeText: e.target.value})}
+                  onChange={e => setFormData(prev => ({...prev, noticeText: e.target.value}))}
                 ></textarea>
               </div>
             </div>
