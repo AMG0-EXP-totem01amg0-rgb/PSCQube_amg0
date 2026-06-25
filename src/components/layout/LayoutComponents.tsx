@@ -4,7 +4,8 @@ import {
   Factory, ChevronDown, Bot, AlertTriangle, Package, Settings, 
   ShieldCheck, Leaf, Users, Sun, Moon, Home, X, Filter, 
   ChevronUp, Calendar, LogOut, User as UserIcon,
-  Bell, CheckCheck, Beaker, AlertCircle, Info, RotateCw, RefreshCw
+  Bell, CheckCheck, Beaker, AlertCircle, Info, RotateCw, RefreshCw,
+  Gauge
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Machine, AlertNotification, AppUser } from '../../types';
@@ -514,7 +515,7 @@ export function BottomNav({
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const allSections = [
-    { id: 'PRODUCTIVITY', label: 'PRODUCTIVIDAD', icon: <Bot size={22} /> },
+    { id: 'PRODUCTIVITY', label: 'PRODUCTIVIDAD', icon: <Gauge size={22} /> },
     { id: 'SAFETY', label: 'H&S', icon: <ShieldCheck size={22} /> },
     { id: 'ENVIRONMENT', label: 'MEDIO AMBIENTE', icon: <Leaf size={22} /> },
     { id: 'HR', label: 'CAPITAL HUMANO', icon: <Users size={22} /> },
@@ -577,13 +578,13 @@ export function BottomNav({
                       "w-12 h-12 rounded-[1.25rem] flex items-center justify-center transition-all duration-300 ring-2 ring-transparent",
                       activeSection === section.id 
                         ? "bg-primary text-white shadow-[0_5px_15px_rgba(0,85,150,0.4)] ring-primary/20 scale-110" 
-                        : "bg-surface text-text-muted group-hover:bg-surface-elevated group-hover:text-primary group-hover:scale-105 active:scale-95"
+                        : "bg-primary/15 text-primary/70 border border-primary/20 group-hover:bg-primary/25 group-hover:text-primary group-hover:scale-105 active:scale-95"
                     )}>
                       {React.cloneElement(section.icon as React.ReactElement, { size: 18 })}
                     </div>
                     <span className={cn(
                       "text-[8px] font-black uppercase tracking-wider text-center transition-colors px-1",
-                      activeSection === section.id ? "text-primary" : "text-text-muted group-hover:text-text-main"
+                      activeSection === section.id ? "text-primary" : "text-text-main/60 group-hover:text-text-main"
                     )}>
                       {section.label}
                     </span>
