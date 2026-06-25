@@ -39,6 +39,12 @@ export default function InventoryView({ masters, currentUser, onSave, onDelete, 
     setExpandedMaterials(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const handleCloseForm = () => {
+    setIsFormOpen(false);
+    setEditingId(null);
+    setFormData({ materialId: '', quantity: 0 });
+  };
+
   // Group entries by material
   const groupedData = useMemo(() => {
     const groups: Record<string, { materialId: string; entries: InventoryEntry[]; totalTn: number }> = {};
@@ -47,8 +53,14 @@ export default function InventoryView({ masters, currentUser, onSave, onDelete, 
       if (!groups[entry.materialId]) {
         groups[entry.materialId] = { materialId: entry.materialId, entries: [], totalTn: 0 };
       }
-      groups[entry.materialId].entries.push(entry);
-      groups[entry.materialId].totalTn += entry.weightTn;
+      // Guarantee numeric types to prevent string concatenation or .toFixed runtime crashes
+      const safeEntry = {
+        ...entry,
+        quantity: Number(entry.quantity) || 0,
+        weightTn: Number(entry.weightTn) || 0
+      };
+      groups[entry.materialId].entries.push(safeEntry);
+      groups[entry.materialId].totalTn += safeEntry.weightTn;
     });
 
     return Object.values(groups).sort((a, b) => {
@@ -62,7 +74,7 @@ export default function InventoryView({ masters, currentUser, onSave, onDelete, 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.materialId || !formData.quantity) return;
+    if (!formData.materialId || formData.quantity === undefined) return;
 
     const material = masters.materials.find(m => m.id === formData.materialId);
     if (!material) return;
@@ -71,8 +83,9 @@ export default function InventoryView({ masters, currentUser, onSave, onDelete, 
     const isUnitary = material.isPallet || material.isSupply || material.isBigBag;
     const weightTn = isUnitary ? Number(formData.quantity) : (Number(formData.quantity) * material.packingWeight) / 1000;
 
+    const entryId = editingId || `INV-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
     const entry: InventoryEntry = {
-      id: editingId || `INV-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+      id: entryId,
       date: selectedDate,
       shiftId: selectedShiftId || '',
       materialId: formData.materialId,
@@ -82,10 +95,12 @@ export default function InventoryView({ masters, currentUser, onSave, onDelete, 
       userName: currentUser?.name || 'Operador Holcim'
     };
 
+    const targetMaterialId = formData.materialId;
+
     onSave(entry);
-    setIsFormOpen(false);
-    setEditingId(null);
-    setFormData({ materialId: '', quantity: 0 });
+    handleCloseForm();
+    // Expand the added/modified material group automatically so the operator sees the updated row
+    setExpandedMaterials(prev => ({ ...prev, [targetMaterialId]: true }));
   };
 
   return (
@@ -101,7 +116,11 @@ export default function InventoryView({ masters, currentUser, onSave, onDelete, 
           </div>
         </div>
         {canEdit && (
-          <GlassButton onClick={() => { setEditingId(null); setIsFormOpen(true); }} className="h-10 px-4">
+          <GlassButton onClick={() => { 
+            setEditingId(null); 
+            setFormData({ materialId: '', quantity: 0 }); 
+            setIsFormOpen(true); 
+          }} className="h-10 px-4">
             <PlusCircle size={18} /> <span className="ml-2">Registrar Conteo</span>
           </GlassButton>
         )}
@@ -116,7 +135,7 @@ export default function InventoryView({ masters, currentUser, onSave, onDelete, 
                   <Calculator size={16} className="text-primary" />
                   {editingId ? 'Editar' : 'Nuevo'} Registro de Conteo
                 </h3>
-                <button onClick={() => setIsFormOpen(false)} className="text-text-muted hover:text-text-main transition-colors"><PlusCircle className="rotate-45" size={20} /></button>
+                <button onClick={handleCloseForm} className="text-text-muted hover:text-text-main transition-colors"><PlusCircle className="rotate-45" size={20} /></button>
               </div>
               
               <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-6">
