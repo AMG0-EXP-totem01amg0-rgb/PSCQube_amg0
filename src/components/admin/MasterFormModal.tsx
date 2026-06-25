@@ -11,6 +11,23 @@ import {
 } from "../ui/GlassUI";
 import { SYSTEM_VIEWS } from "../../lib/mockData";
 
+const calculateShiftDuration = (start: string, end: string): number => {
+  if (!start || !end) return 8;
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  if (isNaN(sh) || isNaN(sm) || isNaN(eh) || isNaN(em)) return 8;
+  
+  let startMins = sh * 60 + sm;
+  let endMins = eh * 60 + em;
+  
+  if (endMins <= startMins) {
+    endMins += 24 * 60; // cross midnight
+  }
+  
+  const diffMins = endMins - startMins;
+  return Math.round((diffMins / 60) * 100) / 100;
+};
+
 export function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
   const [formData, setFormData] = useState<any>(
     item || {
@@ -122,17 +139,27 @@ export function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                     label="Inicio"
                     type="time"
                     value={formData.startTime || ""}
-                    onChange={(e: any) =>
-                      setFormData({ ...formData, startTime: e.target.value })
-                    }
+                    onChange={(e: any) => {
+                      const startVal = e.target.value;
+                      setFormData({
+                        ...formData,
+                        startTime: startVal,
+                        durationHours: calculateShiftDuration(startVal, formData.endTime || "")
+                      });
+                    }}
                   />
                   <GlassInput
                     label="Fin"
                     type="time"
                     value={formData.endTime || ""}
-                    onChange={(e: any) =>
-                      setFormData({ ...formData, endTime: e.target.value })
-                    }
+                    onChange={(e: any) => {
+                      const endVal = e.target.value;
+                      setFormData({
+                        ...formData,
+                        endTime: endVal,
+                        durationHours: calculateShiftDuration(formData.startTime || "", endVal)
+                      });
+                    }}
                   />
                   <GlassInput
                     label="Horas"

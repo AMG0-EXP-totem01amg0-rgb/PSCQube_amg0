@@ -194,24 +194,39 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
     if (!formData.startTime || !formData.endTime) return null;
     try {
       const start = parse(formData.startTime, 'HH:mm', new Date());
-      const end = parse(formData.endTime, 'HH:mm', new Date());
-      if (isBefore(end, start)) {
-        return { text: "La hora de fin no puede ser menor a la hora de inicio", isError: true, mins: 0 };
+      let end = parse(formData.endTime, 'HH:mm', new Date());
+      let crossedMidnight = false;
+      if (formData.endTime <= formData.startTime) {
+        end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+        crossedMidnight = true;
       }
       const mins = differenceInMinutes(end, start);
+      
+      const shiftDurationMinutes = (selectedShift?.durationHours || 8) * 60;
+      if (mins > shiftDurationMinutes) {
+        return { 
+          text: `La duración (${mins} min) no puede superar la duración del turno (${shiftDurationMinutes} min)`, 
+          isError: true, 
+          mins: 0 
+        };
+      }
+
       const hrs = Math.floor(mins / 60);
       const remainingMins = mins % 60;
       let text = '';
+      if (crossedMidnight) {
+        text += '(Cruza medianoche) ';
+      }
       if (hrs > 0) {
-        text = `${hrs} h ${remainingMins} min (${mins} min total)`;
+        text += `${hrs} h ${remainingMins} min (${mins} min total)`;
       } else {
-        text = `${mins} min`;
+        text += `${mins} min`;
       }
       return { text, isError: false, mins };
     } catch {
       return null;
     }
-  }, [formData.startTime, formData.endTime]);
+  }, [formData.startTime, formData.endTime, selectedShift]);
 
   const isTimeInShift = (timeStr: string, shift: Shift) => {
     if (!timeStr) return true;
@@ -227,11 +242,20 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
     }
   };
 
-  const validateTimes = (startStr: string, endStr: string) => {
+  const validateTimes = (startStr: string, endStr: string, shift: Shift | null) => {
     if (!startStr || !endStr) return true;
     const start = parse(startStr, 'HH:mm', new Date());
-    const end = parse(endStr, 'HH:mm', new Date());
-    return !isBefore(end, start);
+    let end = parse(endStr, 'HH:mm', new Date());
+    if (endStr <= startStr) {
+      end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+    }
+    const duration = differenceInMinutes(end, start);
+    if (duration <= 0) return false;
+
+    const shiftDurationMinutes = (shift?.durationHours || 8) * 60;
+    if (duration > shiftDurationMinutes) return false;
+
+    return true;
   };
 
   const submit = (e: React.FormEvent) => {
@@ -250,8 +274,8 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
     }
 
     // Logic Validation
-    if (!validateTimes(formData.startTime, formData.endTime)) {
-      setError("La hora de fin no puede ser menor que la hora de inicio.");
+    if (!validateTimes(formData.startTime, formData.endTime, selectedShift)) {
+      setError("La hora de fin no es válida o la duración excede la duración del turno.");
       return;
     }
 
@@ -262,6 +286,9 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
     
     const start = parse(formData.startTime, 'HH:mm', new Date());
     let end = parse(formData.endTime, 'HH:mm', new Date());
+    if (formData.endTime <= formData.startTime) {
+      end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+    }
     const duration = differenceInMinutes(end, start);
 
     // Lookups for technical fields
