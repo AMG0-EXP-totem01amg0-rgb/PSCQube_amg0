@@ -18,7 +18,7 @@ export function GlassInput({ label, className, ...props }: any) {
           "h-11 bg-bg-input text-sm border-border text-text-main placeholder:text-text-muted/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/5 transition-all rounded-lg px-3.5 border outline-none",
           className
         )} 
-        style={{ color: 'var(--text-primary)', caretColor: 'currentColor', backgroundColor: 'var(--bg-input)' }}
+        style={{ color: 'var(--text-primary)', caretColor: 'var(--text-primary)', backgroundColor: 'var(--bg-input)' }}
         {...props} 
       />
     </div>
@@ -34,7 +34,7 @@ export function GlassSelect({ label, options, className, ...props }: any) {
           "h-11 bg-bg-input text-sm border-border text-text-main focus:border-primary/50 focus:ring-2 focus:ring-primary/5 transition-all rounded-lg px-3.5 border appearance-none outline-none disabled:opacity-50 disabled:cursor-not-allowed [color:var(--text-primary)]",
           className
         )} 
-        style={{ color: 'var(--text-primary)', caretColor: 'currentColor', backgroundColor: 'var(--bg-input)' }}
+        style={{ color: 'var(--text-primary)', caretColor: 'var(--text-primary)', backgroundColor: 'var(--bg-input)' }}
         {...props}
       >
         <option value="" style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-elevated)' }}>Seleccionar...</option>
@@ -308,7 +308,7 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
                 }}
                 placeholder="Buscar..."
                 className="w-full bg-transparent border-none text-xs text-text-main focus:outline-none placeholder:text-text-muted/50 py-1"
-                style={{ color: 'var(--text-primary)', caretColor: 'currentColor' }}
+                style={{ color: 'var(--text-primary)', caretColor: 'var(--text-primary)' }}
               />
               {search && (
                 <button 
