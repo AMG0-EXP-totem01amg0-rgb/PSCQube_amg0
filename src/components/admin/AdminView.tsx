@@ -912,58 +912,93 @@ export default function AdminView({
           </div>
         </div>
 
-        <div className="relative group overflow-hidden">
-          {/* Carousel Arrows - Only visible on desktop hover */}
-          <div className="absolute inset-y-0 left-0 items-center pl-1 z-20 hidden md:flex opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              onClick={() => {
-                if (scrollRef.current) {
-                  scrollRef.current.scrollBy({
-                    left: -150,
-                    behavior: "smooth",
-                  });
-                }
-              }}
-              className="w-6 h-6 rounded-full bg-surface shadow-md border border-border flex items-center justify-center text-text-muted hover:text-primary transition-colors"
-            >
-              <ChevronLeft size={14} />
-            </button>
-          </div>
+        {(() => {
+          const visibleSections = sectionsList.filter(s => isVisible(s.key));
 
-          <div className="absolute inset-y-0 right-0 items-center pr-1 z-20 hidden md:flex opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              onClick={() => {
-                if (scrollRef.current) {
-                  scrollRef.current.scrollBy({ left: 150, behavior: "smooth" });
-                }
-              }}
-              className="w-6 h-6 rounded-full bg-surface shadow-md border border-border flex items-center justify-center text-text-muted hover:text-primary transition-colors"
-            >
-              <ChevronRight size={14} />
-            </button>
-          </div>
+          // Una sola opción — mostrar como label sin contenedor
+          if (visibleSections.length === 1) {
+            return (
+              <div className="flex items-center gap-2.5 px-2 py-2">
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                <span className="text-[11px] font-black uppercase tracking-[0.15em] text-primary">
+                  {visibleSections[0].label}
+                </span>
+              </div>
+            );
+          }
 
-          {/* Carousel edge masks */}
-          <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-bg to-transparent z-10 pointer-events-none" />
-          <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-bg to-transparent z-10 pointer-events-none" />
+          // 2 a 4 opciones — contenedor centrado que se achica al contenido
+          if (visibleSections.length <= 4) {
+            return (
+              <div className="flex justify-center md:justify-end">
+                <div className="bg-bg-input/50 p-1.5 rounded-2xl border border-border shadow-sm inline-flex gap-1">
+                  {visibleSections.map(sec => (
+                    <AdminSubTab
+                      key={sec.key}
+                      active={activeTab === sec.key}
+                      onClick={() => onTabChange(sec.key)}
+                      label={sec.label}
+                      icon={(sec as any).icon}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          }
 
-          <div
-            ref={scrollRef}
-            className="flex bg-bg-input/50 p-1.5 rounded-2xl border border-border overflow-x-auto gap-1 no-scrollbar select-none min-w-0 shadow-sm scroll-smooth px-6"
-          >
-            {sectionsList.map((sec) =>
-              isVisible(sec.key) ? (
-                <AdminSubTab
-                  key={sec.key}
-                  active={activeTab === sec.key}
-                  onClick={() => onTabChange(sec.key)}
-                  label={sec.label}
-                  icon={(sec as any).icon}
-                />
-              ) : null
-            )}
-          </div>
-        </div>
+          // 5 o más opciones — carrusel completo con scroll y flechas (comportamiento actual)
+          return (
+            <div className="relative group overflow-hidden">
+              <div className="absolute inset-y-0 left-0 items-center pl-1 z-20 hidden md:flex opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => {
+                    if (scrollRef.current) {
+                      scrollRef.current.scrollBy({
+                        left: -150,
+                        behavior: "smooth",
+                      });
+                    }
+                  }}
+                  className="w-6 h-6 rounded-full bg-surface shadow-md border border-border flex items-center justify-center text-text-muted hover:text-primary transition-colors"
+                >
+                  <ChevronLeft size={14} />
+                </button>
+              </div>
+
+              <div className="absolute inset-y-0 right-0 items-center pr-1 z-20 hidden md:flex opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => {
+                    if (scrollRef.current) {
+                      scrollRef.current.scrollBy({ left: 150, behavior: "smooth" });
+                    }
+                  }}
+                  className="w-6 h-6 rounded-full bg-surface shadow-md border border-border flex items-center justify-center text-text-muted hover:text-primary transition-colors"
+                >
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+
+              {/* Carousel edge masks */}
+              <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-bg to-transparent z-10 pointer-events-none" />
+              <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-bg to-transparent z-10 pointer-events-none" />
+
+              <div
+                ref={scrollRef}
+                className="flex bg-bg-input/50 p-1.5 rounded-2xl border border-border overflow-x-auto gap-1 no-scrollbar select-none min-w-0 shadow-sm scroll-smooth px-6"
+              >
+                {visibleSections.map((sec) => (
+                  <AdminSubTab
+                    key={sec.key}
+                    active={activeTab === sec.key}
+                    onClick={() => onTabChange(sec.key)}
+                    label={sec.label}
+                    icon={(sec as any).icon}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
         <div className="space-y-6">
