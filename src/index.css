@@ -91,6 +91,14 @@
   body {
     @apply bg-bg text-text-main antialiased min-h-screen overflow-x-hidden;
   }
+
+  /* AGREGAR ESTO: */
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    color: var(--text-primary);
+    caret-color: var(--text-primary);
+  }
 }
 
 /* SaaS Professional UI Components - Solid & Aligned */
@@ -193,16 +201,12 @@
 input,
 textarea,
 select {
-  color: var(--text-primary) !important;
-  caret-color: var(--text-primary) !important;
-  background-color: var(--bg-input);
+  caret-color: var(--text-primary);
 }
 
 [data-theme="dark"] input,
 [data-theme="dark"] textarea,
 [data-theme="dark"] select {
-  color: var(--text-primary) !important;
-  caret-color: var(--text-primary) !important;
-  background-color: var(--bg-input);
+  caret-color: var(--text-primary);
 }
 

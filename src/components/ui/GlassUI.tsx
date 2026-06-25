@@ -15,9 +15,10 @@ export function GlassInput({ label, className, ...props }: any) {
       <label className="text-xs font-semibold text-text-muted ml-0.5">{label}</label>
       <input 
         className={cn(
-          "h-11 bg-bg-input text-sm border-border text-text-main placeholder:text-text-muted/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/5 transition-all rounded-lg px-3.5 border outline-none [color:var(--text-primary)] [caret-color:var(--text-primary)]",
+          "h-11 bg-bg-input text-sm border-border text-text-main placeholder:text-text-muted/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/5 transition-all rounded-lg px-3.5 border outline-none",
           className
         )} 
+        style={{ color: 'var(--text-primary)', caretColor: 'var(--text-primary)' }}
         {...props} 
       />
     </div>
@@ -270,7 +271,7 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 3 }}
             onClick={(e) => e.stopPropagation()}
-            className="absolute top-full left-0 right-0 mt-1.5 bg-surface-elevated border border-border shadow-[0_15px_45px_rgba(0,0,0,0.15)] rounded-xl z-[150] overflow-hidden flex flex-col max-h-64"
+            className="absolute top-full left-0 right-0 mt-1.5 bg-surface-elevated border border-border shadow-[0_15px_45px_rgba(0,0,0,0.15)] rounded-xl z-[9999] overflow-hidden flex flex-col max-h-64"
           >
             {/* Search Input Bar */}
             <div className="p-2 border-b border-border bg-bg/50 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
@@ -313,13 +314,10 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
                     <div 
                       key={`${o.value}-${idx}`}
                       onClick={(e) => {
-                        e.preventDefault();
                         e.stopPropagation();
-                        setTimeout(() => {
-                          onChange({ target: { value: o.value } });
-                          setIsOpen(false);
-                          setSearch('');
-                        }, 10);
+                        onChange({ target: { value: o.value } });
+                        setIsOpen(false);
+                        setSearch('');
                       }}
                       className={cn(
                         "p-2.5 text-xs text-text-main hover:bg-primary/10 transition-colors cursor-pointer flex items-center justify-between",
