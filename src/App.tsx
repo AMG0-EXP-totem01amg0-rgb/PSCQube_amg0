@@ -208,7 +208,7 @@ export default function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [pendingVersionUpdate, setPendingVersionUpdate] = useState(false);
-  const [isUserInteracting, setIsUserInteracting] = useState(false);
+  // User interaction tracking state removed to prevent performance bottlenecks and selection click issues
 
   // Wrappers around dataService mutation API functions to track isSaving and hasUnsavedChanges dynamically
   const createRecordInSheets = async (tableName: string, record: any) => {
@@ -260,69 +260,7 @@ export default function App() {
     return false;
   };
 
-  // Track User Interaction/Activity window (10s decay)
-  const userInteractionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  useEffect(() => {
-    const handleUserActivity = () => {
-      setIsUserInteracting(true);
-      if (userInteractionTimeoutRef.current) {
-        clearTimeout(userInteractionTimeoutRef.current);
-      }
-      userInteractionTimeoutRef.current = setTimeout(() => {
-        setIsUserInteracting(false);
-      }, 10000);
-    };
-
-    window.addEventListener("mousemove", handleUserActivity);
-    window.addEventListener("keydown", handleUserActivity);
-    window.addEventListener("click", handleUserActivity);
-    window.addEventListener("scroll", handleUserActivity);
-
-    return () => {
-      window.removeEventListener("mousemove", handleUserActivity);
-      window.removeEventListener("keydown", handleUserActivity);
-      window.removeEventListener("click", handleUserActivity);
-      window.removeEventListener("scroll", handleUserActivity);
-      if (userInteractionTimeoutRef.current) clearTimeout(userInteractionTimeoutRef.current);
-    };
-  }, []);
-
-  // Track Form edits to set hasUnsavedChanges
-  useEffect(() => {
-    const handleInput = () => {
-      const activeEl = document.activeElement;
-      if (activeEl) {
-        const tag = activeEl.tagName.toLowerCase();
-        if (tag === "input" || tag === "textarea" || tag === "select") {
-          setHasUnsavedChanges(true);
-        }
-      }
-    };
-    
-    const handleFocusCheck = () => {
-      const activeEl = document.activeElement;
-      if (!activeEl) {
-        setHasUnsavedChanges(false);
-        return;
-      }
-      const tag = activeEl.tagName.toLowerCase();
-      if (tag !== "input" && tag !== "textarea" && tag !== "select") {
-        setHasUnsavedChanges(false);
-      }
-    };
-
-    window.addEventListener("input", handleInput);
-    window.addEventListener("change", handleInput);
-    window.addEventListener("focusin", handleFocusCheck);
-    window.addEventListener("focusout", handleFocusCheck);
-
-    return () => {
-      window.removeEventListener("input", handleInput);
-      window.removeEventListener("change", handleInput);
-      window.removeEventListener("focusin", handleFocusCheck);
-      window.removeEventListener("focusout", handleFocusCheck);
-    };
-  }, []);
+  // Track Form edits to set hasUnsavedChanges (using state-free real-time DOM queries to prevent aggressive re-renders and selection interference)
 
   const handleVersionMismatch = (serverVer: string) => {
     const activeUnsaved = hasUnsavedChanges || checkHasUnsavedChanges();
