@@ -100,6 +100,8 @@
     color: var(--text-primary);
     caret-color: var(--text-primary) !important;
     background-color: var(--bg-input);
+    /* Disable transition specifically for caret-color to make theme switching instantaneous */
+    transition-property: color, background-color, border-color, outline-color, box-shadow, transform !important;
   }
 
   option {
@@ -209,10 +211,6 @@ input,
 textarea,
 select {
   caret-color: var(--text-primary) !important;
-}
-
-[data-theme="dark"] input,
-[data-theme="dark"] textarea,
-[data-theme="dark"] select {
-  caret-color: var(--text-primary) !important;
+  /* Prevent caret-color from transitioning when theme changes */
+  transition-property: color, background-color, border-color, outline-color, box-shadow, transform !important;
 }
