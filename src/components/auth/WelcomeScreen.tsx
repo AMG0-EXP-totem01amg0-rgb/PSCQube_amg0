@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import { GlassCard, GlassButton } from '../ui/GlassUI';
@@ -11,11 +11,48 @@ interface WelcomeScreenProps {
   addToast: (msg: string, type: 'success' | 'warning' | 'error' | 'info') => void;
 }
 
+function CybercoreBackground() {
+  const beams = Array.from({ length: 60 }, (_, i) => {
+    const riseDur = Math.random() * 4 + 5;
+    const type = Math.random() < 0.15 ? 'secondary' : 'primary';
+    return {
+      id: i,
+      type,
+      left: `${Math.random() * 100}%`,
+      width: `${Math.floor(Math.random() * 2) + 1}px`,
+      height: `${Math.floor(Math.random() * 15) + 10}%`,
+      delay: `${Math.random() * 8}s`,
+      duration: `${riseDur}s`,
+    };
+  });
+
+  return (
+    <div className="cybercore-scene" aria-hidden="true">
+      <div className="cybercore-floor" />
+      <div className="cybercore-column" />
+      {beams.map(beam => (
+        <div
+          key={beam.id}
+          className={`cybercore-beam ${beam.type}`}
+          style={{
+            left: beam.left,
+            width: beam.width,
+            height: beam.height,
+            animationDelay: beam.delay,
+            animationDuration: `${beam.duration}, ${beam.duration}`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function WelcomeScreen({ onEnter, onLoginSuccess, addToast }: WelcomeScreenProps) {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [authStage, setAuthStage] = useState<null | 'authenticating' | 'verifying_user' | 'authorized' | 'unauthorized' | 'error'>(null);
   const [statusMessage, setStatusMessage] = useState<string>('');
   const verifyingRef = React.useRef(false);
+
 
   // General verification of Google Email against authorized users (USUARIOSV2)
   const verifyAndAuthorizeEmail = async (email: string, fullName?: string) => {
@@ -196,12 +233,10 @@ export default function WelcomeScreen({ onEnter, onLoginSuccess, addToast }: Wel
     <div 
       className="min-h-screen flex items-center justify-center relative overflow-hidden bg-bg text-text-main p-4 transition-all duration-500"
       style={{ 
-        background: 'radial-gradient(circle at top, var(--bg-header), var(--bg-main))' 
+        background: 'radial-gradient(ellipse at bottom, rgba(0,85,150,0.15) 0%, var(--bg-main) 60%)'
       }}
     >
-      {/* Background Industrial Textures */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
+      <CybercoreBackground />
 
       <main className="relative z-10 w-full max-w-4xl font-sans">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">

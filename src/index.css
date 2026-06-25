@@ -214,3 +214,62 @@ select {
   /* Prevent caret-color from transitioning when theme changes */
   transition-property: color, background-color, border-color, outline-color, box-shadow, transform !important;
 }
+
+/* Cybercore Welcome Screen */
+.cybercore-scene {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.cybercore-floor {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200%;
+  height: 2px;
+  background: linear-gradient(to right, transparent, var(--primary), transparent);
+  box-shadow: 0 0 40px 8px rgba(0, 85, 150, 0.4);
+}
+
+.cybercore-column {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 100%;
+  background: linear-gradient(to top, var(--primary), transparent);
+  opacity: 0.15;
+}
+
+.cybercore-beam {
+  position: absolute;
+  bottom: 0;
+  border-radius: 2px;
+  animation: cybercoreRise linear infinite, cyberCoreFade linear infinite;
+  will-change: transform, opacity;
+}
+
+.cybercore-beam.primary {
+  background: linear-gradient(to top, transparent, var(--primary), transparent);
+  opacity: 0;
+}
+
+.cybercore-beam.secondary {
+  background: linear-gradient(to top, transparent, #60a5fa, transparent);
+  opacity: 0;
+}
+
+@keyframes cybercoreRise {
+  0% { transform: translateY(0%); }
+  100% { transform: translateY(-105vh); }
+}
+
+@keyframes cyberCoreFade {
+  0%, 100% { opacity: 0; }
+  10%, 80% { opacity: 0.6; }
+}
