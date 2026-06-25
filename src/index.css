@@ -193,12 +193,16 @@
 input,
 textarea,
 select {
-  caret-color: var(--text-primary);
+  color: var(--text-primary) !important;
+  caret-color: var(--text-primary) !important;
+  background-color: var(--bg-input);
 }
 
 [data-theme="dark"] input,
 [data-theme="dark"] textarea,
 [data-theme="dark"] select {
-  caret-color: var(--text-primary);
+  color: var(--text-primary) !important;
+  caret-color: var(--text-primary) !important;
+  background-color: var(--bg-input);
 }
 

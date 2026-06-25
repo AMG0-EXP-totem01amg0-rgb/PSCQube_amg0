@@ -15,7 +15,7 @@ export function GlassInput({ label, className, ...props }: any) {
       <label className="text-xs font-semibold text-text-muted ml-0.5">{label}</label>
       <input 
         className={cn(
-          "h-11 bg-bg-input text-sm border-border text-text-main placeholder:text-text-muted/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/5 transition-all rounded-lg px-3.5 border outline-none",
+          "h-11 bg-bg-input text-sm border-border text-text-main placeholder:text-text-muted/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/5 transition-all rounded-lg px-3.5 border outline-none [color:var(--text-primary)] [caret-color:var(--text-primary)]",
           className
         )} 
         {...props} 
@@ -30,7 +30,7 @@ export function GlassSelect({ label, options, className, ...props }: any) {
       <label className="text-xs font-semibold text-text-muted ml-0.5">{label}</label>
       <select 
         className={cn(
-          "h-11 bg-bg-input text-sm border-border text-text-main focus:border-primary/50 focus:ring-2 focus:ring-primary/5 transition-all rounded-lg px-3.5 border appearance-none outline-none disabled:opacity-50 disabled:cursor-not-allowed",
+          "h-11 bg-bg-input text-sm border-border text-text-main focus:border-primary/50 focus:ring-2 focus:ring-primary/5 transition-all rounded-lg px-3.5 border appearance-none outline-none disabled:opacity-50 disabled:cursor-not-allowed [color:var(--text-primary)]",
           className
         )} 
         {...props}
@@ -287,7 +287,7 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
                   }
                 }}
                 placeholder="Buscar..."
-                className="w-full bg-transparent border-none text-xs text-text-main focus:outline-none placeholder:text-text-muted/50 py-1"
+                className="w-full bg-transparent border-none text-xs text-text-main focus:outline-none placeholder:text-text-muted/50 py-1 [color:var(--text-primary)] [caret-color:var(--text-primary)]"
               />
               {search && (
                 <button 
@@ -312,11 +312,14 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
                   return (
                     <div 
                       key={`${o.value}-${idx}`}
-                      onMouseDown={(e) => {
+                      onClick={(e) => {
                         e.preventDefault();
-                        onChange({ target: { value: o.value } });
-                        setIsOpen(false);
-                        setSearch('');
+                        e.stopPropagation();
+                        setTimeout(() => {
+                          onChange({ target: { value: o.value } });
+                          setIsOpen(false);
+                          setSearch('');
+                        }, 10);
                       }}
                       className={cn(
                         "p-2.5 text-xs text-text-main hover:bg-primary/10 transition-colors cursor-pointer flex items-center justify-between",
