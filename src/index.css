@@ -98,6 +98,7 @@
   select {
     color: var(--text-primary);
     caret-color: var(--text-primary);
+    background-color: var(--bg-input);
   }
 }
 
@@ -201,11 +202,20 @@
 input,
 textarea,
 select {
+  color: var(--text-primary);
   caret-color: var(--text-primary);
+  background-color: var(--bg-input);
 }
 
 [data-theme="dark"] input,
 [data-theme="dark"] textarea,
 [data-theme="dark"] select {
+  color: var(--text-primary);
   caret-color: var(--text-primary);
+  background-color: var(--bg-input);
+}
+
+option {
+  color: var(--text-primary);
+  background-color: var(--bg-elevated);
 }
