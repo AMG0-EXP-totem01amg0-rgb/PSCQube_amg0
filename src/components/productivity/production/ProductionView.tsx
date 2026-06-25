@@ -570,8 +570,13 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
     }
 
     if (activeDetailsList.length === 0) {
-      alert("Por favor, agrega al menos un material producido a la lista.");
-      return;
+      const confirmZeroProduction = window.confirm(
+        "No has agregado ningún material producido a la lista.\n\n" +
+        "¿Deseas registrar este reporte con producción CERO para esta ensacadora?"
+      );
+      if (!confirmZeroProduction) {
+        return;
+      }
     }
 
     // Assign theoretical BDP rate per detail item
@@ -691,8 +696,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                 })}
               </div>
             ) : (
-              <div className="text-[9px] font-bold text-primary uppercase tracking-wider">
-                {masters.materials.find(m => m.id === row.materialId)?.name || 'Sin especificar'}
+              <div className="text-[9px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 inline-block uppercase tracking-wider">
+                SIN PRODUCCIÓN
               </div>
             )}
           </div>
@@ -1243,7 +1248,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                 </div>
               ) : (
                 <div className="text-center py-6 text-xs text-text-muted/60 bg-white/[0.01] border border-dashed border-white/5 rounded-xl">
-                  No se han registrado posiciones de material aún en este turno. Ingresa los datos arriba y haz click en "Agregar Material".
+                  No se han registrado posiciones de material aún en este turno. (Si no hubo producción, puedes dejar esta lista vacía y guardar directamente).
                 </div>
               )}
             </div>
@@ -1302,7 +1307,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
             <GlassButton 
               className="w-full sm:flex-1"
               onClick={handleSave}
-              disabled={!formData.baggerId || (formData.materialsDetails || []).length === 0}
+              disabled={!formData.baggerId}
             >
               {editingItem ? 'Actualizar Reporte' : 'Guardar Reporte Operativo'}
             </GlassButton>
