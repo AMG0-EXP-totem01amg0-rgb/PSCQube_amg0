@@ -96,7 +96,7 @@
   textarea,
   select {
     color: var(--text-primary);
-    caret-color: var(--text-primary);
+    caret-color: currentColor !important;
     background-color: var(--bg-input);
   }
 
@@ -206,11 +206,11 @@
 input,
 textarea,
 select {
-  caret-color: var(--text-primary);
+  caret-color: currentColor !important;
 }
 
 [data-theme="dark"] input,
 [data-theme="dark"] textarea,
 [data-theme="dark"] select {
-  caret-color: var(--text-primary);
+  caret-color: currentColor !important;
 }

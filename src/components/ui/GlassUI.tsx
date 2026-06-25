@@ -18,7 +18,7 @@ export function GlassInput({ label, className, ...props }: any) {
           "h-11 bg-bg-input text-sm border-border text-text-main placeholder:text-text-muted/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/5 transition-all rounded-lg px-3.5 border outline-none",
           className
         )} 
-        style={{ color: 'var(--text-primary)', caretColor: 'var(--text-primary)', backgroundColor: 'var(--bg-input)' }}
+        style={{ color: 'var(--text-primary)', caretColor: 'currentColor', backgroundColor: 'var(--bg-input)' }}
         {...props} 
       />
     </div>
@@ -34,7 +34,7 @@ export function GlassSelect({ label, options, className, ...props }: any) {
           "h-11 bg-bg-input text-sm border-border text-text-main focus:border-primary/50 focus:ring-2 focus:ring-primary/5 transition-all rounded-lg px-3.5 border appearance-none outline-none disabled:opacity-50 disabled:cursor-not-allowed [color:var(--text-primary)]",
           className
         )} 
-        style={{ color: 'var(--text-primary)', caretColor: 'var(--text-primary)', backgroundColor: 'var(--bg-input)' }}
+        style={{ color: 'var(--text-primary)', caretColor: 'currentColor', backgroundColor: 'var(--bg-input)' }}
         {...props}
       >
         <option value="" style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-elevated)' }}>Seleccionar...</option>
@@ -221,14 +221,22 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
   const [search, setSearch] = React.useState('');
   const containerRef = React.useRef<HTMLDivElement>(null);
 
+  const isTouchDevice = React.useMemo(() => {
+    return typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+  }, []);
+
   React.useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
+    function handleClickOutside(event: Event) {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
   }, []);
 
   const selectedOption = options.find((o: any) => o && String(o.value) === String(value));
@@ -253,6 +261,11 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
       <label className="text-xs font-semibold text-text-muted ml-0.5">{label}</label>
       
       <div 
+        onPointerDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!disabled) setIsOpen((prev) => !prev);
+        }}
         onMouseDown={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -275,6 +288,7 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
             initial={{ opacity: 0, y: 3 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 3 }}
+            onPointerDown={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
             className="absolute top-full left-0 right-0 mt-1.5 bg-surface-elevated border border-border shadow-[0_15px_45px_rgba(0,0,0,0.15)] rounded-xl z-[9999] overflow-hidden flex flex-col max-h-64"
@@ -282,15 +296,18 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
             {/* Search Input Bar */}
             <div 
               className="p-2 border-b border-border bg-bg/50 flex items-center gap-2" 
+              onPointerDown={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
             >
               <Search size={14} className="text-text-muted/60 ml-2" />
               <input 
                 type="text"
-                autoFocus
+                autoFocus={!isTouchDevice}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
+                onPointerDown={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
                 onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => {
                   if (e.key === ' ') {
@@ -298,8 +315,8 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
                   }
                 }}
                 placeholder="Buscar..."
-                className="w-full bg-transparent border-none text-xs text-text-main focus:outline-none placeholder:text-text-muted/50 py-1 [color:var(--text-primary)] [caret-color:var(--text-primary)]"
-                style={{ color: 'var(--text-primary)', caretColor: 'var(--text-primary)' }}
+                className="w-full bg-transparent border-none text-xs text-text-main focus:outline-none placeholder:text-text-muted/50 py-1 [color:var(--text-primary)] [caret-color:currentColor]"
+                style={{ color: 'var(--text-primary)', caretColor: 'currentColor' }}
               />
               {search && (
                 <button 
@@ -324,6 +341,13 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
                   return (
                     <div 
                       key={`${o.value}-${idx}`}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onChange({ target: { value: o.value } });
+                        setIsOpen(false);
+                        setSearch('');
+                      }}
                       onMouseDown={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
