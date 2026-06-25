@@ -27,6 +27,7 @@ interface HeaderProps {
   onMarkAllAsRead: (ids: string[]) => void;
   onNavigateToChange: () => void;
   onRefreshCurrentFilters?: () => void;
+  activeSection?: string;
 }
 
 interface NotificationBellDropdownProps {
@@ -228,7 +229,8 @@ export function Header({
   onMarkAsRead,
   onMarkAllAsRead,
   onNavigateToChange,
-  onRefreshCurrentFilters
+  onRefreshCurrentFilters,
+  activeSection
 }: HeaderProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -326,7 +328,7 @@ export function Header({
             </div>
             
             {/* Small indicator of current shift when collapsed */}
-            {isCollapsed && !isLabUser && (
+            {isCollapsed && !isLabUser && activeSection === 'PRODUCTIVITY' && (
               <div className="sm:hidden px-2 py-0.5 bg-primary/10 rounded-full border border-primary/20">
                 <span className="text-[8px] font-black text-primary uppercase">{selectedShift?.name || 'T1'}</span>
               </div>
@@ -385,7 +387,7 @@ export function Header({
               className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 flex-1 sm:justify-end pb-2 sm:pb-0"
             >
               {/* Shift Selector */}
-              {!isLabUser && (
+              {!isLabUser && activeSection === 'PRODUCTIVITY' && (
                 <div className="bg-bg p-1 rounded-full border border-border flex items-center h-10 sm:h-10 shrink-0">
                   {shifts.map(s => {
                     const isActive = s.id === selectedShiftId;
@@ -409,7 +411,7 @@ export function Header({
               )}
 
               {/* Machine Selector - Fixed Dropdown Context */}
-              {!isLabUser && (
+              {!isLabUser && activeSection === 'PRODUCTIVITY' && (
                 <div className="relative shrink-0 sm:shrink-0 sm:min-w-[180px]">
                   <button 
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}

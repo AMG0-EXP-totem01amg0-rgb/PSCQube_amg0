@@ -1727,6 +1727,7 @@ export default function App() {
               setProdTab('CHANGE');
             }}
             onRefreshCurrentFilters={handleRefreshCurrentFilters}
+            activeSection={activeSection}
           />
 
           <main className="p-4 md:p-8 max-w-7xl mx-auto pt-4 md:pt-8">
