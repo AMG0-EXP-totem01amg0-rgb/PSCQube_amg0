@@ -33,7 +33,7 @@ export function GlassSelect({ label, options, className, ...props }: any) {
         className={cn(
           "h-11 bg-bg-input text-sm border-border text-text-main focus:border-primary/50 focus:ring-2 focus:ring-primary/5 transition-all rounded-lg px-3.5 border appearance-none outline-none disabled:opacity-50 disabled:cursor-not-allowed [color:var(--text-primary)]",
           className
-        )}
+        )} 
         style={{ color: 'var(--text-primary)', caretColor: 'var(--text-primary)', backgroundColor: 'var(--bg-input)' }}
         {...props}
       >
@@ -227,8 +227,8 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
         setIsOpen(false);
       }
     }
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const selectedOption = options.find((o: any) => o && String(o.value) === String(value));
@@ -253,7 +253,11 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
       <label className="text-xs font-semibold text-text-muted ml-0.5">{label}</label>
       
       <div 
-        onClick={() => !disabled && setIsOpen(!isOpen)}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!disabled) setIsOpen((prev) => !prev);
+        }}
         className={cn(
           "h-11 bg-bg-input text-sm border-border text-text-main focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/5 transition-all rounded-lg px-3.5 border flex items-center justify-between cursor-pointer select-none",
           disabled && "opacity-50 cursor-not-allowed"
@@ -271,11 +275,16 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
             initial={{ opacity: 0, y: 3 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 3 }}
+            onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
             className="absolute top-full left-0 right-0 mt-1.5 bg-surface-elevated border border-border shadow-[0_15px_45px_rgba(0,0,0,0.15)] rounded-xl z-[9999] overflow-hidden flex flex-col max-h-64"
           >
             {/* Search Input Bar */}
-            <div className="p-2 border-b border-border bg-bg/50 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <div 
+              className="p-2 border-b border-border bg-bg/50 flex items-center gap-2" 
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
               <Search size={14} className="text-text-muted/60 ml-2" />
               <input 
                 type="text"
@@ -321,10 +330,6 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
                         onChange({ target: { value: o.value } });
                         setIsOpen(false);
                         setSearch('');
-                      }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
                       }}
                       className={cn(
                         "p-2.5 text-xs text-text-main hover:bg-primary/10 transition-colors cursor-pointer flex items-center justify-between",
