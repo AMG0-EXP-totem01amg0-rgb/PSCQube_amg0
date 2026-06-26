@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ClipboardList, Plus, Trash2, Save, Printer, Calendar, FilterX, RefreshCcw } from 'lucide-react';
+import { ClipboardList, Plus, Trash2, Save, Printer, Calendar, FilterX, RefreshCcw, Droplet, Droplets, Cpu } from 'lucide-react';
 import { MasterData, DaterControl, AppUser } from '../../../types';
 import { DataTable, Column, TableActions } from '../../ui/DataTable';
 import { GlassCard, GlassButton, GlassInput, GlassSelect, ConfirmModal } from '../../ui/GlassUI';
@@ -100,6 +100,22 @@ export default function DaterControlView({ masters, currentUser, onSave, onDelet
     });
   }, [history, localRangeHistory, dateFrom, dateTo, selectedDate, selectedShiftId]);
 
+  // Find if there is any record in the current shift/date that has registered stock values
+  const shiftStockRecord = useMemo(() => {
+    if (!selectedShiftId) return null;
+    return history.find(item => 
+      item.date === selectedDate && 
+      String(item.shiftId || '').trim().toUpperCase() === String(selectedShiftId).trim().toUpperCase() &&
+      (Number(item.inkStock) > 0 || Number(item.solventStock) > 0 || Number(item.headsStock) > 0)
+    );
+  }, [history, selectedDate, selectedShiftId]);
+
+  const showStockInputs = useMemo(() => {
+    if (!shiftStockRecord) return true; // No stocks registered yet
+    if (editingId === shiftStockRecord.id) return true; // Editing the record that registers the stocks
+    return false; // Already registered by someone else in this shift
+  }, [shiftStockRecord, editingId]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -113,9 +129,9 @@ export default function DaterControlView({ masters, currentUser, onSave, onDelet
       purge: formData.purge as 'SI' | 'NO',
       containerLevel: formData.containerLevel as any,
       printQuality: formData.printQuality as any,
-      inkStock: Number(formData.inkStock),
-      solventStock: Number(formData.solventStock),
-      headsStock: Number(formData.headsStock),
+      inkStock: showStockInputs ? Number(formData.inkStock || 0) : Number(shiftStockRecord?.inkStock || 0),
+      solventStock: showStockInputs ? Number(formData.solventStock || 0) : Number(shiftStockRecord?.solventStock || 0),
+      headsStock: showStockInputs ? Number(formData.headsStock || 0) : Number(shiftStockRecord?.headsStock || 0),
       observations: formData.observations || ''
     };
 
@@ -262,6 +278,56 @@ export default function DaterControlView({ masters, currentUser, onSave, onDelet
         </div>
       </div>
 
+      {/* Turno Stock Totalizers */}
+      {shiftStockRecord && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <GlassCard className="p-4 flex items-center justify-between border-l-4 border-l-blue-500 bg-blue-500/5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 border border-blue-500/20 shadow-lg">
+                <Droplet size={20} />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Stock Tinta</p>
+                <p className="text-[11px] text-text-muted/80 font-medium">Controlado por {shiftStockRecord.userName || 'Maquinista'}</p>
+              </div>
+            </div>
+            <div className="text-2xl font-black font-mono text-blue-400">
+              {shiftStockRecord.inkStock}
+            </div>
+          </GlassCard>
+
+          <GlassCard className="p-4 flex items-center justify-between border-l-4 border-l-cyan-500 bg-cyan-500/5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 border border-cyan-500/20 shadow-lg">
+                <Droplets size={20} />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Stock Solvente</p>
+                <p className="text-[11px] text-text-muted/80 font-medium">Controlado por {shiftStockRecord.userName || 'Maquinista'}</p>
+              </div>
+            </div>
+            <div className="text-2xl font-black font-mono text-cyan-400">
+              {shiftStockRecord.solventStock}
+            </div>
+          </GlassCard>
+
+          <GlassCard className="p-4 flex items-center justify-between border-l-4 border-l-purple-500 bg-purple-500/5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-400 border border-purple-500/20 shadow-lg">
+                <Cpu size={20} />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Stock Cabezales</p>
+                <p className="text-[11px] text-text-muted/80 font-medium">Controlado por {shiftStockRecord.userName || 'Maquinista'}</p>
+              </div>
+            </div>
+            <div className="text-2xl font-black font-mono text-purple-400">
+              {shiftStockRecord.headsStock}
+            </div>
+          </GlassCard>
+        </div>
+      )}
+
       <AnimatePresence>
         {isFormOpen && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
@@ -297,24 +363,47 @@ export default function DaterControlView({ masters, currentUser, onSave, onDelet
                   value={formData.printQuality}
                   onChange={e => setFormData(prev => ({...prev, printQuality: e.target.value as any}))}
                 />
-                <GlassInput 
-                  type="number" 
-                  label="Stock Tinta" 
-                  value={formData.inkStock} 
-                  onChange={e => setFormData(prev => ({...prev, inkStock: e.target.value}))} 
-                />
-                <GlassInput 
-                  type="number" 
-                  label="Stock Solvente" 
-                  value={formData.solventStock} 
-                  onChange={e => setFormData(prev => ({...prev, solventStock: e.target.value}))} 
-                />
-                <GlassInput 
-                  type="number" 
-                  label="Stock Cabezales" 
-                  value={formData.headsStock} 
-                  onChange={e => setFormData(prev => ({...prev, headsStock: e.target.value}))} 
-                />
+                {showStockInputs ? (
+                  <>
+                    <GlassInput 
+                      type="number" 
+                      label="Stock Tinta" 
+                      value={formData.inkStock} 
+                      onChange={e => setFormData(prev => ({...prev, inkStock: e.target.value}))} 
+                    />
+                    <GlassInput 
+                      type="number" 
+                      label="Stock Solvente" 
+                      value={formData.solventStock} 
+                      onChange={e => setFormData(prev => ({...prev, solventStock: e.target.value}))} 
+                    />
+                    <GlassInput 
+                      type="number" 
+                      label="Stock Cabezales" 
+                      value={formData.headsStock} 
+                      onChange={e => setFormData(prev => ({...prev, headsStock: e.target.value}))} 
+                    />
+                  </>
+                ) : (
+                  <div className="md:col-span-3 bg-primary/5 border border-primary/20 rounded-xl p-4 flex items-center justify-between flex-wrap gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shrink-0">
+                        <Printer size={16} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-text-main">Stocks ya registrados para este turno</p>
+                        <p className="text-[11px] text-text-muted">
+                          Fueron declarados por <span className="font-semibold text-primary">{shiftStockRecord?.userName}</span>. Se asociarán automáticamente a este control de línea.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-4 text-xs font-mono font-bold bg-bg/50 px-3 py-1.5 rounded-lg border border-white/5">
+                      <span className="text-blue-400">Tinta: {shiftStockRecord?.inkStock}</span>
+                      <span className="text-cyan-400">Solvente: {shiftStockRecord?.solventStock}</span>
+                      <span className="text-purple-400">Cabezales: {shiftStockRecord?.headsStock}</span>
+                    </div>
+                  </div>
+                )}
                 <div className="md:col-span-2">
                   <GlassInput 
                     label="Observaciones" 
