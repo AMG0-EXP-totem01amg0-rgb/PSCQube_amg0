@@ -706,7 +706,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
                   setBatchError(null);
                   setIsBatchModalOpen(true);
                 }}
-                className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/30 font-bold text-[10px] px-4 py-2 rounded-xl uppercase tracking-wider h-10 gap-2 flex items-center shadow-lg transition-all"
+                className="bg-primary hover:bg-primary-hover text-white gap-2 h-10 px-5 text-xs font-bold uppercase tracking-wider"
               >
                 <Layers size={14} /> Agrupamiento de Paros
               </GlassButton>
