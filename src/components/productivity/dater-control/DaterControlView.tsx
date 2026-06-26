@@ -280,52 +280,39 @@ export default function DaterControlView({ masters, currentUser, onSave, onDelet
 
       {/* Turno Stock Totalizers */}
       {shiftStockRecord && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <GlassCard className="p-4 flex items-center justify-between border-l-4 border-l-blue-500 bg-blue-500/5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 border border-blue-500/20 shadow-lg">
-                <Droplet size={20} />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Stock Tinta</p>
-                <p className="text-[11px] text-text-muted/80 font-medium">Controlado por {shiftStockRecord.userName || 'Maquinista'}</p>
-              </div>
+        <GlassCard className="p-4 border-l-4 border-l-primary bg-primary/5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shadow-lg shrink-0">
+              <Printer size={20} />
             </div>
-            <div className="text-2xl font-black font-mono text-blue-400">
-              {shiftStockRecord.inkStock}
+            <div>
+              <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Stocks de Consumibles del Turno</p>
+              <p className="text-[11px] text-text-main font-medium">
+                Declarados por <span className="font-bold text-primary">{shiftStockRecord.userName || 'Maquinista'}</span>
+              </p>
             </div>
-          </GlassCard>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4 font-mono">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-500/5 border border-blue-500/15">
+              <Droplet size={14} className="text-blue-400" />
+              <span className="text-text-muted text-[10px] font-bold uppercase font-sans">Tinta</span>
+              <span className="text-md sm:text-lg font-black text-blue-400">{shiftStockRecord.inkStock}</span>
+            </div>
 
-          <GlassCard className="p-4 flex items-center justify-between border-l-4 border-l-cyan-500 bg-cyan-500/5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 border border-cyan-500/20 shadow-lg">
-                <Droplets size={20} />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Stock Solvente</p>
-                <p className="text-[11px] text-text-muted/80 font-medium">Controlado por {shiftStockRecord.userName || 'Maquinista'}</p>
-              </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-cyan-500/5 border border-cyan-500/15">
+              <Droplets size={14} className="text-cyan-400" />
+              <span className="text-text-muted text-[10px] font-bold uppercase font-sans">Solvente</span>
+              <span className="text-md sm:text-lg font-black text-cyan-400">{shiftStockRecord.solventStock}</span>
             </div>
-            <div className="text-2xl font-black font-mono text-cyan-400">
-              {shiftStockRecord.solventStock}
-            </div>
-          </GlassCard>
 
-          <GlassCard className="p-4 flex items-center justify-between border-l-4 border-l-purple-500 bg-purple-500/5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-400 border border-purple-500/20 shadow-lg">
-                <Cpu size={20} />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Stock Cabezales</p>
-                <p className="text-[11px] text-text-muted/80 font-medium">Controlado por {shiftStockRecord.userName || 'Maquinista'}</p>
-              </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-500/5 border border-purple-500/15">
+              <Cpu size={14} className="text-purple-400" />
+              <span className="text-text-muted text-[10px] font-bold uppercase font-sans">Cabezales</span>
+              <span className="text-md sm:text-lg font-black text-purple-400">{shiftStockRecord.headsStock}</span>
             </div>
-            <div className="text-2xl font-black font-mono text-purple-400">
-              {shiftStockRecord.headsStock}
-            </div>
-          </GlassCard>
-        </div>
+          </div>
+        </GlassCard>
       )}
 
       <AnimatePresence>
