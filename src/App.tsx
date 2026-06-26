@@ -1161,6 +1161,39 @@ export default function App() {
     });
   };
 
+  const handleSaveMultipleStops = async (stopsToSave: MachineStop[]) => {
+    if (!stopsToSave || stopsToSave.length === 0) return;
+    
+    // Optimistically update the client state for immediate visual feedback
+    setStops(prev => {
+      const stopIds = stopsToSave.map(s => s.id);
+      const filtered = prev.filter(s => !stopIds.includes(s.id));
+      return [...stopsToSave, ...filtered];
+    });
+
+    setIsSaving(true);
+    try {
+      const promises = stopsToSave.map(s => createRecordInSheets("PAROSV2", s));
+      const results = await Promise.all(promises);
+      const allSuccess = results.every(res => res.success);
+      
+      if (allSuccess) {
+        addToast(`${stopsToSave.length} paros registrados con éxito en la base de datos`, "success");
+      } else {
+        const successCount = results.filter(res => res.success).length;
+        addToast(`Sincronización parcial: se guardaron ${successCount} de ${stopsToSave.length} paros.`, "warning");
+      }
+      
+      forceRefreshTable("PAROSV2");
+      forceRefreshTable("PRODUCCIONV2");
+    } catch (err) {
+      console.error("Error saving multiple stops:", err);
+      addToast("Error al sincronizar el lote de paros con la base de datos.", "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleDeleteStop = (id: string) => {
     let nextStops: MachineStop[] = [];
     setStops(prev => {
@@ -1874,6 +1907,7 @@ export default function App() {
                         currentUser={currentUser}
                         onSave={handleSaveStop}
                         onDelete={handleDeleteStop}
+                        onSaveMultiple={handleSaveMultipleStops}
                         palletizerId={userContext.selectedPalletizerId} 
                         shiftId={userContext.selectedShiftId} 
                         selectedDate={userContext.selectedDate}
