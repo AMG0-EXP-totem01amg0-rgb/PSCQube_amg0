@@ -407,12 +407,12 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
               Resumen de <span className="text-primary font-black">{selectedShift?.name || 'Turno'}</span> con la fecha <span className="text-primary font-black">{displayDate}</span>
             </p>
           </div>
-          <div className="shrink-0 flex items-center w-full md:w-auto">
+          <div className="w-full md:w-auto md:shrink-0">
             <GlassButton
               onClick={() => setIsShareOpen(true)}
-              className="h-12 px-6 text-xs font-black tracking-widest flex items-center justify-center gap-2.5 btn-active-highlight shadow-lg uppercase w-full md:w-auto"
+              className="h-12 px-6 text-xs font-black tracking-widest flex items-center justify-center gap-2.5 bg-primary hover:bg-primary-hover text-white border-none shadow-lg uppercase w-full md:w-auto"
             >
-              <Share2 size={14} className="text-text-main" />
+              <Share2 size={14} className="text-white" />
               Compartir Resumen
             </GlassButton>
           </div>
