@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ClipboardList, Plus, Trash2, Save, Printer, Calendar, FilterX, RefreshCcw, Droplet, Droplets, Cpu } from 'lucide-react';
+import { ClipboardList, Plus, Trash2, Save, Printer, Calendar, FilterX, RefreshCcw, Droplet, Droplets, Cpu, Boxes } from 'lucide-react';
 import { MasterData, DaterControl, AppUser } from '../../../types';
 import { DataTable, Column, TableActions } from '../../ui/DataTable';
 import { GlassCard, GlassButton, GlassInput, GlassSelect, ConfirmModal } from '../../ui/GlassUI';
@@ -280,10 +280,10 @@ export default function DaterControlView({ masters, currentUser, onSave, onDelet
 
       {/* Turno Stock Totalizers */}
       {shiftStockRecord && (
-        <GlassCard className="p-4 border-l-4 border-l-primary bg-primary/5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-3">
+        <GlassCard className="p-4 border-l-4 border-l-primary bg-primary/5 flex flex-col md:flex-row md:items-center justify-between gap-5">
+          <div className="flex items-center gap-3 shrink-0">
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shadow-lg shrink-0">
-              <Printer size={20} />
+              <Boxes size={20} />
             </div>
             <div>
               <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Stocks de Consumibles del Turno</p>
@@ -293,22 +293,28 @@ export default function DaterControlView({ masters, currentUser, onSave, onDelet
             </div>
           </div>
           
-          <div className="flex flex-wrap items-center gap-3 sm:gap-4 font-mono">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-500/5 border border-blue-500/15">
-              <Droplet size={14} className="text-blue-400" />
-              <span className="text-text-muted text-[10px] font-bold uppercase font-sans">Tinta</span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono flex-1 w-full md:max-w-3xl">
+            <div className="flex items-center justify-between sm:justify-center gap-3 px-4 py-2.5 rounded-xl bg-blue-500/5 border border-blue-500/15">
+              <div className="flex items-center gap-2">
+                <Droplet size={15} className="text-blue-400" />
+                <span className="text-text-muted text-[10px] font-bold uppercase font-sans">Tinta</span>
+              </div>
               <span className="text-md sm:text-lg font-black text-blue-400">{shiftStockRecord.inkStock}</span>
             </div>
 
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-cyan-500/5 border border-cyan-500/15">
-              <Droplets size={14} className="text-cyan-400" />
-              <span className="text-text-muted text-[10px] font-bold uppercase font-sans">Solvente</span>
+            <div className="flex items-center justify-between sm:justify-center gap-3 px-4 py-2.5 rounded-xl bg-cyan-500/5 border border-cyan-500/15">
+              <div className="flex items-center gap-2">
+                <Droplets size={15} className="text-cyan-400" />
+                <span className="text-text-muted text-[10px] font-bold uppercase font-sans">Solvente</span>
+              </div>
               <span className="text-md sm:text-lg font-black text-cyan-400">{shiftStockRecord.solventStock}</span>
             </div>
 
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-500/5 border border-purple-500/15">
-              <Cpu size={14} className="text-purple-400" />
-              <span className="text-text-muted text-[10px] font-bold uppercase font-sans">Cabezales</span>
+            <div className="flex items-center justify-between sm:justify-center gap-3 px-4 py-2.5 rounded-xl bg-purple-500/5 border border-purple-500/15">
+              <div className="flex items-center gap-2">
+                <Cpu size={15} className="text-purple-400" />
+                <span className="text-text-muted text-[10px] font-bold uppercase font-sans">Cabezales</span>
+              </div>
               <span className="text-md sm:text-lg font-black text-purple-400">{shiftStockRecord.headsStock}</span>
             </div>
           </div>
