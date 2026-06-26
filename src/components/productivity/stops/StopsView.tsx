@@ -62,11 +62,20 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
   const [batchMaterialId, setBatchMaterialId] = useState('');
   const [batchHacId, setBatchHacId] = useState('');
   const [batchCauseId, setBatchCauseId] = useState('');
-  const [batchDuration, setBatchDuration] = useState<number>(1);
-  const [batchStartTimes, setBatchStartTimes] = useState<string[]>([]);
-  const [newStartTime, setNewStartTime] = useState('');
   const [batchNoticeText, setBatchNoticeText] = useState('');
   const [batchError, setBatchError] = useState<string | null>(null);
+
+  interface BatchStopItem {
+    id: string;
+    startTime: string;
+    endTime: string;
+    durationMinutes: number;
+  }
+
+  const [batchStopsList, setBatchStopsList] = useState<BatchStopItem[]>([]);
+  const [newBatchStartTime, setNewBatchStartTime] = useState('');
+  const [newBatchEndTime, setNewBatchEndTime] = useState('');
+  const [editingBatchItemId, setEditingBatchItemId] = useState<string | null>(null);
 
   const canExport = useMemo(() => {
     return currentUser?.profile === 'Administrativo' || currentUser?.profile === 'Administrador';
@@ -428,28 +437,103 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const calculateEndTime = (startTime: string, durationMins: number): string => {
-    if (!startTime || !durationMins) return '';
+  const currentBatchItemDuration = useMemo(() => {
+    if (!newBatchStartTime || !newBatchEndTime) return null;
     try {
-      const start = parse(startTime, 'HH:mm', new Date());
-      const end = new Date(start.getTime() + durationMins * 60 * 1000);
-      return format(end, 'HH:mm');
-    } catch {
-      return '';
-    }
-  };
+      const start = parse(newBatchStartTime, 'HH:mm', new Date());
+      let end = parse(newBatchEndTime, 'HH:mm', new Date());
+      let crossedMidnight = false;
+      if (newBatchEndTime <= newBatchStartTime) {
+        end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+        crossedMidnight = true;
+      }
+      const mins = differenceInMinutes(end, start);
+      
+      const shiftDurationMinutes = (selectedShift?.durationHours || 8) * 60;
+      if (mins > shiftDurationMinutes) {
+        return { 
+          text: `La duración (${mins} min) no puede superar la duración del turno (${shiftDurationMinutes} min)`, 
+          isError: true, 
+          mins: 0 
+        };
+      }
 
-  const addBatchTime = () => {
-    if (!newStartTime) return;
-    if (batchStartTimes.includes(newStartTime)) {
-      setNewStartTime('');
+      const hrs = Math.floor(mins / 60);
+      const remainingMins = mins % 60;
+      let text = '';
+      if (crossedMidnight) {
+        text += '(Cruza medianoche) ';
+      }
+      if (hrs > 0) {
+        text += `${hrs} h ${remainingMins} min (${mins} min total)`;
+      } else {
+        text += `${mins} min`;
+      }
+      return { text, isError: false, mins };
+    } catch {
+      return null;
+    }
+  }, [newBatchStartTime, newBatchEndTime, selectedShift]);
+
+  const addBatchStopItem = () => {
+    setBatchError(null);
+    if (!selectedShift) {
+      setBatchError("No hay un turno seleccionado para contextualizar el reporte.");
       return;
     }
-    setBatchStartTimes(prev => {
-      const next = [...prev, newStartTime];
-      return next.sort();
-    });
-    setNewStartTime('');
+    if (!newBatchStartTime || !newBatchEndTime) {
+      setBatchError("Por favor ingresa hora de inicio y fin.");
+      return;
+    }
+
+    if (!isTimeInShift(newBatchStartTime, selectedShift) || !isTimeInShift(newBatchEndTime, selectedShift)) {
+      setBatchError(`Las horas deben estar dentro del horario del turno: ${selectedShift.startTime} - ${selectedShift.endTime}`);
+      return;
+    }
+
+    if (!validateTimes(newBatchStartTime, newBatchEndTime, selectedShift)) {
+      setBatchError("La hora de fin no es válida o la duración excede la duración del turno.");
+      return;
+    }
+
+    const start = parse(newBatchStartTime, 'HH:mm', new Date());
+    let end = parse(newBatchEndTime, 'HH:mm', new Date());
+    if (newBatchEndTime <= newBatchStartTime) {
+      end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+    }
+    const mins = differenceInMinutes(end, start);
+
+    if (editingBatchItemId) {
+      setBatchStopsList(prev => prev.map(item => 
+        item.id === editingBatchItemId 
+          ? { ...item, startTime: newBatchStartTime, endTime: newBatchEndTime, durationMinutes: mins } 
+          : item
+      ));
+      setEditingBatchItemId(null);
+    } else {
+      const newItem: BatchStopItem = {
+        id: `TMP-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
+        startTime: newBatchStartTime,
+        endTime: newBatchEndTime,
+        durationMinutes: mins
+      };
+      setBatchStopsList(prev => [...prev, newItem].sort((a, b) => a.startTime.localeCompare(b.startTime)));
+    }
+
+    setNewBatchStartTime('');
+    setNewBatchEndTime('');
+  };
+
+  const editBatchStopItem = (item: BatchStopItem) => {
+    setEditingBatchItemId(item.id);
+    setNewBatchStartTime(item.startTime);
+    setNewBatchEndTime(item.endTime);
+  };
+
+  const cancelEditBatchStopItem = () => {
+    setEditingBatchItemId(null);
+    setNewBatchStartTime('');
+    setNewBatchEndTime('');
   };
 
   const saveBatchStops = () => {
@@ -458,22 +542,13 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
       setBatchError("No hay un turno seleccionado para contextualizar el reporte.");
       return;
     }
-    if (!batchMaterialId || !batchHacId || !batchCauseId || !batchDuration || batchDuration <= 0) {
+    if (!batchMaterialId || !batchHacId || !batchCauseId) {
       setBatchError("Por favor completa todos los campos comunes obligatorios.");
       return;
     }
-    if (batchStartTimes.length === 0) {
-      setBatchError("Debes agregar al menos una hora de inicio para los paros.");
+    if (batchStopsList.length === 0) {
+      setBatchError("Debes agregar al menos un paro al lote.");
       return;
-    }
-
-    // Validate times
-    for (const time of batchStartTimes) {
-      const calcEnd = calculateEndTime(time, batchDuration);
-      if (!isTimeInShift(time, selectedShift) || !isTimeInShift(calcEnd, selectedShift)) {
-        setBatchError(`La hora de inicio ${time} (fin: ${calcEnd}) debe estar dentro del horario del turno: ${selectedShift.startTime} - ${selectedShift.endTime}`);
-        return;
-      }
     }
 
     // Lookups for technical fields
@@ -490,8 +565,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
     const machineHacText = machineObj?.hacId || machineName;
     const shiftName = selectedShift?.name || '';
 
-    const newStops: MachineStop[] = batchStartTimes.map(startTime => {
-      const endTime = calculateEndTime(startTime, batchDuration);
+    const newStops: MachineStop[] = batchStopsList.map(item => {
       return {
         id: `STP-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
         date: selectedDate,
@@ -502,9 +576,9 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
         shiftId: shiftId || '',
         shiftName: shiftName,
         materialId: batchMaterialId,
-        startTime: startTime,
-        endTime: endTime,
-        durationMinutes: batchDuration,
+        startTime: item.startTime,
+        endTime: item.endTime,
+        durationMinutes: item.durationMinutes,
         
         hacId: hacObj.id,
         hacName: hacObj.hac,
@@ -544,9 +618,10 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
     setBatchMaterialId('');
     setBatchHacId('');
     setBatchCauseId('');
-    setBatchDuration(1);
-    setBatchStartTimes([]);
-    setNewStartTime('');
+    setBatchStopsList([]);
+    setNewBatchStartTime('');
+    setNewBatchEndTime('');
+    setEditingBatchItemId(null);
     setBatchNoticeText('');
     setBatchError(null);
   };
@@ -699,9 +774,10 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
                   setBatchMaterialId(formData.materialId || (masters.materials?.filter((m: any) => m && m.isProductive === true)?.[0]?.id || ''));
                   setBatchHacId('');
                   setBatchCauseId('');
-                  setBatchDuration(1);
-                  setBatchStartTimes([]);
-                  setNewStartTime('');
+                  setBatchStopsList([]);
+                  setNewBatchStartTime('');
+                  setNewBatchEndTime('');
+                  setEditingBatchItemId(null);
                   setBatchNoticeText('');
                   setBatchError(null);
                   setIsBatchModalOpen(true);
@@ -930,10 +1006,10 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
       >
         <div className="space-y-6 pt-2">
           <p className="text-xs text-text-muted">
-            Registra múltiples micro-paros individuales de idéntica duración, causa y equipo en un solo paso. Ingresa los datos comunes del lote y agrega cada hora de inicio.
+            Registra múltiples micro-paros individuales con la misma causa y equipo en un solo paso. Ingresa los datos comunes del lote, luego define la hora de inicio y fin para cada paro individual.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
             <GlassSelect 
               label="Material en Línea *" 
               options={(masters.materials || [])
@@ -941,14 +1017,6 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
                 .map((m: any) => ({ label: m.name || m.nombre, value: m.id }))}
               value={batchMaterialId}
               onChange={e => setBatchMaterialId((e.target as HTMLSelectElement).value)}
-            />
-            
-            <GlassInput 
-              label="Duración del Paro (minutos) *" 
-              type="number" 
-              min={1}
-              value={batchDuration} 
-              onChange={e => setBatchDuration(Math.max(1, parseInt((e.target as HTMLInputElement).value) || 0))} 
             />
           </div>
 
@@ -1032,38 +1100,71 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
             ></textarea>
           </div>
 
-          {/* Add Start Times Section */}
-          <div className="space-y-4 pt-4 border-t border-white/10">
-            <h4 className="text-xs font-bold text-text-main uppercase tracking-wider">
-              Horas de Inicio del Paro
+          {/* Add / Edit Stops in Batch Section */}
+          <div className="space-y-4 pt-4 border-t border-white/10 bg-white/5 p-4 rounded-2xl border border-white/5">
+            <h4 className="text-xs font-bold text-text-main uppercase tracking-wider flex justify-between items-center">
+              <span>{editingBatchItemId ? 'Editar Paro Seleccionado' : 'Registrar Nuevo Paro'}</span>
+              {editingBatchItemId && (
+                <button
+                  type="button"
+                  onClick={cancelEditBatchStopItem}
+                  className="text-[10px] text-primary hover:underline font-bold uppercase tracking-widest"
+                >
+                  Cancelar Edición
+                </button>
+              )}
             </h4>
             
-            <div className="flex gap-3 items-end">
-              <div className="flex-1">
-                <GlassInput 
-                  label="Agregar Hora de Inicio" 
-                  type="time" 
-                  value={newStartTime} 
-                  onChange={e => setNewStartTime((e.target as HTMLInputElement).value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      addBatchTime();
-                    }
-                  }}
-                />
-              </div>
-              <GlassButton 
-                type="button" 
-                onClick={addBatchTime}
-                className="h-10 px-4 text-xs font-bold uppercase tracking-wider gap-1 shrink-0 bg-primary/20 text-primary border border-primary/30"
-              >
-                <Plus size={14} /> Agregar Hora
-              </GlassButton>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <GlassInput 
+                label="Hora Inicio *" 
+                type="time" 
+                value={newBatchStartTime} 
+                onChange={e => setNewBatchStartTime((e.target as HTMLInputElement).value)}
+              />
+              <GlassInput 
+                label="Hora Fin *" 
+                type="time" 
+                value={newBatchEndTime} 
+                onChange={e => setNewBatchEndTime((e.target as HTMLInputElement).value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addBatchStopItem();
+                  }
+                }}
+              />
             </div>
 
-            {/* List Table of Added Start Times */}
-            <div className="border border-white/10 rounded-xl bg-bg/30 max-h-[200px] overflow-y-auto">
+            {currentBatchItemDuration && (
+              <div className="flex justify-between items-center bg-bg/50 px-3 py-2 rounded-xl border border-white/5">
+                <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Duración Calculada:</span>
+                <span className={cn(
+                  "text-xs font-bold font-mono",
+                  currentBatchItemDuration.isError ? "text-danger" : "text-primary"
+                )}>
+                  {currentBatchItemDuration.text}
+                </span>
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <GlassButton 
+                type="button" 
+                onClick={addBatchStopItem}
+                className="h-10 px-5 text-xs font-bold uppercase tracking-wider gap-1.5 bg-primary/20 text-primary border border-primary/30"
+              >
+                <Plus size={14} /> {editingBatchItemId ? 'Actualizar Paro' : 'Agregar al Lote'}
+              </GlassButton>
+            </div>
+          </div>
+
+          {/* List Table of Added Stops in Batch */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-bold text-text-main uppercase tracking-wider">
+              Paros en el Lote ({batchStopsList.length})
+            </h4>
+            <div className="border border-white/10 rounded-xl bg-bg/30 max-h-[220px] overflow-y-auto">
               <table className="w-full text-left text-xs text-text-muted">
                 <thead className="border-b border-white/15 bg-white/5 font-bold uppercase tracking-wider text-[10px] text-text-muted">
                   <tr>
@@ -1071,37 +1172,53 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
                     <th className="p-3">Hora Inicio</th>
                     <th className="p-3">Hora Fin</th>
                     <th className="p-3">Duración</th>
-                    <th className="p-3 text-right pr-4">Acción</th>
+                    <th className="p-3 text-right pr-4">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/10">
-                  {batchStartTimes.map((time, idx) => {
-                    const end = calculateEndTime(time, batchDuration);
-                    return (
-                      <tr key={idx} className="hover:bg-white/5 transition-colors">
-                        <td className="p-3 pl-4 font-mono">{idx + 1}</td>
-                        <td className="p-3 text-text-main font-bold font-mono">{time}</td>
-                        <td className="p-3 text-text-main font-bold font-mono">{end || '-'}</td>
-                        <td className="p-3 font-semibold">{batchDuration} min</td>
-                        <td className="p-3 text-right pr-4">
+                <tbody className="divide-y divide-white/10 font-mono">
+                  {batchStopsList.map((item, idx) => (
+                    <tr 
+                      key={item.id} 
+                      className={cn(
+                        "hover:bg-white/5 transition-colors",
+                        editingBatchItemId === item.id && "bg-primary/5 border-l-2 border-l-primary"
+                      )}
+                    >
+                      <td className="p-3 pl-4 text-text-muted/75">{idx + 1}</td>
+                      <td className="p-3 text-text-main font-bold">{item.startTime}</td>
+                      <td className="p-3 text-text-main font-bold">{item.endTime}</td>
+                      <td className="p-3 text-primary font-bold">{item.durationMinutes} min</td>
+                      <td className="p-3 text-right pr-4">
+                        <div className="flex justify-end items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => editBatchStopItem(item)}
+                            className="p-1.5 text-text-muted hover:text-primary hover:bg-white/5 rounded-lg transition-all"
+                            title="Editar paro"
+                          >
+                            <Pencil size={13} />
+                          </button>
                           <button
                             type="button"
                             onClick={() => {
-                              setBatchStartTimes(prev => prev.filter((_, i) => i !== idx));
+                              if (editingBatchItemId === item.id) {
+                                cancelEditBatchStopItem();
+                              }
+                              setBatchStopsList(prev => prev.filter(x => x.id !== item.id));
                             }}
-                            className="p-1 text-danger hover:bg-danger/10 rounded-lg transition-all"
-                            title="Remover hora"
+                            className="p-1.5 text-danger hover:bg-danger/10 rounded-lg transition-all"
+                            title="Remover paro"
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={13} />
                           </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {batchStartTimes.length === 0 && (
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {batchStopsList.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="p-6 text-center text-text-muted/60 font-medium">
-                        No se han agregado horas de inicio aún. Ingresá una hora arriba y hacé clic en "Agregar".
+                      <td colSpan={5} className="p-6 text-center text-text-muted/60 font-medium font-sans">
+                        No se han agregado paros al lote todavía. Ingresá horas arriba y hacé clic en "Agregar al Lote".
                       </td>
                     </tr>
                   )}
@@ -1129,7 +1246,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
               onClick={saveBatchStops}
               className="h-10 px-6 text-xs font-bold uppercase tracking-wider gap-2 bg-primary text-white hover:bg-primary-hover"
             >
-              GUARDAR LOTE ({batchStartTimes.length})
+              GUARDAR LOTE ({batchStopsList.length})
             </GlassButton>
           </div>
         </div>
