@@ -632,29 +632,63 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
       animate={{ opacity: 1, y: 0 }} 
       className="layout-container py-8 space-y-10"
     >
-      {/* Export Section */}
-      {canExport && (
-        <GlassCard className="p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h3 className="text-md font-bold text-text-main flex items-center gap-2">
-                <FileSpreadsheet size={18} className="text-primary" /> Exportar Datos de Paros
-              </h3>
-              <p className="text-xs text-text-muted mt-1">Descarga el historial de paros en formato Excel para un rango de fechas seleccionado.</p>
-            </div>
-            <GlassButton 
-              onClick={() => {
-                setExportStartDate(selectedDate);
-                setExportEndDate(selectedDate);
-                setExportError(null);
-                setIsExportModalOpen(true);
-              }}
-              className="bg-primary hover:bg-primary-hover text-white gap-2 h-10 px-5 text-xs font-bold shrink-0 self-start sm:self-center uppercase tracking-wider"
-            >
-              <Download size={14} /> Exportar
-            </GlassButton>
-          </div>
-        </GlassCard>
+      {/* Top Actions Section (Export & Batch stops) */}
+      {(canExport || canEdit) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {canExport && (
+            <GlassCard className="p-6 h-full flex items-center">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 w-full">
+                <div className="flex-1">
+                  <h3 className="text-md font-bold text-text-main flex items-center gap-2">
+                    <FileSpreadsheet size={18} className="text-primary" /> Exportar Datos de Paros
+                  </h3>
+                  <p className="text-xs text-text-muted mt-1">Descarga el historial de paros en formato Excel para un rango de fechas seleccionado.</p>
+                </div>
+                <GlassButton 
+                  onClick={() => {
+                    setExportStartDate(selectedDate);
+                    setExportEndDate(selectedDate);
+                    setExportError(null);
+                    setIsExportModalOpen(true);
+                  }}
+                  className="bg-primary hover:bg-primary-hover text-white gap-2 h-10 px-5 text-xs font-bold shrink-0 self-start sm:self-center uppercase tracking-wider"
+                >
+                  <Download size={14} /> Exportar
+                </GlassButton>
+              </div>
+            </GlassCard>
+          )}
+
+          {canEdit && (
+            <GlassCard className="p-6 h-full flex items-center">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 w-full">
+                <div className="flex-1">
+                  <h3 className="text-md font-bold text-text-main flex items-center gap-2">
+                    <Layers size={18} className="text-primary" /> Agrupamiento de Paros
+                  </h3>
+                  <p className="text-xs text-text-muted mt-1">Registra múltiples micro-paros individuales con la misma causa y equipo en un solo paso.</p>
+                </div>
+                <GlassButton 
+                  onClick={() => {
+                    setBatchMaterialId(formData.materialId || (masters.materials?.filter((m: any) => m && m.isProductive === true)?.[0]?.id || ''));
+                    setBatchHacId('');
+                    setBatchCauseId('');
+                    setBatchStopsList([]);
+                    setNewBatchStartTime('');
+                    setNewBatchEndTime('');
+                    setEditingBatchItemId(null);
+                    setBatchNoticeText('');
+                    setBatchError(null);
+                    setIsBatchModalOpen(true);
+                  }}
+                  className="bg-primary hover:bg-primary-hover text-white gap-2 h-10 px-5 text-xs font-bold shrink-0 self-start sm:self-center uppercase tracking-wider"
+                >
+                  <Layers size={14} /> Cargar Lote
+                </GlassButton>
+              </div>
+            </GlassCard>
+          )}
+        </div>
       )}
 
       {/* Export Modal */}
@@ -767,26 +801,6 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {!editingId && (
-              <GlassButton 
-                type="button" 
-                onClick={() => {
-                  setBatchMaterialId(formData.materialId || (masters.materials?.filter((m: any) => m && m.isProductive === true)?.[0]?.id || ''));
-                  setBatchHacId('');
-                  setBatchCauseId('');
-                  setBatchStopsList([]);
-                  setNewBatchStartTime('');
-                  setNewBatchEndTime('');
-                  setEditingBatchItemId(null);
-                  setBatchNoticeText('');
-                  setBatchError(null);
-                  setIsBatchModalOpen(true);
-                }}
-                className="bg-primary hover:bg-primary-hover text-white gap-2 h-10 px-5 text-xs font-bold uppercase tracking-wider"
-              >
-                <Layers size={14} /> Agrupamiento de Paros
-              </GlassButton>
-            )}
             {editingId && (
               <button 
                 onClick={() => {
@@ -1152,7 +1166,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
               <GlassButton 
                 type="button" 
                 onClick={addBatchStopItem}
-                className="h-10 px-5 text-xs font-bold uppercase tracking-wider gap-1.5 bg-primary/20 text-primary border border-primary/30"
+                className="h-10 px-5 text-xs font-bold uppercase tracking-wider gap-1.5 bg-primary text-white hover:bg-primary-hover shadow-lg"
               >
                 <Plus size={14} /> {editingBatchItemId ? 'Actualizar Paro' : 'Agregar al Lote'}
               </GlassButton>
