@@ -449,15 +449,13 @@ export default function DashboardShareModal({
       */}
       <div 
         style={{
-          position: 'absolute',
+          position: 'fixed',
           left: '-9999px',
           top: '0',
           width: '800px',
-          minHeight: '1px',
           pointerEvents: 'none',
-          visibility: 'hidden',
-          zIndex: -110,
-          overflow: 'visible'
+          opacity: 0,
+          zIndex: -110
         }}
         aria-hidden="true"
       >
