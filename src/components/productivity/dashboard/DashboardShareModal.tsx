@@ -78,30 +78,51 @@ export default function DashboardShareModal({
 
     try {
       setIsGenerating(true);
-      // Wait a tiny bit for render safety
       await new Promise(resolve => setTimeout(resolve, 300));
-      
+
       const dataUrl = await toPng(node, {
         backgroundColor: '#ffffff',
-        style: {
-          transform: 'scale(1)',
-          opacity: '1',
-          display: 'block'
-        },
-        pixelRatio: 2, // Crisp retina quality
+        style: { transform: 'scale(1)', opacity: '1', display: 'block' },
+        pixelRatio: 2,
         quality: 1.0,
       });
 
       const filename = `Resumen_Turno_${selectedShift?.name || 'Turno'}_${selectedDate}.png`;
 
-      const link = document.createElement('a');
-      link.download = filename;
-      link.href = dataUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      showToast('¡Imagen descargada exitosamente en formato PNG!', 'success');
+      // iOS Safari compatible download
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+      if (isIOS) {
+        // iOS: abrir imagen en nueva pestaña para que el usuario la guarde manualmente
+        const newTab = window.open();
+        if (newTab) {
+          newTab.document.write(`
+            <html>
+              <head><title>${filename}</title></head>
+              <body style="margin:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;">
+                <p style="color:#fff;font-family:sans-serif;font-size:12px;margin-bottom:12px;text-align:center;">
+                  Mantené presionada la imagen y seleccioná "Guardar imagen"
+                </p>
+                <img src="${dataUrl}" style="max-width:100%;height:auto;" />
+              </body>
+            </html>
+          `);
+          newTab.document.close();
+          showToast('Se abrió la imagen en una nueva pestaña. Mantené presionada para guardarla.', 'success');
+        } else {
+          showToast('Habilitá las ventanas emergentes para descargar la imagen.', 'error');
+        }
+      } else {
+        // Android y Desktop: descarga directa
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = dataUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast('¡Imagen descargada exitosamente!', 'success');
+      }
     } catch (err) {
       console.error(err);
       showToast('Error al exportar la imagen. Inténtelo nuevamente.', 'error');
@@ -123,30 +144,47 @@ export default function DashboardShareModal({
 
       const dataUrl = await toPng(node, {
         backgroundColor: '#ffffff',
-        style: {
-          transform: 'scale(1)',
-          opacity: '1',
-          display: 'block'
-        },
+        style: { transform: 'scale(1)', opacity: '1', display: 'block' },
         pixelRatio: 2,
-        quality: 1.0
+        quality: 1.0,
       });
 
       const blob = await fetch(dataUrl).then(res => res.blob());
-      
-      if (navigator.clipboard && window.ClipboardItem) {
+      const filename = `Resumen_Turno_${selectedShift?.name || 'Turno'}_${selectedDate}.png`;
+      const file = new File([blob], filename, { type: 'image/png' });
+
+      // Intentar Web Share API primero (más confiable en mobile)
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: `Resumen de Turno - ${selectedShift?.name || 'Turno'}`,
+          text: `Resumen operativo del turno ${selectedShift?.name || ''} - ${displayDate}`,
+          files: [file],
+        });
+        showToast('¡Reporte compartido exitosamente!', 'success');
+      } else if (navigator.clipboard && window.ClipboardItem) {
+        // Fallback: clipboard API en desktop
         await navigator.clipboard.write([
-          new ClipboardItem({
-            [blob.type]: blob
-          })
+          new ClipboardItem({ [blob.type]: blob })
         ]);
-        showToast('¡Imagen copiada al portapapeles! Ya puedes pegarla en WhatsApp, Slack o Teams.', 'success');
+        showToast('¡Imagen copiada al portapapeles! Podés pegarla en WhatsApp, Slack o Teams.', 'success');
       } else {
-        throw new Error('Clipboard Item not supported');
+        // Último fallback: descargar directamente
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = dataUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast('Se descargó la imagen. Compartila desde tu galería.', 'success');
       }
-    } catch (err) {
-      console.error(err);
-      showToast('No se pudo copiar de forma directa. Por favor descarga la imagen usando el botón de descargar.', 'error');
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        // Usuario canceló el share nativo — no es un error
+        showToast('Compartir cancelado.', 'error');
+      } else {
+        console.error(err);
+        showToast('No se pudo compartir. Usá el botón de descargar.', 'error');
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -251,8 +289,8 @@ export default function DashboardShareModal({
                     onClick={handleCopyToClipboard}
                     className="w-full h-12 rounded-xl bg-surface hover:bg-surface-elevated text-text-main border border-border font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2.5 shadow-sm active:scale-95 transition-all disabled:opacity-50"
                   >
-                    <ClipboardCheck size={14} className="text-primary" />
-                    COPIAR IMAGEN
+                    <Share2 size={14} className="text-primary" />
+                    {typeof navigator !== 'undefined' && navigator.share ? 'COMPARTIR' : 'COPIAR IMAGEN'}
                   </button>
                 </div>
               </div>
@@ -411,12 +449,15 @@ export default function DashboardShareModal({
       */}
       <div 
         style={{
-          position: 'fixed',
+          position: 'absolute',
           left: '-9999px',
           top: '0',
           width: '800px',
+          minHeight: '1px',
           pointerEvents: 'none',
-          zIndex: -110
+          visibility: 'hidden',
+          zIndex: -110,
+          overflow: 'visible'
         }}
         aria-hidden="true"
       >
