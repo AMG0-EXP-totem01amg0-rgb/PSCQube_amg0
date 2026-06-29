@@ -66,8 +66,6 @@ export default function InventoryView({ masters, currentUser, onSave, onDelete, 
     return Object.values(groups).sort((a, b) => {
       const matA = masters.materials.find(m => m.id === a.materialId);
       const matB = masters.materials.find(m => m.id === b.materialId);
-      if (matA?.isProductive && !matB?.isProductive) return -1;
-      if (!matA?.isProductive && matB?.isProductive) return 1;
       return (matA?.name || '').localeCompare(matB?.name || '');
     });
   }, [entries, masters.materials]);
@@ -143,7 +141,8 @@ export default function InventoryView({ masters, currentUser, onSave, onDelete, 
                   <GlassSelect 
                     label="Material / Insumo" 
                     options={masters.materials
-                      .map(m => ({ label: m.name, value: m.id }))}
+                      .map(m => ({ label: m.name, value: m.id }))
+                      .sort((a, b) => a.label.localeCompare(b.label))}
                     value={formData.materialId}
                     onChange={e => setFormData(prev => ({...prev, materialId: e.target.value}))}
                     required
