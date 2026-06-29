@@ -186,9 +186,25 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
       others: any[]
     } = { productive: [], tarimas: [], bigbags: [], insumos: [], others: [] };
 
+    const getShiftStartTime = (shiftId: string) => {
+      const shift = (masters.shifts || []).find((s: any) => s.id === shiftId);
+      return shift ? shift.startTime : "00:00";
+    };
+
+    const indexedEntries = (inventoryEntries || []).map((e, index) => ({ ...e, index }));
+    const sortedEntries = indexedEntries.sort((a, b) => {
+      const timeA = getShiftStartTime(a.shiftId);
+      const timeB = getShiftStartTime(b.shiftId);
+      if (timeA !== timeB) {
+        return timeA.localeCompare(timeB);
+      }
+      return a.index - b.index;
+    });
+
     masters.materials.forEach((m: any) => {
-      const materialEntries = (inventoryEntries || []).filter(e => e.materialId === m.id);
-      const stockVal = materialEntries.reduce((sum, e) => sum + (Number(e.weightTn) || 0), 0);
+      const materialEntries = sortedEntries.filter(e => e.materialId === m.id);
+      const latestEntry = materialEntries.length > 0 ? materialEntries[materialEntries.length - 1] : null;
+      const stockVal = latestEntry ? (Number(latestEntry.weightTn) || 0) : 0;
       
       const isUnitary = m.isPallet || m.isSupply || m.isBigBag;
       
@@ -244,7 +260,7 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
     });
 
     return groups;
-  }, [inventoryEntries, productionReports, dispatchEntries, masters.materials]);
+  }, [inventoryEntries, productionReports, dispatchEntries, masters.materials, masters.shifts]);
 
   const hasAnyInventory = 
     inventorySummary.productive.length > 0 || 

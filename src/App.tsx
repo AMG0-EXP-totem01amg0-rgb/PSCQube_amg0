@@ -1898,7 +1898,7 @@ export default function App() {
                         onTabChange={tab => setProdTab(tab)} 
                         stops={stops.filter(s => s && s.date === userContext.selectedDate && isStopForShift(s, userContext.selectedShiftId, masters))}
                         productionReports={productionReports.filter(r => r.shiftId === userContext.selectedShiftId && r.date === userContext.selectedDate)}
-                        inventoryEntries={inventoryEntries.filter(e => e.shiftId === userContext.selectedShiftId && e.date === userContext.selectedDate)}
+                        inventoryEntries={inventoryEntries.filter(e => e.date === userContext.selectedDate)}
                         dispatchEntries={dispatchEntries.filter(d => d.shiftId === userContext.selectedShiftId && d.date === userContext.selectedDate)}
                         laneStatuses={laneStatuses.filter(l => l.shiftId === userContext.selectedShiftId && l.date === userContext.selectedDate)}
                     />
