@@ -312,9 +312,6 @@ export default function DashboardShareModal({
                    <Activity size={13} className="text-primary" />
                    Vista Previa del Reporte
                  </span>
-                 <span className="text-[9px] font-mono font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                   800 x 1150 px PNG
-                 </span>
                </div>
 
                <div className="space-y-6 text-left text-sm text-gray-800">
