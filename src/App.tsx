@@ -779,11 +779,24 @@ export default function App() {
     setIsSyncing(true);
     setSyncMessage('Iniciando sincronización...');
     try {
-      clearClientCache();
-      setSyncMessage('Cargando catálogos maestros...');
+      let maestrosData;
+      const cachedMaestros = localStorage.getItem('pscqube_maestros_cache');
+      if (cachedMaestros) {
+        try {
+          maestrosData = JSON.parse(cachedMaestros);
+        } catch {
+          maestrosData = null;
+        }
+      }
 
-      const maestrosRes = await fetch('/api/sync/maestros');
-      const maestrosData = await maestrosRes.json();
+      if (!maestrosData) {
+        setSyncMessage('Cargando catálogos maestros...');
+        const maestrosRes = await fetch('/api/sync/maestros');
+        maestrosData = await maestrosRes.json();
+        if (maestrosData && maestrosData.success && maestrosData.data) {
+          localStorage.setItem('pscqube_maestros_cache', JSON.stringify(maestrosData));
+        }
+      }
 
       setSyncMessage('Sincronizando datos operativos...');
 
@@ -798,16 +811,16 @@ export default function App() {
         resPalletClassifications, resChange, resDespachos,
         resLoadingLanes, resFuelLoads
       ] = await Promise.all([
-        fetchTable("PAROSV2", true, initialFilters, "App.handleSyncOnEnter"),
-        fetchTable("PRODUCCIONV2", true, initialFilters, "App.handleSyncOnEnter"),
-        fetchTable("CONTROL_FECHADORV2", true, initialFilters, "App.handleSyncOnEnter"),
-        fetchTable("CONTROL_BALANZAV2", true, initialFilters, "App.handleSyncOnEnter"),
-        fetchTable("INVENTARIO_FISICOV2", true, initialFilters, "App.handleSyncOnEnter"),
-        fetchTable("CLASISFICACION_PALLETSV2", true, initialFilters, "App.handleSyncOnEnter"),
-        fetchTable("CAMBIO_PRODUCTOV2", true, initialFilters, "App.handleSyncOnEnter"),
-        fetchTable("DESPACHOSV2", true, initialFilters, "App.handleSyncOnEnter"),
-        fetchTable("ESTADO_CALLESV2", true, initialFilters, "App.handleSyncOnEnter"),
-        fetchTable("CARGA_COMBUSTIBLEV2", true, initialFilters, "App.handleSyncOnEnter")
+        fetchTable("PAROSV2", false, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("PRODUCCIONV2", false, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("CONTROL_FECHADORV2", false, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("CONTROL_BALANZAV2", false, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("INVENTARIO_FISICOV2", false, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("CLASISFICACION_PALLETSV2", false, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("CAMBIO_PRODUCTOV2", false, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("DESPACHOSV2", false, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("ESTADO_CALLESV2", false, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("CARGA_COMBUSTIBLEV2", false, initialFilters, "App.handleSyncOnEnter")
       ]);
 
       setSyncMessage('Preparando sistema...');
@@ -2028,6 +2041,7 @@ export default function App() {
                     onTabChange={setAdminTab} 
                     onUserSwitch={dni => setUserContext({...userContext, currentUserDni: dni})}
                     onUpdateMasters={(type, data) => {
+                      localStorage.removeItem('pscqube_maestros_cache');
                       let targetData = data;
                       if (type === 'SHIFTS') setShifts(data as Shift[]);
                       if (type === 'MACHINES') setPalletizers(data);
