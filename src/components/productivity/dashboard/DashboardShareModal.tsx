@@ -411,20 +411,41 @@ export default function DashboardShareModal({
                           const status = laneStatuses.find((s: any) => s.loadingPointId === lp.id);
                           const isEnabled = status ? status.isEnabled : true;
                           return (
-                            <div key={lp.id} className="p-2.5 flex items-center justify-between text-[10px] uppercase font-bold">
-                              <span className="text-text-main flex items-center gap-1.5">
+                            <div key={lp.id} className="p-3 flex flex-col gap-2 text-[10px] uppercase font-bold">
+                              <div className="flex items-center justify-between">
+                                <span className="text-text-main flex items-center gap-1.5">
+                                  <span className={cn(
+                                    "w-1.5 h-1.5 rounded-full inline-block",
+                                    type === 'BOLSA' ? "bg-blue-500" : "bg-amber-500"
+                                  )}></span>
+                                  {lp.name}
+                                </span>
                                 <span className={cn(
-                                  "w-1.5 h-1.5 rounded-full inline-block",
-                                  type === 'BOLSA' ? "bg-blue-500" : "bg-amber-500"
-                                )}></span>
-                                {lp.name}
-                              </span>
-                              <span className={cn(
-                                "px-1.5 py-0.5 rounded-[5px] text-[8px] font-extrabold uppercase tracking-wider border",
-                                isEnabled ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/15" : "bg-red-500/10 text-red-500 border-red-500/15"
-                              )}>
-                                {isEnabled ? 'OPERATIVA' : 'FUERA SERV.'}
-                              </span>
+                                  "px-1.5 py-0.5 rounded-[5px] text-[8px] font-extrabold uppercase tracking-wider border",
+                                  isEnabled ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/15" : "bg-red-500/10 text-red-500 border-red-500/15"
+                                )}>
+                                  {isEnabled ? 'OPERATIVA' : 'FUERA SERV.'}
+                                </span>
+                              </div>
+                              <div className="pl-3">
+                                {isEnabled ? (
+                                  status && Array.isArray(status.materialIds) && status.materialIds.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {status.materialIds.map((mid: string) => (
+                                        <span key={mid} className="px-1.5 py-0.5 bg-primary/15 text-primary rounded border border-primary/20 text-[8px] font-black uppercase">
+                                          {masters.materials.find((m: any) => m.id === mid)?.name}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-[8.5px] text-emerald-400/60 lowercase italic font-semibold">Disponible para carga y stock general</span>
+                                  )
+                                ) : (
+                                  <span className="text-[8.5px] text-red-400/80 lowercase italic font-semibold block max-w-[280px] truncate">
+                                    Restricciones: {status?.observation || 'Avería mecánica interna'}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           );
                         })
