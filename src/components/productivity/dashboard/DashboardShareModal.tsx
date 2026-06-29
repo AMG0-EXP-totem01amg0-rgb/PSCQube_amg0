@@ -306,9 +306,9 @@ export default function DashboardShareModal({
             </div>
 
             {/* Right Screen-adapted Live Preview - Clean fluid flow no scale-hacks */}
-            <div className="flex-1 bg-surface-elevated border border-border rounded-2xl overflow-y-auto p-4 sm:p-6 max-h-[50vh] sm:max-h-[60vh] md:max-h-[70vh] shadow-inner">
-               <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
-                 <span className="text-[10.5px] font-black text-text-main uppercase tracking-widest flex items-center gap-1.5">
+            <div className="flex-1 bg-white border border-gray-200 rounded-2xl overflow-y-auto p-4 sm:p-6 max-h-[50vh] sm:max-h-[60vh] md:max-h-[70vh] shadow-inner">
+               <div className="flex items-center justify-between border-b border-gray-200 pb-3 mb-4">
+                 <span className="text-[10.5px] font-black text-gray-800 uppercase tracking-widest flex items-center gap-1.5">
                    <Activity size={13} className="text-primary" />
                    Vista Previa del Reporte
                  </span>
@@ -317,44 +317,64 @@ export default function DashboardShareModal({
                  </span>
                </div>
 
-               <div className="space-y-6 text-left text-sm text-text-main">
+               <div className="space-y-6 text-left text-sm text-gray-800">
                   {/* Header widget */}
-                  <div className="bg-bg/50 p-4 rounded-xl border border-border/80 flex flex-col sm:flex-row justify-between gap-3 text-xs">
+                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col sm:flex-row justify-between gap-3 text-xs">
                     <div>
-                      <h4 className="font-extrabold text-text-main uppercase tracking-widest">
+                      <h4 className="font-extrabold text-gray-900 uppercase tracking-widest">
                         {selectedShift?.name || 'Turno'} • {displayDate}
                       </h4>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted mt-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mt-1">
                         {shiftTimeLabel}
                       </p>
                     </div>
                     <div className="text-left sm:text-right">
                       <span className="text-[10px] font-black text-primary uppercase tracking-widest block">PSCQube</span>
-                      <span className="text-[9px] font-black text-text-muted uppercase tracking-wider block mt-0.5">Holcim Argentina S.A.</span>
+                      <span className="text-[9px] font-black text-gray-400 uppercase tracking-wider block mt-0.5">Holcim Argentina S.A.</span>
                     </div>
                   </div>
 
                   {/* Inventories Preview */}
                   {hasAnyInventory && (
                     <div className="space-y-3">
-                      <h5 className="text-[10px] font-black text-text-main uppercase tracking-wider flex items-center gap-1.5">
+                      <h5 className="text-[10px] font-black text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
                         <span className="w-1.5 h-3 bg-primary rounded-sm"></span>
-                        I. RESUMEN DE INVENTARIOS
+                        I. RESUMEN DE INVENTARIOS & STOCK CONTADO
                       </h5>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {[...inventorySummary.productive, ...inventorySummary.bigbags].map((item, idx) => {
                           const unit = item.isUnitary ? 'U' : 'TN';
                           const decimals = item.isUnitary ? 0 : 1;
                           return (
-                            <div key={idx} className="bg-bg/30 border border-border/60 p-3 rounded-xl flex justify-between items-center text-xs">
-                              <div>
-                                <span className="text-[10px] font-extrabold text-text-main uppercase block truncate max-w-[150px]">{item.name}</span>
-                                <span className="text-[8px] font-black text-text-muted uppercase tracking-widest mt-0.5 block">
+                            <div key={idx} className="bg-gray-50 border border-gray-200 p-4 rounded-xl flex flex-col justify-between text-xs text-gray-900">
+                              <div className="relative pb-1.5 border-b border-gray-200 mb-2">
+                                <span className="text-[11px] font-black text-gray-905 uppercase block truncate max-w-[200px]">{item.name}</span>
+                                <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-0.5 block">
                                   {item.isBigBag ? 'Contenedor Big Bag' : 'Silo Productivo'}
                                 </span>
                               </div>
-                              <div className="text-right shrink-0">
-                                <span className="font-mono text-xs font-black text-primary">{item.total.toFixed(decimals)} {unit}</span>
+                              
+                              <div className="space-y-1.5">
+                                {!item.isBigBag && (
+                                  <>
+                                    <div className="flex justify-between items-baseline pb-1 border-b border-gray-150">
+                                      <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Stock Contado</span>
+                                      <span className="font-mono text-[11px] font-bold text-gray-800">{item.stock.toFixed(decimals)} {unit}</span>
+                                    </div>
+                                    <div className="flex justify-between items-baseline pb-1 border-b border-gray-150">
+                                      <span className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider">Prod. Turno (+)</span>
+                                      <span className="font-mono text-[11px] font-bold text-emerald-600">+{(item.production || 0).toFixed(decimals)} {unit}</span>
+                                    </div>
+                                    <div className="flex justify-between items-baseline pb-1 border-b border-gray-150">
+                                      <span className="text-[9px] text-red-600 font-bold uppercase tracking-wider">Despacho (-)</span>
+                                      <span className="font-mono text-[11px] font-bold text-red-600">-{(item.dispatch || 0).toFixed(decimals)} {unit}</span>
+                                    </div>
+                                  </>
+                                )}
+                                <div className="flex justify-between items-baseline pt-1">
+                                  <span className="text-[10px] text-gray-900 font-black uppercase tracking-widest">Total Disp.</span>
+                                  <span className="font-mono text-sm font-black text-primary">{item.total.toFixed(decimals)} {unit}</span>
+                                </div>
                               </div>
                             </div>
                           );
@@ -365,33 +385,33 @@ export default function DashboardShareModal({
 
                   {/* Production performance preview */}
                   <div className="space-y-3">
-                    <h5 className="text-[10px] font-black text-text-main uppercase tracking-wider flex items-center gap-1.5">
+                    <h5 className="text-[10px] font-black text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
                       <span className="w-1.5 h-3 bg-primary rounded-sm"></span>
                       II. RENDIMIENTO EN EMBALADO / ENSACADO
                     </h5>
                     <div className="space-y-3">
                       {palletizerData.map(({ palletizer, runHours, oee, availability, performance, totalTons }, idx) => (
-                        <div key={idx} className="bg-bg/20 border border-border/80 rounded-xl p-3.5 space-y-3">
-                          <div className="flex justify-between items-center border-b border-border pb-1.5">
-                            <span className="text-[10px] font-black text-text-main uppercase">{palletizer.name}</span>
+                        <div key={idx} className="bg-gray-50 border border-gray-200 rounded-xl p-3.5 space-y-3">
+                          <div className="flex justify-between items-center border-b border-gray-200 pb-1.5">
+                            <span className="text-[10px] font-black text-gray-900 uppercase">{palletizer.name}</span>
                             <span className="font-mono text-[10.5px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-md">{totalTons.toFixed(1)} TN PRODUCIDOS</span>
                           </div>
                           <div className="grid grid-cols-4 gap-2 text-center">
-                            <div className="bg-bg/40 p-1.5 rounded-lg border border-border/20">
-                              <span className="block text-[7px] text-text-muted uppercase font-black tracking-wider">Marcha</span>
-                              <span className="font-mono text-[10px] font-black text-text-main">{runHours}h</span>
+                            <div className="bg-gray-100 p-1.5 rounded-lg border border-gray-200/50">
+                              <span className="block text-[7px] text-gray-500 uppercase font-black tracking-wider">Marcha</span>
+                              <span className="font-mono text-[10px] font-black text-gray-800">{runHours}h</span>
                             </div>
-                            <div className="bg-bg/40 p-1.5 rounded-lg border border-border/20">
-                              <span className="block text-[7px] text-text-muted uppercase font-black tracking-wider">OEE</span>
-                              <span className="font-mono text-[10px] font-bold text-emerald-500">{oee || 0}%</span>
+                            <div className="bg-gray-100 p-1.5 rounded-lg border border-gray-200/50">
+                              <span className="block text-[7px] text-gray-500 uppercase font-black tracking-wider">OEE</span>
+                              <span className="font-mono text-[10px] font-bold text-emerald-600">{oee || 0}%</span>
                             </div>
-                            <div className="bg-bg/40 p-1.5 rounded-lg border border-border/20">
-                              <span className="block text-[7px] text-text-muted uppercase font-black tracking-wider">Disp</span>
-                              <span className="font-mono text-[10px] font-bold text-indigo-500">{availability || 0}%</span>
+                            <div className="bg-gray-100 p-1.5 rounded-lg border border-gray-200/50">
+                              <span className="block text-[7px] text-gray-500 uppercase font-black tracking-wider">Disp</span>
+                              <span className="font-mono text-[10px] font-bold text-indigo-600">{availability || 0}%</span>
                             </div>
-                            <div className="bg-bg/40 p-1.5 rounded-lg border border-border/20">
-                              <span className="block text-[7px] text-text-muted uppercase font-black tracking-wider">Rend</span>
-                              <span className="font-mono text-[10px] font-bold text-rose-500">{performance || 0}%</span>
+                            <div className="bg-gray-100 p-1.5 rounded-lg border border-gray-200/50">
+                              <span className="block text-[7px] text-gray-500 uppercase font-black tracking-wider">Rend</span>
+                              <span className="font-mono text-[10px] font-bold text-rose-600">{performance || 0}%</span>
                             </div>
                           </div>
                         </div>
@@ -401,11 +421,11 @@ export default function DashboardShareModal({
 
                   {/* Loading point preview */}
                   <div className="space-y-3">
-                    <h5 className="text-[10px] font-black text-text-main uppercase tracking-wider flex items-center gap-1.5">
+                    <h5 className="text-[10px] font-black text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
                       <span className="w-1.5 h-3 bg-primary rounded-sm"></span>
                       III. DISPONIBILIDAD DE CALLES DE CARGA
                     </h5>
-                    <div className="bg-bg/10 border border-border rounded-xl divide-y divide-border/65 overflow-hidden">
+                    <div className="bg-gray-50 border border-gray-200 rounded-xl divide-y divide-gray-200 overflow-hidden">
                       {Object.entries(groupedLoadingPoints).flatMap(([type, points]: [string, any[]]) => 
                         points.map(lp => {
                           const status = laneStatuses.find((s: any) => s.loadingPointId === lp.id);
@@ -413,7 +433,7 @@ export default function DashboardShareModal({
                           return (
                             <div key={lp.id} className="p-3 flex flex-col gap-2 text-[10px] uppercase font-bold">
                               <div className="flex items-center justify-between">
-                                <span className="text-text-main flex items-center gap-1.5">
+                                <span className="text-gray-900 flex items-center gap-1.5">
                                   <span className={cn(
                                     "w-1.5 h-1.5 rounded-full inline-block",
                                     type === 'BOLSA' ? "bg-blue-500" : "bg-amber-500"
@@ -422,7 +442,7 @@ export default function DashboardShareModal({
                                 </span>
                                 <span className={cn(
                                   "px-1.5 py-0.5 rounded-[5px] text-[8px] font-extrabold uppercase tracking-wider border",
-                                  isEnabled ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/15" : "bg-red-500/10 text-red-500 border-red-500/15"
+                                  isEnabled ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/15" : "bg-red-500/10 text-red-600 border-red-500/15"
                                 )}>
                                   {isEnabled ? 'OPERATIVA' : 'FUERA SERV.'}
                                 </span>
@@ -432,16 +452,16 @@ export default function DashboardShareModal({
                                   status && Array.isArray(status.materialIds) && status.materialIds.length > 0 ? (
                                     <div className="flex flex-wrap gap-1">
                                       {status.materialIds.map((mid: string) => (
-                                        <span key={mid} className="px-1.5 py-0.5 bg-primary/15 text-primary rounded border border-primary/20 text-[8px] font-black uppercase">
+                                        <span key={mid} className="px-1.5 py-0.5 bg-primary/10 text-primary rounded border border-primary/20 text-[8px] font-black uppercase">
                                           {masters.materials.find((m: any) => m.id === mid)?.name}
                                         </span>
                                       ))}
                                     </div>
                                   ) : (
-                                    <span className="text-[8.5px] text-emerald-400/60 lowercase italic font-semibold">Disponible para carga y stock general</span>
+                                    <span className="text-[8.5px] text-emerald-600 lowercase italic font-semibold">Disponible para carga y stock general</span>
                                   )
                                 ) : (
-                                  <span className="text-[8.5px] text-red-400/80 lowercase italic font-semibold block max-w-[280px] truncate">
+                                  <span className="text-[8.5px] text-red-600 lowercase italic font-semibold block max-w-[280px] truncate">
                                     Restricciones: {status?.observation || 'Avería mecánica interna'}
                                   </span>
                                 )}
@@ -531,16 +551,35 @@ export default function DashboardShareModal({
                     const unit = item.isUnitary ? 'U' : 'TN';
                     const decimals = item.isUnitary ? 0 : 1;
                     return (
-                      <div key={idx} className="border border-gray-200 bg-gray-50 p-3 rounded-lg flex justify-between items-center">
-                        <div>
-                          <span className="text-[10px] font-extrabold text-gray-800 uppercase block truncate max-w-[200px]">{item.name}</span>
-                          <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest block mt-0.5">
+                      <div key={idx} className="border border-gray-200 bg-gray-50 p-4 rounded-xl flex flex-col justify-between text-xs text-gray-950">
+                        <div className="relative pb-1.5 border-b border-gray-200 mb-2">
+                          <span className="text-[11px] font-black text-gray-900 uppercase block truncate max-w-[200px]">{item.name}</span>
+                          <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-0.5 block">
                             {item.isBigBag ? 'Contenedor Big Bag' : 'Silo Productivo'}
                           </span>
                         </div>
-                        <div className="text-right">
-                          <span className="text-xs font-bold text-gray-500 block text-[9px] uppercase tracking-wider">Total Disponible</span>
-                          <span className="font-mono text-base font-black text-blue-900">{item.total.toFixed(decimals)} {unit}</span>
+                        
+                        <div className="space-y-1.5">
+                          {!item.isBigBag && (
+                            <>
+                              <div className="flex justify-between items-baseline pb-1 border-b border-gray-200">
+                                <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Stock Contado</span>
+                                <span className="font-mono text-[11px] font-bold text-gray-800">{item.stock.toFixed(decimals)} {unit}</span>
+                              </div>
+                              <div className="flex justify-between items-baseline pb-1 border-b border-gray-200">
+                                <span className="text-[9px] text-emerald-700 font-bold uppercase tracking-wider">Prod. Turno (+)</span>
+                                <span className="font-mono text-[11px] font-bold text-emerald-700">+{(item.production || 0).toFixed(decimals)} {unit}</span>
+                              </div>
+                              <div className="flex justify-between items-baseline pb-1 border-b border-gray-200">
+                                <span className="text-[9px] text-red-700 font-bold uppercase tracking-wider">Despacho (-)</span>
+                                <span className="font-mono text-[11px] font-bold text-red-700">-{(item.dispatch || 0).toFixed(decimals)} {unit}</span>
+                              </div>
+                            </>
+                          )}
+                          <div className="flex justify-between items-baseline pt-1">
+                            <span className="text-[10px] text-gray-900 font-black uppercase tracking-widest">Total Disp.</span>
+                            <span className="font-mono text-sm font-black text-blue-900">{item.total.toFixed(decimals)} {unit}</span>
+                          </div>
                         </div>
                       </div>
                     );
