@@ -1901,6 +1901,8 @@ export default function App() {
                         inventoryEntries={inventoryEntries.filter(e => e.date === userContext.selectedDate)}
                         dispatchEntries={dispatchEntries.filter(d => d.shiftId === userContext.selectedShiftId && d.date === userContext.selectedDate)}
                         laneStatuses={laneStatuses.filter(l => l.shiftId === userContext.selectedShiftId && l.date === userContext.selectedDate)}
+                        allProductionReports={productionReports.filter(r => r.date === userContext.selectedDate)}
+                        allDispatchEntries={dispatchEntries.filter(d => d.date === userContext.selectedDate)}
                     />
                   )}
                   {prodTab === 'DESPACHOS' && (

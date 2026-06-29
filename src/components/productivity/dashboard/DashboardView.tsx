@@ -16,6 +16,8 @@ interface Props {
   inventoryEntries: any[];
   dispatchEntries: any[];
   laneStatuses: any[];
+  allProductionReports?: any[];
+  allDispatchEntries?: any[];
 }
 
 const MaterialStatCard = ({ item }: { item: any; key?: React.Key }) => {
@@ -164,7 +166,19 @@ const isStopForMachine = (stop: MachineStop | null | undefined, machine: any, ma
   return false;
 };
 
-export default function DashboardView({ masters, selectedShift, selectedDate, onTabChange, stops, productionReports, inventoryEntries, dispatchEntries, laneStatuses }: Props) {
+export default function DashboardView({ 
+  masters, 
+  selectedShift, 
+  selectedDate, 
+  onTabChange, 
+  stops, 
+  productionReports, 
+  inventoryEntries, 
+  dispatchEntries, 
+  laneStatuses,
+  allProductionReports = [],
+  allDispatchEntries = []
+}: Props) {
   const [isShareOpen, setIsShareOpen] = React.useState(false);
 
   const displayDate = React.useMemo(() => {
@@ -191,6 +205,14 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
       return shift ? shift.startTime : "00:00";
     };
 
+    const getShiftOrder = (shId: string) => {
+      const normalized = String(shId).toUpperCase().trim();
+      if (normalized.includes('S3') || normalized.includes('T3') || normalized.includes('NOCHE')) return 1;
+      if (normalized.includes('S1') || normalized.includes('T1') || normalized.includes('MAÑANA') || normalized.includes('MANANA')) return 2;
+      if (normalized.includes('S2') || normalized.includes('T2') || normalized.includes('TARDE')) return 3;
+      return 4;
+    };
+
     const indexedEntries = (inventoryEntries || []).map((e, index) => ({ ...e, index }));
     const sortedEntries = indexedEntries.sort((a, b) => {
       const timeA = getShiftStartTime(a.shiftId);
@@ -201,36 +223,107 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
       return a.index - b.index;
     });
 
+    const currentOrder = selectedShift ? getShiftOrder(selectedShift.id) : 2;
+
     masters.materials.forEach((m: any) => {
-      const materialEntries = sortedEntries.filter(e => e.materialId === m.id);
-      const latestEntry = materialEntries.length > 0 ? materialEntries[materialEntries.length - 1] : null;
-      const stockVal = latestEntry ? (Number(latestEntry.weightTn) || 0) : 0;
-      
       const isUnitary = m.isPallet || m.isSupply || m.isBigBag;
-      
-      const productionVal = m.isProductive 
-        ? (productionReports || []).reduce((sum, r) => {
+
+      let stockVal = 0;
+      let productionVal = 0;
+      let dispatchVal = 0;
+      let totalVal = 0;
+
+      if (m.isProductive) {
+        // Special cumulative logic for productive materials
+        // 1. Stock: sum of physical stock entries up to the current shift
+        const stockEntriesUpToCurrent = (inventoryEntries || [])
+          .filter(e => e.materialId === m.id && getShiftOrder(e.shiftId) <= currentOrder);
+        stockVal = stockEntriesUpToCurrent.reduce((sum, e) => sum + (Number(e.weightTn) || 0), 0);
+
+        // 2. Production: sum of production from shifts up to current shift
+        const prodData = allProductionReports || productionReports || [];
+        productionVal = prodData
+          .filter(r => getShiftOrder(r.shiftId) <= currentOrder)
+          .reduce((sum, r) => {
             const details = r.materialsDetails || [];
             if (details.length > 0) {
               const matchedDetails = details.filter((det: any) => det.materialId === m.id);
               const subSum = matchedDetails.reduce((dSum: number, det: any) => {
-                const val = isUnitary ? (det.bagsProduced || 0) : (det.tonsProduced || 0);
+                const val = det.tonsProduced || 0;
                 return dSum + (Number(val) || 0);
               }, 0);
               return sum + subSum;
             } else if (r.materialId === m.id) {
-              const val = isUnitary ? (r.bagsProduced || 0) : (r.tonsProduced || 0);
+              const val = r.tonsProduced || 0;
               return sum + (Number(val) || 0);
             }
             return sum;
-          }, 0)
-        : 0;
+          }, 0);
 
-      const dispatchVal = (m.isProductive || m.isBigBag || m.isPallet)
-        ? (dispatchEntries || []).filter(d => d.materialId === m.id)
-            .reduce((sum, d) => sum + (Number(d.tons) || 0), 0)
-        : 0;
+        // 3. Dispatch: Calculate raw dispatches for S3, S1, S2
+        const dispData = allDispatchEntries || dispatchEntries || [];
+        const s3Dispatch = dispData
+          .filter(d => d.materialId === m.id && getShiftOrder(d.shiftId) === 1)
+          .reduce((sum, d) => sum + (Number(d.tons) || 0), 0);
 
+        const s1Dispatch = dispData
+          .filter(d => d.materialId === m.id && getShiftOrder(d.shiftId) === 2)
+          .reduce((sum, d) => sum + (Number(d.tons) || 0), 0);
+
+        const s2RawDispatch = dispData
+          .filter(d => d.materialId === m.id && getShiftOrder(d.shiftId) === 3)
+          .reduce((sum, d) => sum + (Number(d.tons) || 0), 0);
+
+        // Afternoon net dispatch is raw S2 dispatch minus S1 dispatch
+        const s2Dispatch = Math.max(0, s2RawDispatch - s1Dispatch);
+
+        let totalDispatchToSubtract = 0;
+        if (currentOrder === 1) {
+          dispatchVal = s3Dispatch;
+          totalDispatchToSubtract = s3Dispatch;
+        } else if (currentOrder === 2) {
+          dispatchVal = s1Dispatch;
+          totalDispatchToSubtract = s3Dispatch + s1Dispatch;
+        } else if (currentOrder === 3) {
+          dispatchVal = s2Dispatch; // Net afternoon dispatch
+          totalDispatchToSubtract = s3Dispatch + s1Dispatch + s2Dispatch;
+        } else {
+          dispatchVal = dispData
+            .filter(d => d.materialId === m.id && d.shiftId === selectedShift?.id)
+            .reduce((sum, d) => sum + (Number(d.tons) || 0), 0);
+          totalDispatchToSubtract = dispatchVal;
+        }
+
+        totalVal = stockVal + productionVal - totalDispatchToSubtract;
+      } else {
+        // Standard single-shift logic for other materials
+        const materialEntries = sortedEntries.filter(e => e.materialId === m.id);
+        const latestEntry = materialEntries.length > 0 ? materialEntries[materialEntries.length - 1] : null;
+        stockVal = latestEntry ? (Number(latestEntry.weightTn) || 0) : 0;
+
+        productionVal = (productionReports || []).reduce((sum, r) => {
+          const details = r.materialsDetails || [];
+          if (details.length > 0) {
+            const matchedDetails = details.filter((det: any) => det.materialId === m.id);
+            const subSum = matchedDetails.reduce((dSum: number, det: any) => {
+              const val = isUnitary ? (det.bagsProduced || 0) : (det.tonsProduced || 0);
+              return dSum + (Number(val) || 0);
+            }, 0);
+            return sum + subSum;
+          } else if (r.materialId === m.id) {
+            const val = isUnitary ? (r.bagsProduced || 0) : (r.tonsProduced || 0);
+            return sum + (Number(val) || 0);
+          }
+          return sum;
+        }, 0);
+
+        dispatchVal = (dispatchEntries || []).filter(d => d.materialId === m.id)
+          .reduce((sum, d) => sum + (Number(d.tons) || 0), 0);
+
+        totalVal = stockVal + productionVal - dispatchVal;
+      }
+
+      const materialEntries = sortedEntries.filter(e => e.materialId === m.id);
       // Always show productive materials individually, otherwise check for actual activity or records
       if (m.isProductive || materialEntries.length > 0 || productionVal > 0 || dispatchVal > 0) {
         const item = {
@@ -239,7 +332,7 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
           stock: stockVal,
           production: productionVal,
           dispatch: dispatchVal,
-          total: stockVal + productionVal - dispatchVal,
+          total: totalVal,
           isUnitary,
           isProductive: m.isProductive,
           isBigBag: m.isBigBag
@@ -260,7 +353,7 @@ export default function DashboardView({ masters, selectedShift, selectedDate, on
     });
 
     return groups;
-  }, [inventoryEntries, productionReports, dispatchEntries, masters.materials, masters.shifts]);
+  }, [inventoryEntries, productionReports, dispatchEntries, allProductionReports, allDispatchEntries, masters.materials, masters.shifts, selectedShift]);
 
   const hasAnyInventory = 
     inventorySummary.productive.length > 0 || 
