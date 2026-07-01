@@ -197,6 +197,372 @@ export default function DashboardShareModal({
     inventorySummary.insumos.length > 0 ||
     inventorySummary.others.length > 0;
 
+  const renderReportContent = (isOffscreen: boolean) => {
+    // Merge insumos and others for the No Productivos y Otros side table
+    const sideBySideLeft = inventorySummary.tarimas || [];
+    const sideBySideRight = [...(inventorySummary.insumos || []), ...(inventorySummary.others || [])];
+
+    return (
+      <div 
+        className={cn(
+          "bg-white text-gray-800 font-sans select-none text-left",
+          isOffscreen ? "w-[800px] p-9 rounded-none" : "w-full p-2 sm:p-4 rounded-xl"
+        )}
+      >
+        {/* Cabecera / Header */}
+        <div className="border-b-4 border-[#002f6c] pb-2 mb-4">
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-[#002f6c] leading-none">
+                RESUMEN DE TURNO: {selectedShift?.name || 'TURNO'}
+              </h1>
+              <p className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mt-1">
+                REPORTE DE PRODUCTIVIDAD Y STOCKS
+              </p>
+              
+              <div className="mt-3 flex gap-4 text-[11px] sm:text-xs font-bold text-gray-700">
+                <div>
+                  <span className="text-gray-400 font-bold uppercase tracking-wider text-[8px] sm:text-[9px] block leading-tight">Fecha de Turno</span>
+                  <span className="text-sm sm:text-base font-black text-blue-900">{displayDate}</span>
+                </div>
+                <div className="border-l border-gray-200 pl-4">
+                  <span className="text-gray-400 font-bold uppercase tracking-wider text-[8px] sm:text-[9px] block leading-tight">Horario de Operación</span>
+                  <span className="text-xs sm:text-sm font-black text-gray-800">{shiftTimeLabel || 'N/A'}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-right">
+              <div className="font-mono text-xl sm:text-2xl font-black tracking-tighter text-[#002f6c] leading-none">PSCQube</div>
+              <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest block mt-0.5">Holcim Argentina S.A.</span>
+              <div className="mt-3 text-[9px] text-gray-400 font-bold tracking-tight">
+                <p>Impreso: {currentDateTimeStr}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 1: Inventarios */}
+        {hasAnyInventory && (
+          <div className="mb-5">
+            <h2 className="text-[10px] sm:text-[11px] font-bold text-[#002f6c] uppercase tracking-[0.15em] pb-1 mb-2.5 flex items-center gap-1.5 border-b border-gray-200">
+              <span className="w-1.5 h-3 bg-[#002f6c] rounded-sm inline-block"></span>
+              I. RESUMEN DE INVENTARIOS & STOCK CONTADO
+            </h2>
+
+            {/* Main Table: Productive & BigBags */}
+            <div className="border border-gray-200 rounded-lg overflow-hidden mb-4 shadow-sm">
+              <table className="w-full text-left text-[11px] sm:text-xs">
+                <tbody className="divide-y divide-gray-150">
+                  <tr className="bg-[#002f6c] text-white text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider">
+                    <th className="px-3 py-2">Material</th>
+                    <th className="px-3 py-2 text-center">Stock Contado</th>
+                    <th className="px-3 py-2 text-center">Prod. Turno (+)</th>
+                    <th className="px-3 py-2 text-center">Despacho (-)</th>
+                    <th className="px-3 py-2 text-center">Total Disp.</th>
+                  </tr>
+                  {[...inventorySummary.productive, ...inventorySummary.bigbags].map((item, idx) => {
+                    const unit = item.isUnitary ? 'U' : 'TN';
+                    const isBigBag = item.isBigBag;
+                    
+                    return (
+                      <tr key={idx} className={cn("hover:bg-gray-50/50 transition-colors", idx % 2 === 0 ? "bg-white" : "bg-gray-50/30")}>
+                        <td className="px-3 py-1.5 font-bold text-gray-900 uppercase">
+                          {item.name}
+                          {isBigBag && (
+                            <span className="text-[8px] font-bold text-gray-400 uppercase tracking-wider ml-1.5">
+                              (Big Bag)
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 py-1.5 text-center font-mono font-semibold text-gray-700">
+                          {isBigBag ? '-' : `${Math.round(item.stock).toFixed(0)} ${unit}`}
+                        </td>
+                        <td className="px-3 py-1.5 text-center font-mono font-bold text-emerald-600">
+                          {isBigBag ? '-' : `+${Math.round(item.production || 0).toFixed(0)} ${unit}`}
+                        </td>
+                        <td className="px-3 py-1.5 text-center font-mono font-bold text-red-600">
+                          {isBigBag ? '-' : `-${Math.round(item.dispatch || 0).toFixed(0)} ${unit}`}
+                        </td>
+                        <td className="px-3 py-1.5 text-center font-mono font-black text-blue-900 bg-blue-50/20">
+                          {Math.round(item.total).toFixed(0)} {unit}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Side-by-side Tables: Tarimas and No Productivos */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Left Table: Tarimas */}
+              <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm bg-white flex flex-col justify-between">
+                <div>
+                  <div className="bg-gray-100/80 px-3 py-1.5 border-b border-gray-200 flex justify-between items-center">
+                    <span className="text-[9px] sm:text-[10px] font-black text-gray-700 uppercase tracking-wider">Detalle de Tarimas (Pallets)</span>
+                    <span className="text-[8px] font-bold text-gray-400 font-mono uppercase">{sideBySideLeft.length} ítems</span>
+                  </div>
+                  <table className="w-full text-left text-[10px] sm:text-[11px]">
+                    <tbody className="divide-y divide-gray-100">
+                      <tr className="bg-gray-50 text-[8px] sm:text-[9px] font-extrabold text-gray-400 uppercase border-b border-gray-200">
+                        <th className="px-3 py-1.5">Material</th>
+                        <th className="px-3 py-1.5 text-right">Total Disp.</th>
+                      </tr>
+                      {sideBySideLeft.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50/50">
+                          <td className="px-3 py-1.5 font-semibold text-gray-700 uppercase truncate max-w-[150px]">{item.name}</td>
+                          <td className="px-3 py-1.5 text-right font-mono font-bold text-blue-900">{Math.round(item.total).toFixed(0)} U</td>
+                        </tr>
+                      ))}
+                      {sideBySideLeft.length === 0 && (
+                        <tr>
+                          <td colSpan={2} className="px-3 py-3 text-center text-gray-400 italic">No hay tarimas reportadas</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Right Table: No Productivos y Otros */}
+              <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm bg-white flex flex-col justify-between">
+                <div>
+                  <div className="bg-gray-100/80 px-3 py-1.5 border-b border-gray-200 flex justify-between items-center">
+                    <span className="text-[9px] sm:text-[10px] font-black text-gray-700 uppercase tracking-wider">No Productivos y Insumos</span>
+                    <span className="text-[8px] font-bold text-gray-400 font-mono uppercase">{sideBySideRight.length} ítems</span>
+                  </div>
+                  <table className="w-full text-left text-[10px] sm:text-[11px]">
+                    <tbody className="divide-y divide-gray-100">
+                      <tr className="bg-gray-50 text-[8px] sm:text-[9px] font-extrabold text-gray-400 uppercase border-b border-gray-200">
+                        <th className="px-3 py-1.5">Material</th>
+                        <th className="px-3 py-1.5 text-right">Total Disp.</th>
+                      </tr>
+                      {sideBySideRight.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50/50">
+                          <td className="px-3 py-1.5 font-semibold text-gray-700 uppercase truncate max-w-[150px]">{item.name}</td>
+                          <td className="px-3 py-1.5 text-right font-mono font-bold text-blue-900">{Math.round(item.total).toFixed(0)} {item.isUnitary ? 'U' : 'TN'}</td>
+                        </tr>
+                      ))}
+                      {sideBySideRight.length === 0 && (
+                        <tr>
+                          <td colSpan={2} className="px-3 py-3 text-center text-gray-400 italic">No hay insumos reportados</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Section 2: Rendimiento en Líneas de Producción */}
+        <div className="mb-5">
+          <h2 className="text-[10px] sm:text-[11px] font-bold text-[#002f6c] uppercase tracking-[0.15em] pb-1 mb-2.5 flex items-center gap-1.5 border-b border-gray-200">
+            <span className="w-1.5 h-3 bg-[#002f6c] rounded-sm inline-block"></span>
+            II. RENDIMIENTO EN LÍNEAS DE PRODUCCIÓN
+          </h2>
+
+          {/* Line Performance Summary Table */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden mb-4 shadow-sm">
+            <table className="w-full text-left text-[11px] sm:text-xs">
+              <tbody className="divide-y divide-gray-150">
+                <tr className="bg-[#002f6c] text-white text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider">
+                  <th className="px-3 py-2">Paletizadora</th>
+                  <th className="px-3 py-2 text-center">Marcha</th>
+                  <th className="px-3 py-2 text-center">OEE</th>
+                  <th className="px-3 py-2 text-center">Disponibilidad</th>
+                  <th className="px-3 py-2 text-center">Rendimiento</th>
+                </tr>
+                {palletizerData.map(({ palletizer, runHours, oee, availability, performance }, idx) => (
+                  <tr key={idx} className={cn("hover:bg-gray-50/50 transition-colors", idx % 2 === 0 ? "bg-white" : "bg-gray-50/30")}>
+                    <td className="px-3 py-1.5 font-bold text-gray-900 uppercase">
+                      {palletizer.name}
+                    </td>
+                    <td className="px-3 py-1.5 text-center font-mono font-bold text-gray-800">
+                      {runHours} hs
+                    </td>
+                    <td className="px-3 py-1.5 text-center font-mono font-bold text-emerald-700">
+                      {Math.round(oee || 0).toFixed(0)}%
+                    </td>
+                    <td className="px-3 py-1.5 text-center font-mono font-bold text-indigo-700">
+                      {Math.round(availability || 0).toFixed(0)}%
+                    </td>
+                    <td className="px-3 py-1.5 text-center font-mono font-bold text-rose-700">
+                      {Math.round(performance || 0).toFixed(0)}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Individual Detailed Blocks by Palletizer */}
+          <div className="space-y-3.5">
+            {palletizerData.map(({ palletizer, topStops, tonsByMaterial, activeNozzles, totalTons }, idx) => (
+              <div key={idx} className="border-t border-gray-200 pt-3 first:border-none first:pt-0">
+                <h3 className="text-[10px] sm:text-[11px] font-black text-blue-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-900"></span>
+                  {palletizer.name}
+                </h3>
+
+                <div className="grid grid-cols-3 gap-4 text-[10px] sm:text-[11px]">
+                  {/* Columna 1: Producción */}
+                  <div className="border-r border-gray-100 pr-3">
+                    <span className="text-[8px] sm:text-[9px] font-extrabold text-gray-400 uppercase tracking-wider block mb-1.5">Producción</span>
+                    {Object.entries(tonsByMaterial).length > 0 ? (
+                      <div className="space-y-1">
+                        {Object.entries(tonsByMaterial).map(([mId, tons]) => {
+                          const t = tons as number;
+                          const mName = masters.materials.find((m: any) => m.id === mId)?.name || 'Material';
+                          return (
+                            <div key={mId} className="flex justify-between items-baseline font-semibold text-gray-700 uppercase">
+                              <span className="truncate max-w-[100px]">{mName}</span>
+                              <span className="font-mono text-gray-900">{Math.round(t).toFixed(0)} TN</span>
+                            </div>
+                          );
+                        })}
+                        <div className="pt-1 mt-1 border-t border-dashed border-gray-200 flex justify-between font-extrabold text-[10px] text-blue-900">
+                          <span>TOTAL</span>
+                          <span className="font-mono">{Math.round(totalTons).toFixed(0)} TN</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-[9px] text-gray-400 italic font-medium">Sin producción registrada</p>
+                    )}
+                  </div>
+
+                  {/* Columna 2: Boquillas Activas / Envasadora */}
+                  <div className="border-r border-gray-100 pr-3">
+                    <span className="text-[8px] sm:text-[9px] font-extrabold text-gray-400 uppercase tracking-wider block mb-1.5">Boquillas Activas / Envasadora</span>
+                    {activeNozzles.length > 0 ? (
+                      <div className="space-y-1">
+                        {activeNozzles.map((nozzle, nidx) => (
+                          <div key={nidx} className="flex justify-between items-center py-0.5 border-b border-gray-50/50 last:border-none">
+                            <span className="font-semibold text-gray-700 uppercase truncate mr-2">{nozzle.baggerName}</span>
+                            <span className="font-mono font-extrabold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded text-[9px]">{nozzle.nozzles} bq.</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[9px] text-gray-400 italic font-medium">No hay boquillas reportadas</p>
+                    )}
+                  </div>
+
+                  {/* Columna 3: Paros / Alarmas de Operación */}
+                  <div>
+                    <span className="text-[8px] sm:text-[9px] font-extrabold text-gray-400 uppercase tracking-wider block mb-1.5">Paros / Alarmas de Operación</span>
+                    {topStops.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {topStops.slice(0, 4).map((stop, sidx) => {
+                          const causeText = stop.causeText || masters.causes.find((c: any) => c.id === stop.causeId)?.text || 'Error registrado';
+                          return (
+                            <div key={sidx} className="flex justify-between items-start leading-tight border-b border-gray-50 pb-1 last:border-none last:pb-0">
+                              <div className="flex-1 min-w-0 pr-2">
+                                <p className="font-bold text-red-700 uppercase leading-snug break-words text-[9px]">
+                                  {causeText}
+                                </p>
+                                <span className="text-[7px] text-gray-400 font-mono block mt-0.5 font-semibold">
+                                  HAC: {stop.hacName || 'Genérico'}
+                                </span>
+                              </div>
+                              <div className="shrink-0 text-right">
+                                <span className="font-mono text-red-700 font-black bg-red-50 border border-red-100 px-1 py-0.5 rounded text-[8px] block">
+                                  {Math.round(stop.durationMinutes).toFixed(0)}m
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-[9px] text-gray-400 italic font-medium">Operación limpia. Sin paros registrados.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Section 3: Disponibilidad en Calles de Carga */}
+        <div className="mb-4">
+          <h2 className="text-[10px] sm:text-[11px] font-bold text-[#002f6c] uppercase tracking-[0.15em] pb-1 mb-2.5 flex items-center gap-1.5 border-b border-gray-200">
+            <span className="w-1.5 h-3 bg-[#002f6c] rounded-sm inline-block"></span>
+            III. DISPONIBILIDAD EN CALLES DE CARGA & DESPACHO
+          </h2>
+
+          <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+            <table className="w-full text-left text-[11px] sm:text-xs">
+              <tbody className="divide-y divide-gray-100">
+                <tr className="bg-gray-100 text-[8px] sm:text-[9px] font-extrabold text-gray-500 uppercase border-b border-gray-200">
+                  <th className="px-3 py-1.5">Identificador</th>
+                  <th className="px-3 py-1.5">Estado</th>
+                  <th className="px-3 py-1.5">Tipo de Logística / Restricciones</th>
+                </tr>
+                {Object.entries(groupedLoadingPoints).flatMap(([type, points]: [string, any[]]) => 
+                  points.map(lp => {
+                    const status = laneStatuses.find((s: any) => s.loadingPointId === lp.id);
+                    const isEnabled = status ? status.isEnabled : true;
+                    return (
+                      <tr key={lp.id} className="hover:bg-gray-50/50">
+                        <td className="px-3 py-1.5 font-bold text-gray-900 uppercase flex items-center gap-1.5">
+                          <span className={cn(
+                            "w-1.5 h-1.5 rounded-full inline-block shrink-0",
+                            type === 'BOLSA' ? "bg-blue-500" : "bg-amber-500"
+                          )}></span>
+                          {lp.name}
+                        </td>
+                        <td className="px-3 py-1.5">
+                          <span className={cn(
+                            "px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-wider inline-block text-center w-20 shrink-0",
+                            isEnabled ? "bg-emerald-100 text-emerald-800 border border-emerald-200" : "bg-red-100 text-red-800 border border-red-200"
+                          )}>
+                            {isEnabled ? 'OPERATIVA' : 'FUERA SERV.'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-1.5 text-gray-600 uppercase font-semibold text-[9px] sm:text-[10px]">
+                          {isEnabled ? (
+                            status && status.materialIds && status.materialIds.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {status.materialIds.map((mid: string) => (
+                                  <span key={mid} className="px-1 bg-blue-50 text-blue-900 rounded border border-blue-100 text-[8px] font-black uppercase">
+                                    {masters.materials.find((m: any) => m.id === mid)?.name}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-[8px] text-emerald-600 font-bold tracking-wider">Disponible para carga y stock general</span>
+                            )
+                          ) : (
+                            <span className="text-[8.5px] text-red-600 font-extrabold tracking-wider block max-w-[320px] truncate">
+                              RESTRICCIONES: {status?.observation || 'Avería mecánica interna'}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Footer / Signature row */}
+        <div className="pt-2 border-t border-gray-200 flex justify-between items-center text-[8px] text-gray-400 font-bold uppercase tracking-wider">
+          <div>
+            <p>DOCUMENTO DE REGISTRO INTERNO - HOLCIM (ARGENTINA) S.A.</p>
+          </div>
+          <div className="text-right font-mono text-[7.5px] text-gray-300">
+            <p>CIC: {currentDateTimeStr.replace(/[^0-9]/g, '')}</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -314,162 +680,8 @@ export default function DashboardShareModal({
                  </span>
                </div>
 
-               <div className="space-y-6 text-left text-sm text-gray-800">
-                  {/* Header widget */}
-                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col sm:flex-row justify-between gap-3 text-xs">
-                    <div>
-                      <h4 className="font-extrabold text-gray-900 uppercase tracking-widest">
-                        {selectedShift?.name || 'Turno'} • {displayDate}
-                      </h4>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mt-1">
-                        {shiftTimeLabel}
-                      </p>
-                    </div>
-                    <div className="text-left sm:text-right">
-                      <span className="text-[10px] font-black text-primary uppercase tracking-widest block">PSCQube</span>
-                      <span className="text-[9px] font-black text-gray-400 uppercase tracking-wider block mt-0.5">Holcim Argentina S.A.</span>
-                    </div>
-                  </div>
-
-                  {/* Inventories Preview */}
-                  {hasAnyInventory && (
-                    <div className="space-y-3">
-                      <h5 className="text-[10px] font-black text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
-                        <span className="w-1.5 h-3 bg-primary rounded-sm"></span>
-                        I. RESUMEN DE INVENTARIOS & STOCK CONTADO
-                      </h5>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {[...inventorySummary.productive, ...inventorySummary.bigbags].map((item, idx) => {
-                          const unit = item.isUnitary ? 'U' : 'TN';
-                          const decimals = item.isUnitary ? 0 : 1;
-                          return (
-                            <div key={idx} className="bg-gray-50 border border-gray-200 p-4 rounded-xl flex flex-col justify-between text-xs text-gray-900">
-                              <div className="relative pb-1.5 border-b border-gray-200 mb-2">
-                                <span className="text-[11px] font-black text-gray-905 uppercase block truncate max-w-[200px]">{item.name}</span>
-                                <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-0.5 block">
-                                  {item.isBigBag ? 'Contenedor Big Bag' : 'Silo Productivo'}
-                                </span>
-                              </div>
-                              
-                              <div className="space-y-1.5">
-                                {!item.isBigBag && (
-                                  <>
-                                    <div className="flex justify-between items-baseline pb-1 border-b border-gray-150">
-                                      <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Stock Contado</span>
-                                      <span className="font-mono text-[11px] font-bold text-gray-800">{item.stock.toFixed(decimals)} {unit}</span>
-                                    </div>
-                                    <div className="flex justify-between items-baseline pb-1 border-b border-gray-150">
-                                      <span className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider">Prod. Turno (+)</span>
-                                      <span className="font-mono text-[11px] font-bold text-emerald-600">+{(item.production || 0).toFixed(decimals)} {unit}</span>
-                                    </div>
-                                    <div className="flex justify-between items-baseline pb-1 border-b border-gray-150">
-                                      <span className="text-[9px] text-red-600 font-bold uppercase tracking-wider">Despacho (-)</span>
-                                      <span className="font-mono text-[11px] font-bold text-red-600">-{(item.dispatch || 0).toFixed(decimals)} {unit}</span>
-                                    </div>
-                                  </>
-                                )}
-                                <div className="flex justify-between items-baseline pt-1">
-                                  <span className="text-[10px] text-gray-900 font-black uppercase tracking-widest">Total Disp.</span>
-                                  <span className="font-mono text-sm font-black text-primary">{item.total.toFixed(decimals)} {unit}</span>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Production performance preview */}
-                  <div className="space-y-3">
-                    <h5 className="text-[10px] font-black text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
-                      <span className="w-1.5 h-3 bg-primary rounded-sm"></span>
-                      II. RENDIMIENTO EN EMBALADO / ENSACADO
-                    </h5>
-                    <div className="space-y-3">
-                      {palletizerData.map(({ palletizer, runHours, oee, availability, performance, totalTons }, idx) => (
-                        <div key={idx} className="bg-gray-50 border border-gray-200 rounded-xl p-3.5 space-y-3">
-                          <div className="flex justify-between items-center border-b border-gray-200 pb-1.5">
-                            <span className="text-[10px] font-black text-gray-900 uppercase">{palletizer.name}</span>
-                            <span className="font-mono text-[10.5px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-md">{totalTons.toFixed(1)} TN PRODUCIDOS</span>
-                          </div>
-                          <div className="grid grid-cols-4 gap-2 text-center">
-                            <div className="bg-gray-100 p-1.5 rounded-lg border border-gray-200/50">
-                              <span className="block text-[7px] text-gray-500 uppercase font-black tracking-wider">Marcha</span>
-                              <span className="font-mono text-[10px] font-black text-gray-800">{runHours}h</span>
-                            </div>
-                            <div className="bg-gray-100 p-1.5 rounded-lg border border-gray-200/50">
-                              <span className="block text-[7px] text-gray-500 uppercase font-black tracking-wider">OEE</span>
-                              <span className="font-mono text-[10px] font-bold text-emerald-600">{oee || 0}%</span>
-                            </div>
-                            <div className="bg-gray-100 p-1.5 rounded-lg border border-gray-200/50">
-                              <span className="block text-[7px] text-gray-500 uppercase font-black tracking-wider">Disp</span>
-                              <span className="font-mono text-[10px] font-bold text-indigo-600">{availability || 0}%</span>
-                            </div>
-                            <div className="bg-gray-100 p-1.5 rounded-lg border border-gray-200/50">
-                              <span className="block text-[7px] text-gray-500 uppercase font-black tracking-wider">Rend</span>
-                              <span className="font-mono text-[10px] font-bold text-rose-600">{performance || 0}%</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Loading point preview */}
-                  <div className="space-y-3">
-                    <h5 className="text-[10px] font-black text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
-                      <span className="w-1.5 h-3 bg-primary rounded-sm"></span>
-                      III. DISPONIBILIDAD DE CALLES DE CARGA
-                    </h5>
-                    <div className="bg-gray-50 border border-gray-200 rounded-xl divide-y divide-gray-200 overflow-hidden">
-                      {Object.entries(groupedLoadingPoints).flatMap(([type, points]: [string, any[]]) => 
-                        points.map(lp => {
-                          const status = laneStatuses.find((s: any) => s.loadingPointId === lp.id);
-                          const isEnabled = status ? status.isEnabled : true;
-                          return (
-                            <div key={lp.id} className="p-3 flex flex-col gap-2 text-[10px] uppercase font-bold">
-                              <div className="flex items-center justify-between">
-                                <span className="text-gray-900 flex items-center gap-1.5">
-                                  <span className={cn(
-                                    "w-1.5 h-1.5 rounded-full inline-block",
-                                    type === 'BOLSA' ? "bg-blue-500" : "bg-amber-500"
-                                  )}></span>
-                                  {lp.name}
-                                </span>
-                                <span className={cn(
-                                  "px-1.5 py-0.5 rounded-[5px] text-[8px] font-extrabold uppercase tracking-wider border",
-                                  isEnabled ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/15" : "bg-red-500/10 text-red-600 border-red-500/15"
-                                )}>
-                                  {isEnabled ? 'OPERATIVA' : 'FUERA SERV.'}
-                                </span>
-                              </div>
-                              <div className="pl-3">
-                                {isEnabled ? (
-                                  status && Array.isArray(status.materialIds) && status.materialIds.length > 0 ? (
-                                    <div className="flex flex-wrap gap-1">
-                                      {status.materialIds.map((mid: string) => (
-                                        <span key={mid} className="px-1.5 py-0.5 bg-primary/10 text-primary rounded border border-primary/20 text-[8px] font-black uppercase">
-                                          {masters.materials.find((m: any) => m.id === mid)?.name}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <span className="text-[8.5px] text-emerald-600 lowercase italic font-semibold">Disponible para carga y stock general</span>
-                                  )
-                                ) : (
-                                  <span className="text-[8.5px] text-red-600 lowercase italic font-semibold block max-w-[280px] truncate">
-                                    Restricciones: {status?.observation || 'Avería mecánica interna'}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-
+               <div className="inline-block w-full max-w-[720px] shadow-sm border border-gray-100 rounded-xl overflow-hidden">
+                  {renderReportContent(false)}
                </div>
             </div>
 
@@ -500,347 +712,10 @@ export default function DashboardShareModal({
         <div 
           ref={pdfRef}
           id="shift-report-pdf-target"
-          style={{ width: '800px', backgroundColor: '#ffffff', color: '#111827', padding: '36px' }}
-          className="rounded-lg shadow-xl text-left font-sans select-none overflow-hidden"
+          className="bg-white"
         >
-          {/* PDF Cover / Header */}
-          <div className="border-b-4 border-gray-905 pb-5 mb-6 flex justify-between items-start">
-            <div>
-              <h1 className="text-2xl font-extrabold uppercase tracking-tight text-gray-900 leading-none">
-                RESUMEN DE TURNO: {selectedShift?.name || 'TURNO'}
-              </h1>
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-1.5 flex items-center gap-1.5">
-                REPORTE DE PRODUCTIVIDAD Y STOCKS
-              </p>
-              <div className="mt-3 flex gap-4 text-xs font-semibold text-gray-700">
-                <div>
-                  <span className="text-gray-400 font-bold uppercase tracking-wider text-[10px] block">Fecha de Turno</span>
-                  <span className="text-lg font-extrabold text-blue-900">{displayDate}</span>
-                </div>
-                <div className="border-l border-gray-300 pl-4">
-                  <span className="text-gray-400 font-bold uppercase tracking-wider text-[10px] block">Horario de Operación</span>
-                  <span className="text-sm font-extrabold text-gray-900">{shiftTimeLabel || 'N/A'}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="text-right">
-              <div className="font-mono text-[22px] font-black tracking-tighter text-blue-950 leading-none">PSCQube</div>
-              <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mt-1">Holcim Argentina S.A.</span>
-              <div className="mt-4 text-[10px] text-gray-500 font-bold tracking-tight">
-                <p>Impreso: {currentDateTimeStr}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Section 1: Stock e Insumos */}
-          {hasAnyInventory && (
-            <div className="mb-8">
-              <h2 className="text-xs font-black text-gray-800 uppercase tracking-[0.2em] border-b border-gray-300 pb-1 mb-3 flex items-center gap-1.5">
-                <span className="w-1.5 h-3.5 bg-blue-600 rounded-sm"></span>
-                I. RESUMEN DE INVENTARIOS & STOCK CONTADO
-              </h2>
-
-              {/* Productive & BigBags Summary Grid */}
-              {(inventorySummary.productive.length > 0 || inventorySummary.bigbags.length > 0) && (
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  {[...inventorySummary.productive, ...inventorySummary.bigbags].map((item, idx) => {
-                    const unit = item.isUnitary ? 'U' : 'TN';
-                    const decimals = item.isUnitary ? 0 : 1;
-                    return (
-                      <div key={idx} className="border border-gray-200 bg-gray-50 p-4 rounded-xl flex flex-col justify-between text-xs text-gray-950">
-                        <div className="relative pb-1.5 border-b border-gray-200 mb-2">
-                          <span className="text-[11px] font-black text-gray-900 uppercase block truncate max-w-[200px]">{item.name}</span>
-                          <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-0.5 block">
-                            {item.isBigBag ? 'Contenedor Big Bag' : 'Silo Productivo'}
-                          </span>
-                        </div>
-                        
-                        <div className="space-y-1.5">
-                          {!item.isBigBag && (
-                            <>
-                              <div className="flex justify-between items-baseline pb-1 border-b border-gray-200">
-                                <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Stock Contado</span>
-                                <span className="font-mono text-[11px] font-bold text-gray-800">{item.stock.toFixed(decimals)} {unit}</span>
-                              </div>
-                              <div className="flex justify-between items-baseline pb-1 border-b border-gray-200">
-                                <span className="text-[9px] text-emerald-700 font-bold uppercase tracking-wider">Prod. Turno (+)</span>
-                                <span className="font-mono text-[11px] font-bold text-emerald-700">+{(item.production || 0).toFixed(decimals)} {unit}</span>
-                              </div>
-                              <div className="flex justify-between items-baseline pb-1 border-b border-gray-200">
-                                <span className="text-[9px] text-red-700 font-bold uppercase tracking-wider">Despacho (-)</span>
-                                <span className="font-mono text-[11px] font-bold text-red-700">-{(item.dispatch || 0).toFixed(decimals)} {unit}</span>
-                              </div>
-                            </>
-                          )}
-                          <div className="flex justify-between items-baseline pt-1">
-                            <span className="text-[10px] text-gray-900 font-black uppercase tracking-widest">Total Disp.</span>
-                            <span className="font-mono text-sm font-black text-blue-900">{item.total.toFixed(decimals)} {unit}</span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Side-by-side secondary tables */}
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  { label: 'Detalle de Tarimas (Pallets)', data: inventorySummary.tarimas },
-                  { label: 'Detalle de Insumos', data: inventorySummary.insumos },
-                  { label: 'No Productivos y Otros', data: inventorySummary.others }
-                ].filter(g => g.data.length > 0).slice(0, 2).map((group, groupIdx) => {
-                  const hasProd = group.data.some((it: any) => it.isProductive);
-                  return (
-                    <div key={groupIdx} className="border border-gray-200 rounded-lg overflow-hidden">
-                      <div className="bg-gray-100 px-3 py-1.5 border-b border-gray-200 flex justify-between items-center">
-                        <span className="text-[9px] font-extrabold text-gray-800 uppercase tracking-wider">{group.label}</span>
-                        <span className="text-[8px] font-bold text-gray-500 font-mono">{group.data.length} ítems</span>
-                      </div>
-                      <table className="w-full text-left text-[10px]">
-                        <thead className="bg-gray-50 text-[9px] font-bold text-gray-400 uppercase border-b border-gray-200">
-                          <tr>
-                            <th className="px-3 py-1.5">Material</th>
-                            {hasProd && <th className="px-2 py-1.5 text-right">S.Inicial</th>}
-                            <th className="px-3 py-1.5 text-right">Total Disp.</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-150">
-                          {group.data.map((item: any, idx: number) => {
-                            const unit = item.isUnitary ? 'U' : 'TN';
-                            const decimals = item.isUnitary ? 0 : 1;
-                            return (
-                              <tr key={idx} className="hover:bg-gray-50">
-                                <td className="px-3 py-1.5 font-bold text-gray-700 uppercase truncate max-w-[130px]">{item.name}</td>
-                                {hasProd && (
-                                  <td className="px-2 py-1.5 text-right font-mono text-gray-500">
-                                    {item.isProductive ? item.stock.toFixed(decimals) : '-'}
-                                  </td>
-                                )}
-                                <td className="px-3 py-1.5 text-right font-mono font-extrabold text-blue-900">
-                                  {item.total.toFixed(decimals)} {unit}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Section 2: Productividad */}
-          <div className="mb-8">
-            <h2 className="text-xs font-black text-gray-800 uppercase tracking-[0.2em] border-b border-gray-300 pb-1 mb-3 flex items-center gap-1.5">
-              <span className="w-1.5 h-3.5 bg-blue-600 rounded-sm"></span>
-              II. RENDIMIENTO EN LÍNEAS DE PRODUCCIÓN
-            </h2>
-
-            <div className="space-y-4">
-              {palletizerData.map(({ palletizer, topStops, tonsByMaterial, runHours, oee, availability, performance, activeNozzles, totalTons }, idx) => (
-                <div key={idx} className="border border-gray-300 rounded-lg p-4">
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline border-b border-gray-150 pb-2 mb-3 gap-2">
-                    <span className="text-xs font-extrabold text-blue-950 uppercase">{palletizer.name}</span>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div className="flex items-center gap-1">
-                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Marcha:</span>
-                        <span className="text-xs font-black text-blue-800 font-mono">{runHours}hs</span>
-                      </div>
-                      <div className="flex items-center gap-1 border-l border-gray-200 pl-2">
-                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">OEE:</span>
-                        <span className="text-xs font-black text-emerald-700 font-mono">{oee || 0}%</span>
-                      </div>
-                      <div className="flex items-center gap-1 border-l border-gray-200 pl-2">
-                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Disp:</span>
-                        <span className="text-xs font-black text-indigo-700 font-mono">{availability || 0}%</span>
-                      </div>
-                      <div className="flex items-center gap-1 border-l border-gray-200 pl-2">
-                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Rend:</span>
-                        <span className="text-xs font-black text-rose-700 font-mono">{performance || 0}%</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-4">
-                    {/* Producción */}
-                    <div className="col-span-1 border-r border-gray-200 pr-3">
-                      <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-wider block mb-1">Volumen Producido</span>
-                      {Object.entries(tonsByMaterial).length > 0 ? (
-                        <div className="space-y-1.5">
-                          {Object.entries(tonsByMaterial).map(([mId, tons]) => {
-                            const t = tons as number;
-                            const mName = masters.materials.find((m: any) => m.id === mId)?.name || 'Material';
-                            return (
-                              <div key={mId} className="flex justify-between items-baseline text-[9px] font-bold text-gray-800 uppercase">
-                                <span className="truncate max-w-[100px]">{mName}</span>
-                                <span className="font-mono text-gray-900">{t.toFixed(1)} TN</span>
-                              </div>
-                            );
-                          })}
-                          <div className="pt-1.5 border-t border-dashed border-gray-200 flex justify-between font-extrabold text-[10px] text-blue-900">
-                            <span>TOTAL</span>
-                            <span className="font-mono">{totalTons.toFixed(1)} TN</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-[9px] text-gray-400 italic mt-3">Sin producción registrada</p>
-                      )}
-                    </div>
-
-                    {/* Boquillas */}
-                    <div className="col-span-1 border-r border-gray-200 pr-3">
-                      <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-wider block mb-2">Boquillas Activas / Envasadora</span>
-                      {activeNozzles.length > 0 ? (
-                        <div className="grid grid-cols-1 gap-1">
-                          {activeNozzles.map((nozzle, nidx) => (
-                            <div key={nidx} className="bg-gray-50 border border-gray-200 px-2 py-1 rounded flex flex-col gap-0.5 text-[9px]">
-                              <div className="flex justify-between items-center w-full">
-                                <span className="font-bold text-gray-700 uppercase truncate flex-1 mr-2">{nozzle.baggerName}</span>
-                                <span className="font-mono font-extrabold text-amber-600 shrink-0">{nozzle.nozzles}</span>
-                              </div>
-                              {nozzle.observations && nozzle.observations.length > 0 && (
-                                <div className="text-[7.5px] text-gray-400 italic border-t border-gray-150 pt-0.5 mt-0.5 leading-tight w-full">
-                                  {nozzle.observations.map((obs: string, oIdx: number) => (
-                                    <div 
-                                      key={oIdx} 
-                                      className="leading-relaxed"
-                                      style={{
-                                        whiteSpace: 'normal',
-                                        overflowWrap: 'break-word',
-                                        wordBreak: 'break-word',
-                                        lineHeight: '1.35',
-                                        maxWidth: '105%'
-                                      }}
-                                      title={obs}
-                                    >
-                                      • {obs}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-[9px] text-gray-400 italic">No hay boquillas reportadas</p>
-                      )}
-                    </div>
-
-                    {/* Incidentes */}
-                    <div className="col-span-1">
-                      <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-wider block mb-2">Paros / Alarmas de Operación</span>
-                      {topStops.length > 0 ? (
-                        <div className="space-y-2">
-                          {topStops.slice(0, 4).map((stop, sidx) => {
-                            const causeText = stop.causeText || masters.causes.find((c: any) => c.id === stop.causeId)?.text || 'Error registrado';
-                            return (
-                              <div key={sidx} className="flex justify-between items-start text-[9px] font-semibold text-gray-800 leading-tight border-b border-gray-100/50 pb-1.5 last:border-none last:pb-0">
-                                <div className="flex-1 min-w-0 pr-2">
-                                  <p className="font-bold text-red-700 uppercase leading-snug break-words">
-                                    {causeText}
-                                  </p>
-                                  <span className="text-[7px] text-gray-500 font-mono block mt-0.5 font-semibold">
-                                    HAC: {stop.hacName || 'Genérico'}
-                                  </span>
-                                </div>
-                                <div className="shrink-0 text-right">
-                                  <span className="font-mono text-red-700 font-black bg-red-50 border border-red-200 px-1.5 py-0.5 rounded text-[8px] block inline-block">
-                                    {stop.durationMinutes}m
-                                  </span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <p className="text-[9px] text-gray-400 italic">Operación limpia. Sin paros registrados.</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Section 3: Calles de Carga */}
-          <div className="mb-6">
-            <h2 className="text-xs font-black text-gray-800 uppercase tracking-[0.2em] border-b border-gray-300 pb-1 mb-3 flex items-center gap-1.5">
-              <span className="w-1.5 h-3.5 bg-blue-600 rounded-sm"></span>
-              III. DISPONIBILIDAD EN CALLES DE CARGA & DESPACHO
-            </h2>
-
-            <div className="border border-gray-250 rounded-lg overflow-hidden">
-              <table className="w-full text-left text-[10px]">
-                <thead className="bg-gray-100 text-[9px] font-bold text-gray-500 uppercase border-b border-gray-200">
-                  <tr>
-                    <th className="px-4 py-2">Identificador</th>
-                    <th className="px-4 py-2">Estado</th>
-                    <th className="px-4 py-2">Tipo de Logística / Restricciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-150">
-                  {Object.entries(groupedLoadingPoints).flatMap(([type, points]: [string, any[]]) => 
-                    points.map(lp => {
-                      const status = laneStatuses.find((s: any) => s.loadingPointId === lp.id);
-                      const isEnabled = status ? status.isEnabled : true;
-                      return (
-                        <tr key={lp.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-2 font-bold text-gray-900 border-r border-gray-100 max-w-[180px] truncate uppercase flex items-center gap-2">
-                            <span className={cn(
-                              "w-1.5 h-1.5 rounded-full inline-block",
-                              type === 'BOLSA' ? "bg-blue-500" : "bg-amber-500"
-                            )}></span>
-                            {lp.name}
-                          </td>
-                          <td className="px-4 py-2">
-                            <span className={cn(
-                              "px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-wider block text-center w-24",
-                              isEnabled ? "bg-emerald-100 text-emerald-800 border border-emerald-200" : "bg-red-100 text-red-800 border border-red-200"
-                            )}>
-                              {isEnabled ? 'OPERATIVA' : 'FUERA SERV.'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2 text-gray-600 uppercase font-semibold">
-                            {isEnabled ? (
-                              status && status.materialIds.length > 0 ? (
-                                <div className="flex flex-wrap gap-1">
-                                  {status.materialIds.map((mid: string) => (
-                                    <span key={mid} className="px-1 bg-blue-50 text-blue-900 rounded border border-blue-100 text-[8px] font-extrabold uppercase">
-                                      {masters.materials.find((m: any) => m.id === mid)?.name}
-                                    </span>
-                                  ))}
-                                </div>
-                              ) : (
-                                <span className="text-[8px] text-emerald-600 block">Disponible para carga y stock general</span>
-                              )
-                            ) : (
-                              <span className="text-[9px] text-red-600 font-bold block max-w-[320px] truncate leading-tight">
-                                RESTRICCIONES: {status?.observation || 'Avería mecánica interna'}
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Summary Signature / Verification row */}
-          <div className="mt-8 pt-4 border-t border-gray-300 flex justify-between items-end text-[9px] text-gray-400 font-bold uppercase tracking-wider">
-            <div className="text-right">
-              <p>DOCUMENTO DE REGISTRO INTERNO - HOLCIM (ARGENTINA) S.A.</p>
-              <p className="mt-0.5 font-mono text-[8px] text-gray-300">CRC-SHA256: 8D72F3EFA9201C</p>
-            </div>
-          </div>
-
-        </div> {/* END OF ACTUAL PRINT/IMAGE LAYOUT */}
+          {renderReportContent(true)}
+        </div>
       </div>
     </AnimatePresence>
   );
