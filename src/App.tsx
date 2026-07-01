@@ -1394,6 +1394,49 @@ export default function App() {
     });
   };
 
+  const handleBulkUpdateInventory = async (entriesToUpdate: { id: string; date: string; shiftId: string }[]) => {
+    // 1. Update the local React state immediately for snappy UI
+    setInventoryEntries(prev => {
+      return prev.map(item => {
+        const match = entriesToUpdate.find(u => u.id === item.id);
+        if (match) {
+          return { ...item, date: match.date, shiftId: match.shiftId };
+        }
+        return item;
+      });
+    });
+
+    setIsSaving(true);
+    let successCount = 0;
+    try {
+      for (const update of entriesToUpdate) {
+        const originalItem = inventoryEntries.find(x => x.id === update.id);
+        if (originalItem) {
+          const updatedItem = { ...originalItem, date: update.date, shiftId: update.shiftId };
+          const res = await rawUpdateRecord("INVENTARIO_FISICOV2", update.id, updatedItem);
+          if (res.success) {
+            successCount++;
+          }
+        }
+      }
+      
+      if (successCount === entriesToUpdate.length) {
+        addToast("Turno y fecha actualizados para todos los conteos", "success");
+        forceRefreshTable("INVENTARIO_FISICOV2");
+      } else if (successCount > 0) {
+        addToast(`Actualizados ${successCount} de ${entriesToUpdate.length} conteos en base de datos`, "warning");
+        forceRefreshTable("INVENTARIO_FISICOV2");
+      } else {
+        addToast("Error al sincronizar con la base de datos.", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      addToast("Error al realizar la actualización masiva.", "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSavePalletClass = (entry: PalletClassification) => {
     let exists = false;
     let nextEntries: PalletClassification[] = [];
@@ -1969,10 +2012,11 @@ export default function App() {
                     <InventoryView 
                         masters={masters} 
                         currentUser={currentUser}
-                        entries={inventoryEntries.filter(e => e.shiftId === userContext.selectedShiftId && e.date === userContext.selectedDate)}
-                        productionReports={productionReports.filter(r => r.shiftId === userContext.selectedShiftId && r.date === userContext.selectedDate)}
+                        entries={inventoryEntries}
+                        productionReports={productionReports}
                         onSave={handleSaveInventory}
                         onDelete={handleDeleteInventory}
+                        onBulkUpdate={handleBulkUpdateInventory}
                         selectedShiftId={userContext.selectedShiftId}
                         selectedDate={userContext.selectedDate}
                     />
