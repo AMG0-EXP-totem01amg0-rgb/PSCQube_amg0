@@ -41,10 +41,29 @@ const MaterialStatCard = ({ item }: { item: any; key?: React.Key }) => {
                 <span className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Stock Contado</span>
                 <span className="font-mono text-base font-bold text-text-main">{item.stock.toFixed(decimals)} {unit}</span>
               </div>
-              <div className="flex justify-between items-baseline border-b border-white/5 pb-2">
-                <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Prod. Turno (+)</span>
-                <span className="font-mono text-base font-bold text-emerald-400">{(item.production || 0).toFixed(decimals)} {unit}</span>
-              </div>
+              
+              {item.isProductive && item.shiftProduction && item.shiftProduction.length > 0 ? (
+                <div className="space-y-2 border-b border-white/5 pb-2">
+                  <div className="space-y-1 bg-white/[0.01] border border-white/5 p-2 rounded-lg">
+                    {item.shiftProduction.map((sp: any, idx: number) => (
+                      <div key={idx} className="flex justify-between items-baseline">
+                        <span className="text-[10px] text-text-muted font-medium">Ttal {sp.shiftName} (+)</span>
+                        <span className="font-mono text-xs font-semibold text-emerald-400">{(sp.amount || 0).toFixed(decimals)} {unit}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-between items-baseline">
+                    <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Total Producido</span>
+                    <span className="font-mono text-base font-bold text-emerald-400">{(item.production || 0).toFixed(decimals)} {unit}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-between items-baseline border-b border-white/5 pb-2">
+                  <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Prod. Turno (+)</span>
+                  <span className="font-mono text-base font-bold text-emerald-400">{(item.production || 0).toFixed(decimals)} {unit}</span>
+                </div>
+              )}
+
               <div className="flex justify-between items-baseline border-b border-white/5 pb-2">
                 <span className="text-[10px] text-red-500 font-bold uppercase tracking-wider">Despacho (-)</span>
                 <span className="font-mono text-base font-bold text-red-500">{(item.dispatch || 0).toFixed(decimals)} {unit}</span>
@@ -232,6 +251,7 @@ export default function DashboardView({
       let productionVal = 0;
       let dispatchVal = 0;
       let totalVal = 0;
+      let shiftProduction: { shiftName: string; amount: number }[] = [];
 
       if (m.isProductive) {
         // Special cumulative logic for productive materials
@@ -259,6 +279,34 @@ export default function DashboardView({
             }
             return sum;
           }, 0);
+
+        // Calculate shift production breakdown
+        const sortedShifts = [...(masters.shifts || [])].sort((a, b) => getShiftOrder(a.id) - getShiftOrder(b.id));
+        sortedShifts.forEach((sh: any) => {
+          if (getShiftOrder(sh.id) <= currentOrder) {
+            const shProd = prodData
+              .filter(r => r.shiftId === sh.id)
+              .reduce((sum, r) => {
+                const details = r.materialsDetails || [];
+                if (details.length > 0) {
+                  const matchedDetails = details.filter((det: any) => det.materialId === m.id);
+                  const subSum = matchedDetails.reduce((dSum: number, det: any) => {
+                    const val = det.tonsProduced || 0;
+                    return dSum + (Number(val) || 0);
+                  }, 0);
+                  return sum + subSum;
+                } else if (r.materialId === m.id) {
+                  const val = r.tonsProduced || 0;
+                  return sum + (Number(val) || 0);
+                }
+                return sum;
+              }, 0);
+            shiftProduction.push({
+              shiftName: sh.name,
+              amount: shProd
+            });
+          }
+        });
 
         // 3. Dispatch: Calculate raw dispatches for S3, S1, S2
         const dispData = allDispatchEntries || dispatchEntries || [];
@@ -335,7 +383,8 @@ export default function DashboardView({
           total: totalVal,
           isUnitary,
           isProductive: m.isProductive,
-          isBigBag: m.isBigBag
+          isBigBag: m.isBigBag,
+          shiftProduction: m.isProductive ? shiftProduction : undefined
         };
 
         if (m.isPallet) {
