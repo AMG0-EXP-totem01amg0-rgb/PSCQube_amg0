@@ -22,7 +22,7 @@ interface Props {
 
 const MaterialStatCard = ({ item }: { item: any; key?: React.Key }) => {
   const unit = item.isUnitary ? 'U' : 'TN';
-  const decimals = item.isUnitary ? 0 : 1;
+  const decimals = item.isProductive ? 0 : (item.isUnitary ? 0 : 1);
   
   return (
     <div className="ui-card p-5 relative overflow-hidden group transition-all duration-500 border-primary/20">
@@ -70,10 +70,17 @@ const MaterialStatCard = ({ item }: { item: any; key?: React.Key }) => {
               </div>
             </>
           )}
-          <div className="flex justify-between items-baseline pt-2">
-            <span className="text-[11px] text-text-main font-black uppercase tracking-widest">Total Disp.</span>
-            <span className="font-mono text-2xl font-black text-primary">{item.total.toFixed(decimals)} {unit}</span>
-          </div>
+          {item.isBigBag ? (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-1 gap-2 sm:gap-4">
+              <span className="text-[10px] text-text-muted font-bold uppercase tracking-widest">Total Disponible BigBag</span>
+              <span className="font-mono text-2xl font-black text-primary">{item.total.toFixed(decimals)} {unit}</span>
+            </div>
+          ) : (
+            <div className="flex justify-between items-baseline pt-2">
+              <span className="text-[11px] text-text-main font-black uppercase tracking-widest">Total Disp.</span>
+              <span className="font-mono text-2xl font-black text-primary">{item.total.toFixed(decimals)} {unit}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -598,10 +605,24 @@ export default function DashboardView({
             </GlassButton>
           </div>
 
-          {/* Individual Cards (Productive & Bigbags) */}
-          {(inventorySummary.productive.length > 0 || inventorySummary.bigbags.length > 0) && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {[...inventorySummary.productive, ...inventorySummary.bigbags].map((item, idx) => (
+          {/* Tarjetas de Materiales Productivos */}
+          {inventorySummary.productive.length > 0 && (
+            <div className={cn(
+              "grid gap-4",
+              inventorySummary.productive.length === 1 ? "grid-cols-1" :
+              inventorySummary.productive.length === 2 ? "grid-cols-1 md:grid-cols-2" :
+              "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+            )}>
+              {inventorySummary.productive.map((item, idx) => (
+                <MaterialStatCard key={item.id || idx} item={item} />
+              ))}
+            </div>
+          )}
+
+          {/* Totalizador de BigBag (Opción B: Bloque independiente de ancho completo por debajo) */}
+          {inventorySummary.bigbags.length > 0 && (
+            <div className="grid grid-cols-1 gap-4">
+              {inventorySummary.bigbags.map((item, idx) => (
                 <MaterialStatCard key={item.id || idx} item={item} />
               ))}
             </div>
