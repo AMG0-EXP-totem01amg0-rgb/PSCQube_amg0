@@ -634,7 +634,7 @@ export default function DashboardView({
                         <tbody className="divide-y divide-white/5">
                           {group.data.map((item: any, idx: number) => {
                               const unit = item.isUnitary ? 'U' : 'TN';
-                              const decimals = item.isUnitary ? 0 : 1;
+                              const decimals = 0;
                               return (
                                 <tr key={idx} className="hover:bg-white/5 transition-colors">
                                   <td className="px-6 py-4">
@@ -693,7 +693,141 @@ export default function DashboardView({
           </GlassButton>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Tabla Resumen de Rendimiento de Paletizadoras (Formato PDF adaptado) */}
+        <GlassCard className="p-0 overflow-hidden border-primary/10">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-bg/40 text-[10px] uppercase font-black text-text-muted tracking-widest">
+                <tr>
+                  <th className="px-6 py-4">Paletizadora</th>
+                  <th className="px-6 py-4 text-center">Marcha</th>
+                  <th className="px-6 py-4 text-center">OEE</th>
+                  <th className="px-6 py-4 text-center">Disponibilidad</th>
+                  <th className="px-6 py-4 text-center">Rendimiento</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {palletizerData.map(({ palletizer, runHours, oee, availability, performance }, idx) => (
+                  <tr key={idx} className="hover:bg-white/5 transition-colors">
+                    <td className="px-6 py-4">
+                      <span className="text-sm font-black text-text-main uppercase">{palletizer.name}</span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className="font-mono text-xs font-bold text-text-main">{runHours} hs</span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className="font-mono text-xs font-bold text-emerald-400">{Math.round(oee || 0).toFixed(0)}%</span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className="font-mono text-xs font-bold text-blue-400">{Math.round(availability || 0).toFixed(0)}%</span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className="font-mono text-xs font-bold text-pink-400">{Math.round(performance || 0).toFixed(0)}%</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </GlassCard>
+
+        {/* Detalle por Paletizadora en Formato Estructurado de 3 Columnas (Como en el PDF) */}
+        <div className="space-y-6">
+          {palletizerData.map(({ palletizer, topStops, tonsByMaterial, activeNozzles, totalTons }) => (
+            <GlassCard key={palletizer.id} className="p-6 sm:p-8 overflow-hidden border-primary/10 hover:border-primary/30 transition-all duration-500">
+              <h3 className="text-lg font-black text-primary uppercase tracking-wider mb-4 border-b border-white/5 pb-2">
+                {palletizer.name}
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-text-main">
+                {/* Columna 1: Producción */}
+                <div className="border-b md:border-b-0 md:border-r border-white/5 pb-6 md:pb-0 md:pr-6">
+                  <span className="text-[9px] font-black text-text-muted uppercase tracking-wider block mb-3">Producción</span>
+                  {Object.entries(tonsByMaterial).length > 0 ? (
+                    <div className="space-y-2">
+                      {Object.entries(tonsByMaterial).map(([mId, tons]) => {
+                        const t = tons as number;
+                        const mName = masters.materials.find((m: any) => m.id === mId)?.name || 'Material';
+                        return (
+                          <div key={mId} className="flex justify-between items-baseline font-semibold text-text-main uppercase">
+                            <span className="truncate max-w-[150px]">{mName}</span>
+                            <span className="font-mono text-xs font-bold text-text-main">{Math.round(t).toFixed(0)} TN</span>
+                          </div>
+                        );
+                      })}
+                      <div className="pt-2 mt-2 border-t border-dashed border-white/10 flex justify-between font-extrabold text-xs text-primary">
+                        <span>TOTAL</span>
+                        <span className="font-mono">{Math.round(totalTons).toFixed(0)} TN</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-text-muted italic font-medium">Sin producción registrada</p>
+                  )}
+                </div>
+
+                {/* Columna 2: Boquillas Activas / Envasadora */}
+                <div className="border-b md:border-b-0 md:border-r border-white/5 pb-6 md:pb-0 md:pr-6">
+                  <span className="text-[9px] font-black text-text-muted uppercase tracking-wider block mb-3">Boquillas Activas / Envasadora</span>
+                  {activeNozzles.length > 0 ? (
+                    <div className="space-y-3">
+                      {activeNozzles.map((nozzle, nidx) => (
+                        <div key={nidx} className="flex flex-col gap-1 pb-2 border-b border-white/5 last:border-none last:pb-0">
+                          <div className="flex justify-between items-center">
+                            <span className="font-semibold text-text-main uppercase truncate mr-2">{nozzle.baggerName}</span>
+                            <span className="font-mono font-extrabold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded text-[10px]">{nozzle.nozzles} bq.</span>
+                          </div>
+                          {nozzle.observations && nozzle.observations.length > 0 && (
+                            <div className="flex flex-col gap-1 w-full">
+                              {nozzle.observations.map((obs: string, oIdx: number) => (
+                                <NozzleObservationItem key={oIdx} observation={obs} />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-text-muted italic font-medium">No hay boquillas reportadas</p>
+                  )}
+                </div>
+
+                {/* Columna 3: Paros / Alarmas de Operación */}
+                <div>
+                  <span className="text-[9px] font-black text-text-muted uppercase tracking-wider block mb-3">Paros / Alarmas de Operación</span>
+                  {topStops.length > 0 ? (
+                    <div className="space-y-2">
+                      {topStops.slice(0, 4).map((stop, sidx) => {
+                        const causeText = stop.causeText || masters.causes.find((c: any) => c.id === stop.causeId)?.text || 'Error registrado';
+                        return (
+                          <div key={sidx} className="flex justify-between items-start leading-tight border-b border-white/5 pb-2 last:border-none last:pb-0">
+                            <div className="flex-1 min-w-0 pr-2">
+                              <p className="font-bold text-red-400 uppercase leading-snug break-words text-xs">
+                                {causeText}
+                              </p>
+                              <span className="text-[9px] text-text-muted font-mono block mt-0.5 font-semibold">
+                                HAC: {stop.hacName || 'Genérico'}
+                              </span>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <span className="font-mono text-red-400 font-black bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded text-[10px] block">
+                                {Math.round(stop.durationMinutes).toFixed(0)}m
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-text-muted italic font-medium">Operación limpia. Sin paros registrados.</p>
+                  )}
+                </div>
+              </div>
+            </GlassCard>
+          ))}
+        </div>
+
+        <div className="hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {palletizerData.map(({ palletizer, topStops, tonsByMaterial, prodByBaggerAndMaterial, runHours, oee, availability, performance, activeNozzles, totalTons }) => (
             <GlassCard key={palletizer.id} className="p-8 overflow-hidden border-primary/10 hover:border-primary/30 transition-all duration-500">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 border-b border-white/5 pb-4">
@@ -808,6 +942,7 @@ export default function DashboardView({
               </div>
             </GlassCard>
           ))}
+        </div>
         </div>
       </section>
 
