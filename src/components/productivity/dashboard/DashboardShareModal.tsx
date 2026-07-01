@@ -251,48 +251,125 @@ export default function DashboardShareModal({
             </h2>
 
             {/* Main Table: Productive & BigBags */}
-            <div className="border border-gray-200 rounded-lg overflow-hidden mb-4 shadow-sm">
-              <table className="w-full text-left text-[11px] sm:text-xs">
-                <tbody className="divide-y divide-gray-150">
-                  <tr className="bg-[#002f6c] text-white text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider">
-                    <th className="px-3 py-2">Material</th>
-                    <th className="px-3 py-2 text-center">Stock Contado</th>
-                    <th className="px-3 py-2 text-center">Prod. Turno (+)</th>
-                    <th className="px-3 py-2 text-center">Despacho (-)</th>
-                    <th className="px-3 py-2 text-center">Total Disp.</th>
-                  </tr>
-                  {[...inventorySummary.productive, ...inventorySummary.bigbags].map((item, idx) => {
-                    const unit = item.isUnitary ? 'U' : 'TN';
-                    const isBigBag = item.isBigBag;
-                    
-                    return (
-                      <tr key={idx} className={cn("hover:bg-gray-50/50 transition-colors", idx % 2 === 0 ? "bg-white" : "bg-gray-50/30")}>
-                        <td className="px-3 py-1.5 font-bold text-gray-900 uppercase">
-                          {item.name}
-                          {isBigBag && (
-                            <span className="text-[8px] font-bold text-gray-400 uppercase tracking-wider ml-1.5">
-                              (Big Bag)
-                            </span>
-                          )}
+            {inventorySummary.productive.length > 0 && (
+              <div className="mb-4">
+                <div className="text-[9px] sm:text-[10px] font-black text-[#002f6c] uppercase tracking-wider mb-1.5 flex justify-between items-center">
+                  <span>Materiales Productivos (Granel / Bolsa)</span>
+                  <span className="text-[8px] text-gray-400 font-mono font-bold uppercase">{inventorySummary.productive.length} ÍTEMS</span>
+                </div>
+                <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                  <table className="w-full text-left text-[11px] sm:text-xs">
+                    <tbody className="divide-y divide-gray-150">
+                      <tr className="bg-[#002f6c] text-white text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider">
+                        <th className="px-3 py-2">Material</th>
+                        <th className="px-3 py-2 text-center">Stock Contado</th>
+                        <th className="px-3 py-2 text-center">Prod. Turno (+)</th>
+                        <th className="px-3 py-2 text-center">Despacho (-)</th>
+                        <th className="px-3 py-2 text-center">Total Disp.</th>
+                      </tr>
+                      {inventorySummary.productive.map((item, idx) => {
+                        const unit = item.isUnitary ? 'U' : 'TN';
+                        return (
+                          <tr key={idx} className={cn("hover:bg-gray-50/50 transition-colors", idx % 2 === 0 ? "bg-white" : "bg-gray-50/30")}>
+                            <td className="px-3 py-1.5 font-bold text-gray-900 uppercase">
+                              {item.name}
+                            </td>
+                            <td className="px-3 py-1.5 text-center font-mono font-semibold text-gray-700">
+                              {Math.round(item.stock).toFixed(0)} {unit}
+                            </td>
+                            <td className="px-3 py-1.5 text-center font-mono font-bold text-emerald-600">
+                              +{Math.round(item.production || 0).toFixed(0)} {unit}
+                            </td>
+                            <td className="px-3 py-1.5 text-center font-mono font-bold text-red-600">
+                              -{Math.round(item.dispatch || 0).toFixed(0)} {unit}
+                            </td>
+                            <td className="px-3 py-1.5 text-center font-mono font-black text-blue-900 bg-blue-50/20">
+                              {Math.round(item.total).toFixed(0)} {unit}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {/* Fila de Totales Productivos */}
+                      <tr className="bg-gray-100/90 font-bold border-t-2 border-gray-300">
+                        <td className="px-3 py-1.5 font-black text-gray-900 uppercase text-[9px] sm:text-[10px]">TOTAL PRODUCTIVOS</td>
+                        <td className="px-3 py-1.5 text-center font-mono font-black text-gray-900">
+                          {Math.round(inventorySummary.productive.reduce((sum, item) => sum + (Number(item.stock) || 0), 0)).toFixed(0)} TN
                         </td>
-                        <td className="px-3 py-1.5 text-center font-mono font-semibold text-gray-700">
-                          {isBigBag ? '-' : `${Math.round(item.stock).toFixed(0)} ${unit}`}
+                        <td className="px-3 py-1.5 text-center font-mono font-black text-emerald-700">
+                          +{Math.round(inventorySummary.productive.reduce((sum, item) => sum + (Number(item.production) || 0), 0)).toFixed(0)} TN
                         </td>
-                        <td className="px-3 py-1.5 text-center font-mono font-bold text-emerald-600">
-                          {isBigBag ? '-' : `+${Math.round(item.production || 0).toFixed(0)} ${unit}`}
+                        <td className="px-3 py-1.5 text-center font-mono font-black text-red-700">
+                          -{Math.round(inventorySummary.productive.reduce((sum, item) => sum + (Number(item.dispatch) || 0), 0)).toFixed(0)} TN
                         </td>
-                        <td className="px-3 py-1.5 text-center font-mono font-bold text-red-600">
-                          {isBigBag ? '-' : `-${Math.round(item.dispatch || 0).toFixed(0)} ${unit}`}
-                        </td>
-                        <td className="px-3 py-1.5 text-center font-mono font-black text-blue-900 bg-blue-50/20">
-                          {Math.round(item.total).toFixed(0)} {unit}
+                        <td className="px-3 py-1.5 text-center font-mono font-black text-blue-950 bg-blue-100/30">
+                          {Math.round(inventorySummary.productive.reduce((sum, item) => sum + (Number(item.total) || 0), 0)).toFixed(0)} TN
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {inventorySummary.bigbags.length > 0 && (
+              <div className="mb-4">
+                <div className="text-[9px] sm:text-[10px] font-black text-[#002f6c] uppercase tracking-wider mb-1.5 flex justify-between items-center">
+                  <span>Materiales en Big Bag</span>
+                  <span className="text-[8px] text-gray-400 font-mono font-bold uppercase">{inventorySummary.bigbags.length} ÍTEMS</span>
+                </div>
+                <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                  <table className="w-full text-left text-[11px] sm:text-xs">
+                    <tbody className="divide-y divide-gray-150">
+                      <tr className="bg-[#002f6c] text-white text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider">
+                        <th className="px-3 py-2">Material</th>
+                        <th className="px-3 py-2 text-center">Stock Contado</th>
+                        <th className="px-3 py-2 text-center">Prod. Turno (+)</th>
+                        <th className="px-3 py-2 text-center">Despacho (-)</th>
+                        <th className="px-3 py-2 text-center">Total Disp.</th>
+                      </tr>
+                      {inventorySummary.bigbags.map((item, idx) => {
+                        const unit = item.isUnitary ? 'U' : 'TN';
+                        return (
+                          <tr key={idx} className={cn("hover:bg-gray-50/50 transition-colors", idx % 2 === 0 ? "bg-white" : "bg-gray-50/30")}>
+                            <td className="px-3 py-1.5 font-bold text-gray-900 uppercase">
+                              {item.name}
+                            </td>
+                            <td className="px-3 py-1.5 text-center font-mono font-semibold text-gray-700">
+                              {Math.round(item.stock).toFixed(0)} {unit}
+                            </td>
+                            <td className="px-3 py-1.5 text-center font-mono font-bold text-emerald-600">
+                              +{Math.round(item.production || 0).toFixed(0)} {unit}
+                            </td>
+                            <td className="px-3 py-1.5 text-center font-mono font-bold text-red-600">
+                              -{Math.round(item.dispatch || 0).toFixed(0)} {unit}
+                            </td>
+                            <td className="px-3 py-1.5 text-center font-mono font-black text-blue-900 bg-blue-50/20">
+                              {Math.round(item.total).toFixed(0)} {unit}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {/* Fila de Totales Big Bag */}
+                      <tr className="bg-gray-100/90 font-bold border-t-2 border-gray-300">
+                        <td className="px-3 py-2 font-black text-gray-900 uppercase text-[9px] sm:text-[10px]">TOTAL BIG BAGS</td>
+                        <td className="px-3 py-2 text-center font-mono font-black text-gray-900">
+                          {Math.round(inventorySummary.bigbags.reduce((sum, item) => sum + (Number(item.stock) || 0), 0)).toFixed(0)} U
+                        </td>
+                        <td className="px-3 py-2 text-center font-mono font-black text-emerald-700">
+                          +{Math.round(inventorySummary.bigbags.reduce((sum, item) => sum + (Number(item.production) || 0), 0)).toFixed(0)} U
+                        </td>
+                        <td className="px-3 py-2 text-center font-mono font-black text-red-700">
+                          -{Math.round(inventorySummary.bigbags.reduce((sum, item) => sum + (Number(item.dispatch) || 0), 0)).toFixed(0)} U
+                        </td>
+                        <td className="px-3 py-2 text-center font-mono font-black text-blue-950 bg-blue-100/30">
+                          {Math.round(inventorySummary.bigbags.reduce((sum, item) => sum + (Number(item.total) || 0), 0)).toFixed(0)} U
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             {/* Side-by-side Tables: Tarimas and No Productivos */}
             <div className="grid grid-cols-2 gap-4">
