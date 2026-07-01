@@ -607,12 +607,7 @@ export default function DashboardView({
 
           {/* Tarjetas de Materiales Productivos */}
           {inventorySummary.productive.length > 0 && (
-            <div className={cn(
-              "grid gap-4",
-              inventorySummary.productive.length === 1 ? "grid-cols-1" :
-              inventorySummary.productive.length === 2 ? "grid-cols-1 md:grid-cols-2" :
-              "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
-            )}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {inventorySummary.productive.map((item, idx) => (
                 <MaterialStatCard key={item.id || idx} item={item} />
               ))}
@@ -734,16 +729,16 @@ export default function DashboardView({
                       <span className="text-sm font-black text-text-main uppercase">{palletizer.name}</span>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <span className="font-mono text-xs font-bold text-text-main">{runHours} hs</span>
+                      <span className="font-mono text-sm font-bold text-text-main">{runHours} hs</span>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <span className="font-mono text-xs font-bold text-emerald-400">{Math.round(oee || 0).toFixed(0)}%</span>
+                      <span className="font-mono text-sm font-extrabold text-emerald-400">{Math.round(oee || 0).toFixed(0)}%</span>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <span className="font-mono text-xs font-bold text-blue-400">{Math.round(availability || 0).toFixed(0)}%</span>
+                      <span className="font-mono text-sm font-extrabold text-blue-400">{Math.round(availability || 0).toFixed(0)}%</span>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <span className="font-mono text-xs font-bold text-pink-400">{Math.round(performance || 0).toFixed(0)}%</span>
+                      <span className="font-mono text-sm font-extrabold text-pink-400">{Math.round(performance || 0).toFixed(0)}%</span>
                     </td>
                   </tr>
                 ))}
@@ -772,13 +767,13 @@ export default function DashboardView({
                         return (
                           <div key={mId} className="flex justify-between items-baseline font-semibold text-text-main uppercase">
                             <span className="truncate max-w-[150px]">{mName}</span>
-                            <span className="font-mono text-xs font-bold text-text-main">{Math.round(t).toFixed(0)} TN</span>
+                            <span className="font-mono text-sm font-bold text-text-main">{Math.round(t).toFixed(0)} TN</span>
                           </div>
                         );
                       })}
-                      <div className="pt-2 mt-2 border-t border-dashed border-white/10 flex justify-between font-extrabold text-xs text-primary">
+                      <div className="pt-2 mt-2 border-t border-dashed border-white/10 flex justify-between font-extrabold text-sm text-primary">
                         <span>TOTAL</span>
-                        <span className="font-mono">{Math.round(totalTons).toFixed(0)} TN</span>
+                        <span className="font-mono text-sm font-black">{Math.round(totalTons).toFixed(0)} TN</span>
                       </div>
                     </div>
                   ) : (
@@ -795,7 +790,7 @@ export default function DashboardView({
                         <div key={nidx} className="flex flex-col gap-1 pb-2 border-b border-white/5 last:border-none last:pb-0">
                           <div className="flex justify-between items-center">
                             <span className="font-semibold text-text-main uppercase truncate mr-2">{nozzle.baggerName}</span>
-                            <span className="font-mono font-extrabold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded text-[10px]">{nozzle.nozzles} bq.</span>
+                            <span className="font-mono font-black text-amber-400 bg-amber-400/10 px-2.5 py-0.5 rounded text-xs">{nozzle.nozzles} bq.</span>
                           </div>
                           {nozzle.observations && nozzle.observations.length > 0 && (
                             <div className="flex flex-col gap-1 w-full">
@@ -830,7 +825,7 @@ export default function DashboardView({
                               </span>
                             </div>
                             <div className="shrink-0 text-right">
-                              <span className="font-mono text-red-400 font-black bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded text-[10px] block">
+                              <span className="font-mono text-red-400 font-black bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded text-xs block">
                                 {Math.round(stop.durationMinutes).toFixed(0)}m
                               </span>
                             </div>
@@ -1017,24 +1012,24 @@ export default function DashboardView({
                       
                       return ( status ? (
                         <tr key={lp.id} className="hover:bg-white/[0.02] transition-colors">
-                          <td className="px-8 py-6">
-                            <span className="text-lg font-black text-text-main uppercase tracking-tight">{lp.name}</span>
+                          <td className="px-8 py-5">
+                            <span className="text-sm font-black text-text-main uppercase tracking-wider">{lp.name}</span>
                           </td>
-                          <td className="px-8 py-6">
+                          <td className="px-8 py-5">
                             <div className="flex items-center gap-3">
                               <div className={cn(
-                                "w-3 h-3 rounded-full animate-pulse shadow-[0_0_10px_rgba(0,0,0,0.5)]",
+                                "w-2.5 h-2.5 rounded-full animate-pulse shadow-[0_0_10px_rgba(0,0,0,0.5)]",
                                 isEnabled ? "bg-emerald-500 shadow-emerald-500/50" : "bg-red-500 shadow-red-500/50"
                               )} />
                               <span className={cn(
-                                "text-xs font-black uppercase tracking-widest",
+                                "text-[10px] font-black uppercase tracking-wider",
                                 isEnabled ? "text-emerald-500" : "text-red-500"
                               )}>
                                 {isEnabled ? 'OPERATIVA' : 'FUERA DE SERVICIO'}
                               </span>
                             </div>
                           </td>
-                          <td className="px-8 py-6">
+                          <td className="px-8 py-5">
                             {isEnabled ? (
                               <div className="flex flex-wrap gap-2">
                                 {status.materialIds.length > 0 ? (
@@ -1044,12 +1039,12 @@ export default function DashboardView({
                                     </span>
                                   ))
                                 ) : (
-                                  <span className="text-xs font-bold text-emerald-500/40 uppercase italic tracking-widest">Disponible para carga general</span>
+                                  <span className="text-[11px] font-semibold text-emerald-500/40 uppercase italic tracking-wider">Disponible para carga general</span>
                                 )}
                               </div>
                             ) : (
-                              <div className="bg-red-500/5 border border-red-500/20 px-4 py-2 rounded-xl">
-                                <p className="text-sm font-bold text-red-400 italic">
+                              <div className="bg-red-500/5 border border-red-500/20 px-4 py-1.5 rounded-xl">
+                                <p className="text-xs font-bold text-red-400 italic">
                                    Reporte: {status.observation || 'Sin detalles adicionales'}
                                 </p>
                               </div>
@@ -1058,13 +1053,13 @@ export default function DashboardView({
                         </tr>
                       ) : (
                         <tr key={lp.id} className="opacity-40">
-                          <td className="px-8 py-6">
-                            <span className="text-lg font-black text-text-main uppercase tracking-tight">{lp.name}</span>
+                          <td className="px-8 py-5">
+                            <span className="text-sm font-black text-text-main uppercase tracking-wider">{lp.name}</span>
                           </td>
-                          <td className="px-8 py-6">
-                            <span className="text-xs font-bold text-text-muted uppercase tracking-widest italic">Sin reporte de turno</span>
+                          <td className="px-8 py-5">
+                            <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider italic">Sin reporte de turno</span>
                           </td>
-                          <td className="px-8 py-6 text-text-muted/40 italic text-xs">
+                          <td className="px-8 py-5 text-text-muted/40 italic text-[11px]">
                              Esperando actualización de estado...
                           </td>
                         </tr>
