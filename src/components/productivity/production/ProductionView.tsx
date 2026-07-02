@@ -58,11 +58,10 @@ const isStopForMachine = (stop: any, machineId: string | any | null | undefined,
   const stopMachineId = String(stop.machineId || "").trim().toUpperCase();
   const stopMachineName = String(stop.machineName || "").trim().toUpperCase();
   const stopMachineHacText = String(stop.machineHacText || "").trim().toUpperCase();
-  const stopHacName = String(stop.hacName || stop.hac || "").trim().toUpperCase();
 
   if (!selectedMac) {
     // If we can't find reference in master tables, check if stop's fields strictly equal targetId
-    return stopMachineId === targetId || stopMachineHacText === targetId || stopMachineName === targetId || stopHacName === targetId;
+    return stopMachineId === targetId || stopMachineHacText === targetId || stopMachineName === targetId;
   }
 
   // Machine's fields
@@ -71,7 +70,7 @@ const isStopForMachine = (stop: any, machineId: string | any | null | undefined,
   const macHacId = String(selectedMac.hacId || selectedMac.hac_id || "").trim().toUpperCase();
 
   // Strict match among any of the stop and mac fields
-  const stopFields = [stopMachineId, stopMachineName, stopMachineHacText, stopHacName].filter(Boolean);
+  const stopFields = [stopMachineId, stopMachineName, stopMachineHacText].filter(Boolean);
   const macFields = [macId, macName, macHacId].filter(Boolean);
 
   for (const sField of stopFields) {
@@ -93,7 +92,6 @@ const isStopForMachine = (stop: any, machineId: string | any | null | undefined,
 
   // Special inclusion match if they contain HAC ID (e.g. "MG.673-PZ1")
   if (macHacId && (stopMachineHacText.includes(macHacId) || macHacId.includes(stopMachineHacText))) return true;
-  if (macHacId && (stopHacName.includes(macHacId) || macHacId.includes(stopHacName))) return true;
 
   return false;
 };

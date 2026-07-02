@@ -29,17 +29,16 @@ function isStopForMachine(stop: any, machineId: string | any, dbPalletizers: any
   const stopMachineId = String(stop.machineId || stop.maquina_id || "").trim().toUpperCase();
   const stopMachineName = String(stop.machineName || stop.nombre_maquina || "").trim().toUpperCase();
   const stopMachineHacText = String(stop.machineHacText || stop.maquina_hac || "").trim().toUpperCase();
-  const stopHacName = String(stop.hacName || stop.hac || "").trim().toUpperCase();
 
   if (!selectedMac) {
-    return stopMachineId === targetId || stopMachineHacText === targetId || stopMachineName === targetId || stopHacName === targetId;
+    return stopMachineId === targetId || stopMachineHacText === targetId || stopMachineName === targetId;
   }
 
   const macId = String(selectedMac.id).trim().toUpperCase();
   const macName = String(selectedMac.name || selectedMac.nombre || "").trim().toUpperCase();
   const macHacId = String(selectedMac.hacId || selectedMac.hac_id || "").trim().toUpperCase();
 
-  const stopFields = [stopMachineId, stopMachineName, stopMachineHacText, stopHacName].filter(Boolean);
+  const stopFields = [stopMachineId, stopMachineName, stopMachineHacText].filter(Boolean);
   const macFields = [macId, macName, macHacId].filter(Boolean);
 
   for (const sField of stopFields) {
@@ -59,7 +58,6 @@ function isStopForMachine(stop: any, machineId: string | any, dbPalletizers: any
   }
 
   if (macHacId && (stopMachineHacText.includes(macHacId) || macHacId.includes(stopMachineHacText))) return true;
-  if (macHacId && (stopHacName.includes(macHacId) || macHacId.includes(stopHacName))) return true;
 
   return false;
 }
