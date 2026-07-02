@@ -429,7 +429,10 @@ export default function App() {
       } else if (upper === "CAPACIDADESV2" || upper === "CAPACIDADES") {
         setCapacities(data);
       } else if (upper === "USUARIOSV2" || upper === "USUARIOS") {
-        setUsers(data);
+        const sorted = [...data].sort((a, b) => 
+          String(a.name || a.nombre || "").localeCompare(String(b.name || b.nombre || ""), "es", { sensitivity: "base" })
+        );
+        setUsers(sorted);
       } else if (upper === "EMPRESASV2" || upper === "EMPRESAS") {
         setCompanies(data);
       } else if (upper === "PUNTOS_CARGAV2" || upper === "PUNTOS_CARGA") {
@@ -854,8 +857,11 @@ export default function App() {
             }
             return { ...u, permissions: perms };
           });
-          setUsers(normalized);
-          const activeDni = targetDni || sessionStorage.getItem('pscqube_user_dni') || (normalized[0]?.dni || '');
+          const sorted = normalized.sort((a, b) => 
+            String(a.name || "").localeCompare(String(b.name || ""), "es", { sensitivity: "base" })
+          );
+          setUsers(sorted);
+          const activeDni = targetDni || sessionStorage.getItem('pscqube_user_dni') || (sorted[0]?.dni || '');
           if (activeDni) setUserContext(prev => ({ ...prev, currentUserDni: activeDni }));
         }
       }
@@ -2120,8 +2126,11 @@ export default function App() {
                             permissions: perms
                           };
                         });
-                        setUsers(cleaned);
-                        targetData = cleaned;
+                        const sorted = cleaned.sort((a, b) => 
+                          String(a.name || "").localeCompare(String(b.name || ""), "es", { sensitivity: "base" })
+                        );
+                        setUsers(sorted);
+                        targetData = sorted;
                       }
                       if (type === 'COMPANIES') setCompanies(data as Company[]);
                       if (type === 'PUNTOS_CARGA') setLoadingPoints(data);

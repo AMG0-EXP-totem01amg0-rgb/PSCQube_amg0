@@ -400,12 +400,12 @@ export default function AdminView({
     let newList;
     if (activeTab === "CAPACITIES") {
       newList = list.filter(
-        (i) => `${i.palletizerId}-${i.baggerId}-${i.materialId}` !== deletingId,
+        (i) => String(`${i.palletizerId}-${i.baggerId}-${i.materialId}`).trim().toLowerCase() !== String(deletingId).trim().toLowerCase(),
       );
     } else if (activeTab === "USERS") {
-      newList = list.filter((i) => i.dni !== deletingId);
+      newList = list.filter((i) => String(i.dni).trim() !== String(deletingId).trim());
     } else {
-      newList = list.filter((i) => i.id !== deletingId);
+      newList = list.filter((i) => String(i.id || i.ID || "").trim() !== String(deletingId).trim());
     }
     onUpdateMasters(activeTab, newList);
     setDeletingId(null);

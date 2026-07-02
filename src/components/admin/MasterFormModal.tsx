@@ -29,6 +29,7 @@ const calculateShiftDuration = (start: string, end: string): number => {
 };
 
 export function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState<any>(
     item || {
       permissions: SYSTEM_VIEWS.map((v) => ({
@@ -81,6 +82,7 @@ export function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     let finalData = { ...formData };
 
     // Auto-generate ID if missing for all types
@@ -93,6 +95,14 @@ export function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
     }
 
     // For users, we use DNI as ID if needed but essentially DNI is the key
+    if (type === "USERS") {
+      const cleanDni = String(finalData.dni || "").replace(/\D/g, "");
+      if (!cleanDni) {
+        setError("El DNI / LEGAJO es requerido y debe contener solo números.");
+        return;
+      }
+      finalData.dni = cleanDni;
+    }
 
     onSave(finalData);
   };
@@ -125,6 +135,11 @@ export function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold p-3 rounded-xl uppercase tracking-wider">
+                ⚠️ {error}
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {type === "SHIFTS" && (
                 <>
@@ -587,9 +602,10 @@ export function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                     <GlassInput
                       label="DNI / LEGAJO"
                       value={formData.dni || ""}
-                      onChange={(e: any) =>
-                        setFormData({ ...formData, dni: e.target.value })
-                      }
+                      onChange={(e: any) => {
+                        const numericValue = e.target.value.replace(/\D/g, "");
+                        setFormData({ ...formData, dni: numericValue });
+                      }}
                     />
                     <GlassInput
                       label="NOMBRE / APELLIDO"
