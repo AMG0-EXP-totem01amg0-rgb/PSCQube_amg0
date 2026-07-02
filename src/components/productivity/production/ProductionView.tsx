@@ -350,6 +350,34 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
     return Math.max(0, hsShift - totalStopHours);
   }, [palletizerId, shiftId, selectedDate, stops, masters]);
 
+  // Get the TIS hours for this shift if registered in any of the reports in history
+  const shiftTisHours = useMemo(() => {
+    const reportWithTis = history.find(r => r.hsMarchaTis !== undefined && r.hsMarchaTis !== null && r.hsMarchaTis !== 0);
+    return reportWithTis ? reportWithTis.hsMarchaTis : null;
+  }, [history]);
+
+  // Determine if the TIS input should be shown in the form
+  const showTisInput = useMemo(() => {
+    // If the current editing item has its own hsMarchaTis, we show it so they can edit it.
+    if (editingItem && editingItem.hsMarchaTis !== undefined && editingItem.hsMarchaTis !== null && editingItem.hsMarchaTis !== 0) {
+      return true;
+    }
+    // Otherwise, if any other record in history already has a TIS value registered, we hide the input.
+    const hasOtherTis = history.some(r => 
+      r.hsMarchaTis !== undefined && 
+      r.hsMarchaTis !== null && 
+      r.hsMarchaTis !== 0 && 
+      (!editingItem || r.id !== editingItem.id)
+    );
+    return !hasOtherTis;
+  }, [history, editingItem]);
+
+  // Use the local input value if present, otherwise fallback to the shift's existing TIS hours
+  const effectiveTisValue = useMemo(() => {
+    if (formData.hsMarchaTis) return formData.hsMarchaTis;
+    return shiftTisHours !== null ? shiftTisHours.toString() : '';
+  }, [formData.hsMarchaTis, shiftTisHours]);
+
   // Calculate Global Summary (Automated)
   const totals = useMemo(() => {
     const totalTons = history.reduce((sum, r) => sum + (Number(r.tonsProduced) || 0), 0);
@@ -770,11 +798,12 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       header: 'TIS vs App',
       align: 'center',
       accessor: (row) => {
-        if (row.hsMarchaTis === undefined || row.hsMarchaTis === null) {
+        const rowTisValue = row.hsMarchaTis !== undefined && row.hsMarchaTis !== null ? row.hsMarchaTis : shiftTisHours;
+        if (rowTisValue === null || rowTisValue === undefined) {
           return <span className="text-[10px] text-text-muted/60 italic font-medium">Sin registrar</span>;
         }
         
-        const diff = hsCalculatedByApp - (row.hsMarchaTis || 0);
+        const diff = hsCalculatedByApp - rowTisValue;
         const absoluteDiff = Math.abs(diff);
         
         let colorClass = 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20';
@@ -793,7 +822,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
         return (
           <div className="flex flex-col items-center py-0.5">
             <span className="text-[10px] font-bold text-text-main font-mono">
-              TIS: {row.hsMarchaTis.toFixed(2)}h
+              TIS: {rowTisValue.toFixed(2)}h
             </span>
             <span className={cn("px-2 py-0.5 rounded-lg text-[8px] font-black tracking-wider uppercase mt-1", colorClass)}>
               {displayText}
@@ -946,7 +975,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
               <h4 className="text-xs font-black uppercase tracking-widest">1. Datos Generales del Turno</h4>
             </div>
             <div className="bg-bg-input/60 p-4 rounded-xl border border-border/50 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className={cn("grid grid-cols-1 gap-4", showTisInput ? "md:grid-cols-3" : "md:grid-cols-2")}>
                 <GlassSelect 
                   label="Ensacadora/Línea" 
                   options={masters.baggers.map((e:any) => ({label: e.name, value: e.id}))} 
@@ -961,6 +990,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                   placeholder="Ej: 4"
                 />
                 <GlassInput 
+                  className={!showTisInput ? "hidden" : ""}
                   label="Hs. Marcha TIS" 
                   type="number"
                   step="0.01"
@@ -980,17 +1010,17 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                   </div>
                 )}
 
-                {formData.hsMarchaTis && (
+                {effectiveTisValue && (
                   <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
                     <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-text-muted">
                       <span>Comparativa de Horas de Marcha</span>
                       <span className="font-mono text-text-main">
-                        App: {hsCalculatedByApp.toFixed(2)} hs | TIS: {parseFloat(formData.hsMarchaTis || "0").toFixed(2)} hs
+                        App: {hsCalculatedByApp.toFixed(2)} hs | TIS: {parseFloat(effectiveTisValue || "0").toFixed(2)} hs
                       </span>
                     </div>
                     
                     {(() => {
-                      const tisVal = parseFloat(formData.hsMarchaTis || "0");
+                      const tisVal = parseFloat(effectiveTisValue || "0");
                       const diff = hsCalculatedByApp - tisVal;
                       const absoluteDiff = Math.abs(diff);
                       

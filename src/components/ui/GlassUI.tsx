@@ -10,6 +10,7 @@ export function GlassCard({ children, className, ...props }: React.HTMLAttribute
 }
 
 export function GlassInput({ label, className, ...props }: any) {
+  if (className && className.includes("hidden")) return null;
   return (
     <div className="flex flex-col gap-2 w-full">
       <label className="text-xs font-semibold text-text-muted ml-0.5">{label}</label>
