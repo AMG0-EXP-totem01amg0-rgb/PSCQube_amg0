@@ -553,6 +553,26 @@ export function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                         Es Despacho
                       </label>
                     </div>
+                    <div className="flex items-center gap-3 bg-bg-input p-3 rounded-lg border border-border">
+                      <input
+                        type="checkbox"
+                        id="isBulk"
+                        checked={formData.isBulk || false}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            isBulk: e.target.checked,
+                          })
+                        }
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                      />
+                      <label
+                        htmlFor="isBulk"
+                        className="text-xs font-bold text-text-main uppercase"
+                      >
+                        Es Granel
+                      </label>
+                    </div>
                   </div>
                 </>
               )}

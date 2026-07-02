@@ -151,7 +151,8 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
       "es_productivo?",
       "es_insumo?",
       "es_bigbag?",
-      "es_despacho?"
+      "es_despacho?",
+      "es_granel?"
     ],
     clientToSheet: {
       id: "id",
@@ -163,7 +164,8 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
       isProductive: "es_productivo?",
       isSupply: "es_insumo?",
       isBigBag: "es_bigbag?",
-      isDispatch: "es_despacho?"
+      isDispatch: "es_despacho?",
+      isBulk: "es_granel?"
     },
     sheetToClient: {
       id: "id",
@@ -175,7 +177,8 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
       "es_productivo?": "isProductive",
       "es_insumo?": "isSupply",
       "es_bigbag?": "isBigBag",
-      "es_despacho?": "isDispatch"
+      "es_despacho?": "isDispatch",
+      "es_granel?": "isBulk"
     }
   },
   CAPACIDADESV2: {

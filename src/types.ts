@@ -51,6 +51,7 @@ export interface Material {
   isSupply: boolean;     // Es insumo?
   isBigBag: boolean;     // Es bigbag?
   isDispatch?: boolean;   // Es despacho?
+  isBulk?: boolean;       // Es granel?
 }
 
 export interface CapacityBDP {

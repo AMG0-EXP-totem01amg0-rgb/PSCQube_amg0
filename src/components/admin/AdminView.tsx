@@ -665,6 +665,11 @@ export default function AdminView({
               DESPACHO
             </span>
           )}
+          {row.isBulk && (
+            <span className="bg-cyan-500/10 text-cyan-500 border border-cyan-500/20 px-1 py-0.5 rounded text-[8px] font-bold">
+              GRANEL
+            </span>
+          )}
         </div>
       ),
     },
