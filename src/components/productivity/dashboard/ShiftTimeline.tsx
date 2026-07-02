@@ -65,29 +65,23 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
       }
 
       // 2. STOP SEGMENT
-      const cause = masters.causes.find(c => c.id === stop.causeId);
-      const stopTypeResolved = String(stop.stopType || cause?.stopType || 'INTERNO').toUpperCase();
+      const stopTypeResolved = String(stop.stopType || 'INTERNO').toUpperCase();
       
-      const hacObj = (masters.hacs || []).find(h => {
-        if (!h) return false;
-        const hId = h.id ? String(h.id).trim().toUpperCase() : '';
-        const hHac = h.hac ? String(h.hac).trim().toUpperCase() : '';
-        const stopHacId = stop.hacId ? String(stop.hacId).trim().toUpperCase() : '';
-        const stopHacName = stop.hacName ? String(stop.hacName).trim().toUpperCase() : '';
-        return (hId && stopHacId && hId === stopHacId) || 
-               (hHac && stopHacId && hHac === stopHacId) || 
-               (hHac && stopHacName && hHac === stopHacName);
-      });
-      const hacText = hacObj 
-        ? `${hacObj.hac} - ${hacObj.detail}` 
-        : (stop.hacDetail ? `${stop.hacName || ''} - ${stop.hacDetail}` : (stop.hacName || 'S/D'));
+      let hacText = 'S/D';
+      if (stop.hacName && stop.hacDetail) {
+        hacText = `${stop.hacName} - ${stop.hacDetail}`;
+      } else if (stop.hacName) {
+        hacText = stop.hacName;
+      } else if (stop.hacDetail) {
+        hacText = stop.hacDetail;
+      }
 
       list.push({
         type: stopTypeResolved === 'EXTERNO' ? 'EXTERNAL' : 'INTERNAL',
         duration: stopDuration,
         startTime: stop.startTime,
         endTime: stop.endTime,
-        cause: cause?.text || stop.causeText || 'Sin Causa',
+        cause: stop.causeText || 'Sin Causa',
         hac: hacText,
         stop: stop
       });
