@@ -102,6 +102,15 @@ export function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
         return;
       }
       finalData.dni = cleanDni;
+
+      if (finalData.profile === "Administrador") {
+        finalData.permissions = SYSTEM_VIEWS.map((v: any) => ({
+          viewId: v.id,
+          label: v.label,
+          section: v.section,
+          level: "EDIT",
+        }));
+      }
     }
 
     onSave(finalData);
@@ -642,6 +651,10 @@ export function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                     <GlassSearchableSelect
                       label="PUESTO"
                       options={[
+                        { label: "Analista", value: "Analista" },
+                        { label: "Coordinador", value: "Coordinador" },
+                        { label: "Gerente", value: "Gerente" },
+                        { label: "Jefe de Área", value: "Jefe de Área" },
                         { label: "Laboratorista", value: "Laboratorista" },
                         { label: "Operario Autoelevador", value: "Operario Autoelevador" },
                         { label: "Operario Granel", value: "Operario Granel" },
@@ -649,6 +662,7 @@ export function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                         { label: "Operario Maquinista", value: "Operario Maquinista" },
                         { label: "Operario Supervisor", value: "Operario Supervisor" },
                         { label: "Operario Técnico", value: "Operario Técnico" },
+                        { label: "Pasante", value: "Pasante" },
                       ]}
                       value={formData.position || ""}
                       onChange={(e: any) => {
@@ -674,190 +688,201 @@ export function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                     />
                   </div>
 
-                  <div className="md:col-span-2 mt-4">
-                    <h4 className="text-[10px] font-bold text-text-muted uppercase tracking-[0.2em] mb-4">
-                      Visualizaciones Habilitadas
-                    </h4>
-                    <div className="border border-border rounded-xl overflow-hidden bg-bg/30">
-                      <table className="w-full text-left text-[10px]">
-                        <thead className="bg-bg/50 border-b border-border">
-                          <tr>
-                            <th className="px-4 py-3 font-bold uppercase tracking-wider">
-                              Sección / Vista
-                            </th>
-                            <th className="px-4 py-3 font-bold uppercase tracking-wider text-center">
-                              Nivel de Acceso
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                          {/* PRODUCTIVITY SECTION */}
-                          <tr 
-                            className="bg-primary/5 cursor-pointer hover:bg-primary/10 transition-colors select-none"
-                            onClick={() => setProductivityExpanded(!productivityExpanded)}
-                          >
-                            <td colSpan={2} className="px-4 py-2.5 text-[9px] font-black text-primary tracking-widest uppercase bg-bg/20">
-                              <div className="flex items-center justify-between">
-                                <span className="flex items-center gap-1.5">
-                                  ⚡ Funcionalidades de Productividad
-                                </span>
-                                {productivityExpanded ? <ChevronDown size={14} className="text-primary/70" /> : <ChevronRight size={14} className="text-primary/70" />}
-                              </div>
-                            </td>
-                          </tr>
-                          {productivityExpanded && SYSTEM_VIEWS.filter((v) => v.section === "PRODUCTIVITY").map((view) => {
-                            const p = formData.permissions.find(
-                              (perm: any) => perm.viewId === view.id,
-                            ) || { level: "NONE" };
-                            return (
-                              <tr
-                                key={view.id}
-                                className="hover:bg-white/5 transition-colors"
-                              >
-                                <td className="px-4 py-3 pl-6">
-                                  <div className="flex flex-col">
-                                    <span className="text-sm font-bold text-text-main">
-                                      {view.label}
-                                    </span>
-                                  </div>
-                                </td>
-                                <td className="px-4 py-3">
-                                  <div className="flex items-center justify-center gap-1">
-                                    {["NONE", "VIEW", "EDIT"].map((lvl) => (
-                                      <button
-                                        key={lvl}
-                                        type="button"
-                                        onClick={() => {
-                                          const newPerms = [
-                                            ...formData.permissions,
-                                          ];
-                                          const idx = newPerms.findIndex(
-                                            (perm: any) =>
-                                              perm.viewId === view.id,
-                                          );
-                                          if (idx >= 0) {
-                                            newPerms[idx] = {
-                                              ...newPerms[idx],
-                                              level: lvl,
-                                            };
-                                          } else {
-                                            newPerms.push({
-                                              viewId: view.id,
-                                              label: view.label,
-                                              section: view.section,
-                                              level: lvl,
-                                            });
-                                          }
-                                          setFormData({
-                                            ...formData,
-                                            permissions: newPerms,
-                                          });
-                                        }}
-                                        className={cn(
-                                          "px-2 py-1 rounded text-[9px] font-bold transition-all border",
-                                          p.level === lvl
-                                            ? "bg-primary text-white border-primary shadow-[0_0_10px_rgba(59,130,246,0.3)]"
-                                            : "bg-surface text-text-muted border-border hover:border-text-muted",
-                                        )}
-                                      >
-                                        {lvl === "NONE"
-                                          ? "BLOQUEADO"
-                                          : lvl === "VIEW"
-                                            ? "SOLO VER"
-                                            : "EDITAR"}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-
-                          {/* ADMIN SECTION */}
-                          <tr 
-                            className="bg-[#005596]/5 dark:bg-primary/5 cursor-pointer hover:bg-[#005596]/10 dark:hover:bg-primary/10 transition-colors select-none"
-                            onClick={() => setAdminExpanded(!adminExpanded)}
-                          >
-                            <td colSpan={2} className="px-4 py-2.5 text-[9px] font-black text-[#005596] dark:text-primary tracking-widest uppercase bg-bg/20 border-t border-border">
-                              <div className="flex items-center justify-between">
-                                <span className="flex items-center gap-1.5">
-                                  ⚙️ Catálogos y Maestros del Sistema (Admin)
-                                </span>
-                                {adminExpanded ? <ChevronDown size={14} className="text-[#005596]/70 dark:text-primary/70" /> : <ChevronRight size={14} className="text-[#005596]/70 dark:text-primary/70" />}
-                              </div>
-                            </td>
-                          </tr>
-                          {adminExpanded && SYSTEM_VIEWS.filter((v) => v.section === "ADMIN").map((view) => {
-                            const p = formData.permissions.find(
-                              (perm: any) => perm.viewId === view.id,
-                            ) || { level: "NONE" };
-                            return (
-                              <tr
-                                key={view.id}
-                                className="hover:bg-white/5 transition-colors"
-                              >
-                                <td className="px-4 py-3 pl-6">
-                                  <div className="flex flex-col">
-                                    <span className="text-sm font-bold text-text-main">
-                                      {view.label}
-                                    </span>
-                                  </div>
-                                </td>
-                                <td className="px-4 py-3">
-                                  <div className="flex items-center justify-center gap-1">
-                                    {["NONE", "VIEW", "EDIT"].map((lvl) => (
-                                      <button
-                                        key={lvl}
-                                        type="button"
-                                        onClick={() => {
-                                          const newPerms = [
-                                            ...formData.permissions,
-                                          ];
-                                          const idx = newPerms.findIndex(
-                                            (perm: any) =>
-                                              perm.viewId === view.id,
-                                          );
-                                          if (idx >= 0) {
-                                            newPerms[idx] = {
-                                              ...newPerms[idx],
-                                              level: lvl,
-                                            };
-                                          } else {
-                                            newPerms.push({
-                                              viewId: view.id,
-                                              label: view.label,
-                                              section: view.section,
-                                              level: lvl,
-                                            });
-                                          }
-                                          setFormData({
-                                            ...formData,
-                                            permissions: newPerms,
-                                          });
-                                        }}
-                                        className={cn(
-                                          "px-2 py-1 rounded text-[9px] font-bold transition-all border",
-                                          p.level === lvl
-                                            ? "bg-primary text-white border-primary shadow-[0_0_10px_rgba(59,130,246,0.3)]"
-                                            : "bg-surface text-text-muted border-border hover:border-text-muted",
-                                        )}
-                                      >
-                                        {lvl === "NONE"
-                                          ? "BLOQUEADO"
-                                          : lvl === "VIEW"
-                                            ? "SOLO VER"
-                                            : "EDITAR"}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                  {formData.profile === "Administrador" ? (
+                    <div className="md:col-span-2 mt-4 p-4 rounded-xl border border-primary/20 bg-primary/10 text-xs text-text-main flex flex-col gap-1.5 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
+                      <div className="flex items-center gap-2 font-black text-primary dark:text-blue-400 uppercase tracking-wider text-[11px]">
+                        🔑 Acceso Total Automatizado
+                      </div>
+                      <p className="opacity-90 leading-relaxed text-[11px]">
+                        El perfil de <strong>Administrador</strong> tiene habilitados por defecto todos los accesos de visualización y edición en todo el sistema de manera automática. No requiere configurar visualizaciones manuales.
+                      </p>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="md:col-span-2 mt-4">
+                      <h4 className="text-[10px] font-bold text-text-muted uppercase tracking-[0.2em] mb-4">
+                        Visualizaciones Habilitadas
+                      </h4>
+                      <div className="border border-border rounded-xl overflow-hidden bg-bg/30">
+                        <table className="w-full text-left text-[10px]">
+                          <thead className="bg-bg/50 border-b border-border">
+                            <tr>
+                              <th className="px-4 py-3 font-bold uppercase tracking-wider">
+                                Sección / Vista
+                              </th>
+                              <th className="px-4 py-3 font-bold uppercase tracking-wider text-center">
+                                Nivel de Acceso
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border">
+                            {/* PRODUCTIVITY SECTION */}
+                            <tr 
+                              className="bg-primary/5 cursor-pointer hover:bg-primary/10 transition-colors select-none"
+                              onClick={() => setProductivityExpanded(!productivityExpanded)}
+                            >
+                              <td colSpan={2} className="px-4 py-2.5 text-[9px] font-black text-primary tracking-widest uppercase bg-bg/20">
+                                <div className="flex items-center justify-between">
+                                  <span className="flex items-center gap-1.5">
+                                    ⚡ Funcionalidades de Productividad
+                                  </span>
+                                  {productivityExpanded ? <ChevronDown size={14} className="text-primary/70" /> : <ChevronRight size={14} className="text-primary/70" />}
+                                </div>
+                              </td>
+                            </tr>
+                            {productivityExpanded && SYSTEM_VIEWS.filter((v) => v.section === "PRODUCTIVITY").map((view) => {
+                              const p = formData.permissions.find(
+                                (perm: any) => perm.viewId === view.id,
+                              ) || { level: "NONE" };
+                              return (
+                                <tr
+                                  key={view.id}
+                                  className="hover:bg-white/5 transition-colors"
+                                >
+                                  <td className="px-4 py-3 pl-6">
+                                    <div className="flex flex-col">
+                                      <span className="text-sm font-bold text-text-main">
+                                        {view.label}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <div className="flex items-center justify-center gap-1">
+                                      {["NONE", "VIEW", "EDIT"].map((lvl) => (
+                                        <button
+                                          key={lvl}
+                                          type="button"
+                                          onClick={() => {
+                                            const newPerms = [
+                                              ...formData.permissions,
+                                            ];
+                                            const idx = newPerms.findIndex(
+                                              (perm: any) =>
+                                                perm.viewId === view.id,
+                                            );
+                                            if (idx >= 0) {
+                                              newPerms[idx] = {
+                                                ...newPerms[idx],
+                                                level: lvl,
+                                              };
+                                            } else {
+                                              newPerms.push({
+                                                viewId: view.id,
+                                                label: view.label,
+                                                section: view.section,
+                                                level: lvl,
+                                              });
+                                            }
+                                            setFormData({
+                                              ...formData,
+                                              permissions: newPerms,
+                                            });
+                                          }}
+                                          className={cn(
+                                            "px-2 py-1 rounded text-[9px] font-bold transition-all border",
+                                            p.level === lvl
+                                              ? "bg-primary text-white border-primary shadow-[0_0_10px_rgba(59,130,246,0.3)]"
+                                              : "bg-surface text-text-muted border-border hover:border-text-muted",
+                                          )}
+                                        >
+                                          {lvl === "NONE"
+                                            ? "BLOQUEADO"
+                                            : lvl === "VIEW"
+                                              ? "SOLO VER"
+                                              : "EDITAR"}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+
+                            {/* ADMIN SECTION */}
+                            <tr 
+                              className="bg-[#005596]/5 dark:bg-primary/5 cursor-pointer hover:bg-[#005596]/10 dark:hover:bg-primary/10 transition-colors select-none"
+                              onClick={() => setAdminExpanded(!adminExpanded)}
+                            >
+                              <td colSpan={2} className="px-4 py-2.5 text-[9px] font-black text-[#005596] dark:text-primary tracking-widest uppercase bg-bg/20 border-t border-border">
+                                <div className="flex items-center justify-between">
+                                  <span className="flex items-center gap-1.5">
+                                    ⚙️ Catálogos y Maestros del Sistema (Admin)
+                                  </span>
+                                  {adminExpanded ? <ChevronDown size={14} className="text-[#005596]/70 dark:text-primary/70" /> : <ChevronRight size={14} className="text-[#005596]/70 dark:text-primary/70" />}
+                                </div>
+                              </td>
+                            </tr>
+                            {adminExpanded && SYSTEM_VIEWS.filter((v) => v.section === "ADMIN").map((view) => {
+                              const p = formData.permissions.find(
+                                (perm: any) => perm.viewId === view.id,
+                              ) || { level: "NONE" };
+                              return (
+                                <tr
+                                  key={view.id}
+                                  className="hover:bg-white/5 transition-colors"
+                                >
+                                  <td className="px-4 py-3 pl-6">
+                                    <div className="flex flex-col">
+                                      <span className="text-sm font-bold text-text-main">
+                                        {view.label}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <div className="flex items-center justify-center gap-1">
+                                      {["NONE", "VIEW", "EDIT"].map((lvl) => (
+                                        <button
+                                          key={lvl}
+                                          type="button"
+                                          onClick={() => {
+                                            const newPerms = [
+                                              ...formData.permissions,
+                                            ];
+                                            const idx = newPerms.findIndex(
+                                              (perm: any) =>
+                                                perm.viewId === view.id,
+                                            );
+                                            if (idx >= 0) {
+                                              newPerms[idx] = {
+                                                ...newPerms[idx],
+                                                level: lvl,
+                                              };
+                                            } else {
+                                              newPerms.push({
+                                                viewId: view.id,
+                                                label: view.label,
+                                                section: view.section,
+                                                level: lvl,
+                                              });
+                                            }
+                                            setFormData({
+                                              ...formData,
+                                              permissions: newPerms,
+                                            });
+                                          }}
+                                          className={cn(
+                                            "px-2 py-1 rounded text-[9px] font-bold transition-all border",
+                                            p.level === lvl
+                                              ? "bg-primary text-white border-primary shadow-[0_0_10px_rgba(59,130,246,0.3)]"
+                                              : "bg-surface text-text-muted border-border hover:border-text-muted",
+                                          )}
+                                        >
+                                          {lvl === "NONE"
+                                            ? "BLOQUEADO"
+                                            : lvl === "VIEW"
+                                              ? "SOLO VER"
+                                              : "EDITAR"}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 

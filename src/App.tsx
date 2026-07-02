@@ -563,11 +563,13 @@ export default function App() {
   }, [masters.users, userContext.currentUserDni, DEFAULT_USER]);
 
   const canView = (viewId: string) => {
+    if (currentUser?.profile === 'Administrador') return true;
     const perm = currentUser?.permissions?.find(p => p.viewId === viewId);
     return perm ? perm.level !== 'NONE' : false;
   };
 
   const canEdit = (viewId: string) => {
+    if (currentUser?.profile === 'Administrador') return true;
     const perm = currentUser?.permissions?.find(p => p.viewId === viewId);
     return perm ? perm.level === 'EDIT' : false;
   };

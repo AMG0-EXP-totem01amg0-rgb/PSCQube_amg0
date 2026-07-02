@@ -269,7 +269,7 @@ export interface AppUser {
   sapUser: string;
   email: string;
   email2?: string;
-  position: 'Operario Maquinista' | 'Operario Técnico' | 'Operario Autoelevador' | 'Operario Granel' | 'Operario Supervisor' | 'Operario Líbero' | 'Laboratórista' | 'Laboratorista';
+  position: 'Operario Maquinista' | 'Operario Técnico' | 'Operario Autoelevador' | 'Operario Granel' | 'Operario Supervisor' | 'Operario Líbero' | 'Laboratórista' | 'Laboratorista' | 'Pasante' | 'Analista' | 'Coordinador' | 'Gerente' | 'Jefe de Área' | string;
   profile: 'Administrador' | 'Operario' | 'Técnico' | 'Administrativo' | 'Supervisor' | 'Laboratorio';
   permissions: UserPermission[];
 }
