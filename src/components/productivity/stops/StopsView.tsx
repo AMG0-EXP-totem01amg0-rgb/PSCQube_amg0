@@ -382,18 +382,19 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
   const handleEdit = (stop: MachineStop) => {
     setEditingId(stop.id);
     
-    // Find back the HAC object from the masters using the stop.hacId or other fields in an ultra-robust way
-    let hacObj = masters.hacs.find(h => h && h.id && stop.hacId && String(h.id).trim().toUpperCase() === String(stop.hacId).trim().toUpperCase());
+    // 1. Prioritize exact matching on stop.hacName (as loaded from the 'hac' column in Supabase)
+    let hacObj = masters.hacs.find(h => h && h.hac && stop.hacName && String(h.hac).trim().toUpperCase() === String(stop.hacName).trim().toUpperCase());
+    
+    // 2. Fallback to matching by stop.hacId if exact name not found
+    if (!hacObj) {
+      hacObj = masters.hacs.find(h => h && h.id && stop.hacId && String(h.id).trim().toUpperCase() === String(stop.hacId).trim().toUpperCase());
+    }
     
     if (!hacObj) {
       hacObj = masters.hacs.find(h => h && h.hac && stop.hacId && String(h.hac).trim().toUpperCase() === String(stop.hacId).trim().toUpperCase());
     }
     
-    if (!hacObj && (stop as any).hacName) {
-      hacObj = masters.hacs.find(h => h && h.hac && (stop as any).hacName && String(h.hac).trim().toUpperCase() === String((stop as any).hacName).trim().toUpperCase());
-    }
-    
-    // Fallback normalising special characters if no exact match (removes spaces, hyphens, and other symbols)
+    // 3. Fallback normalising special characters if no exact match (removes spaces, hyphens, and other symbols)
     if (!hacObj) {
       const cleanStopHacId = String(stop.hacId || "").replace(/[^A-Z0-9]/g, "").toUpperCase();
       const cleanStopHacName = String((stop as any).hacName || "").replace(/[^A-Z0-9]/g, "").toUpperCase();

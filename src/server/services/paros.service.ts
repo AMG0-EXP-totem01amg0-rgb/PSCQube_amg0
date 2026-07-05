@@ -186,7 +186,17 @@ export class ParosService {
         }
 
         // 4. HAC
-        const hacObj = hacs.find((h: any) => h && h.hac && safeHacMatch(h.hac, item.hacName));
+        const cleanHacName = String(item.hacName || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+        let hacObj = hacs.find((h: any) => {
+          if (!h || !h.hac) return false;
+          const cleanH = String(h.hac).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+          return cleanH === cleanHacName;
+        });
+
+        if (!hacObj) {
+          hacObj = hacs.find((h: any) => h && h.hac && safeHacMatch(h.hac, item.hacName));
+        }
+
         if (hacObj) {
           item.hacId = hacObj.id;
         } else {
