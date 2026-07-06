@@ -812,7 +812,7 @@ export default function App() {
       const [
         resStops, resProduction, resDater, resScale, resStock,
         resPalletClassifications, resChange, resDespachos,
-        resLoadingLanes, resFuelLoads
+        resLoadingLanes, resFuelLoads, resUsers
       ] = await Promise.all([
         fetchTable("PAROSV2", false, initialFilters, "App.handleSyncOnEnter"),
         fetchTable("PRODUCCIONV2", false, initialFilters, "App.handleSyncOnEnter"),
@@ -823,7 +823,8 @@ export default function App() {
         fetchTable("CAMBIO_PRODUCTOV2", false, initialFilters, "App.handleSyncOnEnter"),
         fetchTable("DESPACHOSV2", false, initialFilters, "App.handleSyncOnEnter"),
         fetchTable("ESTADO_CALLESV2", false, initialFilters, "App.handleSyncOnEnter"),
-        fetchTable("CARGA_COMBUSTIBLEV2", false, initialFilters, "App.handleSyncOnEnter")
+        fetchTable("CARGA_COMBUSTIBLEV2", false, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("USUARIOSV2", true, {}, "App.handleSyncOnEnter")
       ]);
 
       setSyncMessage('Preparando sistema...');
@@ -845,8 +846,14 @@ export default function App() {
         if (d.puntoscarga) setLoadingPoints(d.puntoscarga);
         if (d.proveedoresbolsa) setBagSuppliers(d.proveedoresbolsa);
         if (d.vehiculos) setVehicles(d.vehiculos);
-        if (d.usuarios) {
-          const normalized = (d.usuarios as any[]).map(u => {
+        
+        // Get absolute latest users list (bypassing any server-side cache)
+        const rawUsers = (resUsers && resUsers.success && Array.isArray(resUsers.data))
+          ? resUsers.data
+          : d.usuarios;
+
+        if (rawUsers) {
+          const normalized = (rawUsers as any[]).map(u => {
             let perms = u.permissions || u.permisos;
             if (typeof perms === 'string' && perms.trim() !== '') {
               try { perms = JSON.parse(perms); } catch { perms = []; }
@@ -2209,6 +2216,7 @@ export default function App() {
                 console.warn("[Logout Supabase SignOut Warning]", e);
               }
               sessionStorage.clear();
+              localStorage.removeItem('pscqube_maestros_cache');
               window.location.reload();
             }}
             title="Cerrar Sesión"
