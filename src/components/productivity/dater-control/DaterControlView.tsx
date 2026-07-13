@@ -76,7 +76,7 @@ export default function DaterControlView({ masters, currentUser, onSave, onDelet
   // Filter HACS to only show Daters based on the new isDater flag
   const daterHacs = masters.hacs.filter(h => h.isDater);
 
-  // Filter history based on range or selectedDate and shift
+  // Filter history based on range or selectedDate (independent of the shift as requested)
   const filteredHistory = useMemo(() => {
     const baseList = localRangeHistory !== null ? localRangeHistory : history;
     if (dateFrom && dateTo) {
@@ -95,10 +95,9 @@ export default function DaterControlView({ masters, currentUser, onSave, onDelet
     return baseList.filter(item => {
       if (!item) return false;
       const isSameDate = item.date === selectedDate;
-      const isSameShift = !selectedShiftId || String(item.shiftId || '').trim().toUpperCase() === String(selectedShiftId).trim().toUpperCase();
-      return isSameDate && isSameShift;
+      return isSameDate;
     });
-  }, [history, localRangeHistory, dateFrom, dateTo, selectedDate, selectedShiftId]);
+  }, [history, localRangeHistory, dateFrom, dateTo, selectedDate]);
 
   // Find if there is any record in the current shift/date that has registered stock values
   const shiftStockRecord = useMemo(() => {
@@ -156,6 +155,7 @@ export default function DaterControlView({ masters, currentUser, onSave, onDelet
   const columns: Column<DaterControl>[] = [
     { header: 'Fecha', accessor: (row) => <span className="text-[10px] opacity-70">{format(parseISO(row.date), 'dd/MM/yyyy')}</span> },
     { header: 'HAC', accessor: (row) => <span className="font-bold text-primary">{row.hac}</span> },
+    { header: 'Turno', accessor: (row) => <span className="text-xs font-semibold text-text-muted">{masters.shifts?.find(s => s.id === row.shiftId)?.name || row.shiftId || 'N/A'}</span> },
     {
       header: 'Maquinista',
       accessor: (row) => (
