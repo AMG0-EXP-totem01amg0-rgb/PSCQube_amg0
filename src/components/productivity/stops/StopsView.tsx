@@ -354,7 +354,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
       sapCause: causeObj.sapCause,
       causeGroup: causeObj.causeGroup,
       causeCode: causeObj.causeCode,
-      stopType: causeObj.stopType,
+      stopType: causeObj.stopType || causeObj.tipo_paro || causeObj.tipoParo || "INTERNO",
       
       gpoCodObjeto: hacObj.gpoCodObjeto,
       partObject: causeObj.partObject,
@@ -594,7 +594,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
         sapCause: causeObj.sapCause,
         causeGroup: causeObj.causeGroup,
         causeCode: causeObj.causeCode,
-        stopType: causeObj.stopType,
+        stopType: causeObj.stopType || causeObj.tipo_paro || causeObj.tipoParo || "INTERNO",
         
         gpoCodObjeto: hacObj.gpoCodObjeto,
         partObject: causeObj.partObject,

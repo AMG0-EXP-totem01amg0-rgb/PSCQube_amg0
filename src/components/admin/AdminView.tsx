@@ -592,18 +592,21 @@ export default function AdminView({
     },
     {
       header: "Tipo",
-      accessor: (row) => (
-        <span
-          className={cn(
-            "px-2 py-0.5 rounded text-[9px] font-bold border uppercase",
-            row.stopType === "INTERNO"
-              ? "border-primary/20 text-primary bg-primary/5"
-              : "border-emerald-500/20 text-emerald-500 bg-emerald-500/5",
-          )}
-        >
-          {row.stopType}
-        </span>
-      ),
+      accessor: (row) => {
+        const type = String(row.stopType || row.tipo_paro || row.tipoParo || row["TIPO PARO"] || row["tipo paro"] || "").trim().toUpperCase();
+        return (
+          <span
+            className={cn(
+              "px-2 py-0.5 rounded text-[9px] font-bold border uppercase",
+              type === "INTERNO"
+                ? "border-primary/20 text-primary bg-primary/5"
+                : "border-emerald-500/20 text-emerald-500 bg-emerald-500/5",
+            )}
+          >
+            {type || "INTERNO"}
+          </span>
+        );
+      },
     },
     {
       header: "PARTE/CAUSA SAP",

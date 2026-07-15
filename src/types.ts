@@ -38,6 +38,8 @@ export interface Cause {
   causeGroup: string; // GPO.COD. CAUSA (SAP)
   causeCode: string; // CÓDIGO CAUSA (SAP)
   stopType: 'INTERNO' | 'EXTERNO';
+  tipo_paro?: string;
+  tipoParo?: string;
 }
 
 export interface Material {

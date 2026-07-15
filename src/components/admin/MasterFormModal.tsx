@@ -363,10 +363,18 @@ export function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                       { label: "INTERNO", value: "INTERNO" },
                       { label: "EXTERNO", value: "EXTERNO" },
                     ]}
-                    value={formData.stopType || ""}
-                    onChange={(e: any) =>
-                      setFormData({ ...formData, stopType: e.target.value })
-                    }
+                    value={String(formData.stopType || formData.tipo_paro || formData.tipoParo || formData["TIPO PARO"] || formData["tipo paro"] || "").trim().toUpperCase()}
+                    onChange={(e: any) => {
+                      const val = e.target.value;
+                      setFormData({ 
+                        ...formData, 
+                        stopType: val,
+                        tipo_paro: val,
+                        tipoParo: val,
+                        "TIPO PARO": val,
+                        "tipo paro": val
+                      });
+                    }}
                   />
                   <GlassInput
                     label="Parte Objeto (SAP)"
