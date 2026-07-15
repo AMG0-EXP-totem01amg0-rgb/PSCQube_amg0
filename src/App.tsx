@@ -10,7 +10,7 @@ import {
   AlertTriangle, Package, ClipboardList, Fuel, Wrench,
   Activity, PlusCircle, ShieldCheck, Settings, Bot,
   ChevronLeft, ChevronRight, Truck, Droplet, Layers, MapPin,
-  RefreshCw
+  RefreshCw, FileSpreadsheet
 } from 'lucide-react';
 
 // Modules
@@ -27,6 +27,7 @@ import { InventoryView } from './components/productivity/inventory';
 import { PalletClassificationView } from './components/productivity/pallet-classification';
 import { DespachosView } from './components/productivity/despachos';
 import { FuelView } from './components/productivity/fuel';
+import ReportsView from './components/productivity/reports/ReportsView';
 import AdminView from './components/admin/AdminView';
 import PlaceholderView from './components/PlaceholderView';
 import WelcomeScreen from './components/auth/WelcomeScreen';
@@ -189,7 +190,7 @@ const isStopForShift = (stop: any, shiftId: string | null | undefined, mastersAv
 };
 
 type AppSection = 'PRODUCTIVITY' | 'SAFETY' | 'ENVIRONMENT' | 'HR' | 'ADMIN';
-type ProductivityTab = 'DASHBOARD' | 'PAROS' | 'PRODUCCION' | 'DATER' | 'SCALE' | 'STOCK' | 'PALLET_CLASS' | 'GASOIL' | 'MANTENIMIENTO' | 'CHANGE' | 'LOADING_LANES' | 'DESPACHOS';
+type ProductivityTab = 'DASHBOARD' | 'PAROS' | 'PRODUCCION' | 'DATER' | 'SCALE' | 'STOCK' | 'PALLET_CLASS' | 'GASOIL' | 'MANTENIMIENTO' | 'CHANGE' | 'LOADING_LANES' | 'DESPACHOS' | 'REPORTS';
 
 const productivityTabs = [
   { id: 'LOADING_LANES', label: 'Calles Carga', icon: <MapPin size={14} /> },
@@ -200,6 +201,7 @@ const productivityTabs = [
   { id: 'DATER', label: 'Control Fechadores', icon: <ClipboardList size={14} /> },
   { id: 'DASHBOARD', label: 'Dashboard', icon: <Activity size={14} /> },
   { id: 'DESPACHOS', label: 'Despachos', icon: <Truck size={14} /> },
+  { id: 'REPORTS', label: 'Informes', icon: <FileSpreadsheet size={14} /> },
   { id: 'STOCK', label: 'Insumos', icon: <PlusCircle size={14} /> },
   { id: 'MANTENIMIENTO', label: 'Mantenimiento', icon: <Settings size={14} /> },
   { id: 'PAROS', label: 'Paros', icon: <AlertTriangle size={14} /> },
@@ -1970,6 +1972,13 @@ export default function App() {
                       onDelete={handleDeleteDispatch}
                       selectedShiftId={userContext.selectedShiftId}
                       selectedDate={userContext.selectedDate}
+                    />
+                  )}
+                  {prodTab === 'REPORTS' && (
+                    <ReportsView 
+                        masters={masters} 
+                        currentUser={currentUser}
+                        userContext={userContext}
                     />
                   )}
                   {prodTab === 'PAROS' && (

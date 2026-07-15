@@ -52,11 +52,6 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
   
   const [error, setError] = useState<string | null>(null);
 
-  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [exportStartDate, setExportStartDate] = useState(selectedDate);
-  const [exportEndDate, setExportEndDate] = useState(selectedDate);
-  const [exportError, setExportError] = useState<string | null>(null);
-
   // States for Batching / Grouping Stops
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [batchMaterialId, setBatchMaterialId] = useState('');
@@ -76,135 +71,6 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
   const [newBatchStartTime, setNewBatchStartTime] = useState('');
   const [newBatchEndTime, setNewBatchEndTime] = useState('');
   const [editingBatchItemId, setEditingBatchItemId] = useState<string | null>(null);
-
-  const canExport = useMemo(() => {
-    return currentUser?.profile === 'Administrativo' || currentUser?.profile === 'Administrador';
-  }, [currentUser]);
-
-  const formatToSpanishDate = (dateStr: string): string => {
-    if (!dateStr) return '';
-    if (dateStr.includes('-')) {
-      const parts = dateStr.split('-');
-      if (parts.length === 3) {
-        if (parts[0].length === 4) {
-          return `${parts[2]}/${parts[1]}/${parts[0]}`;
-        }
-      }
-    }
-    return dateStr;
-  };
-
-  const formatToHhMmSs = (timeStr: string): string => {
-    if (!timeStr) return '';
-    const cleaned = timeStr.trim();
-    if (cleaned.match(/^\d{2}:\d{2}$/)) {
-      return `${cleaned}:00`;
-    }
-    return cleaned;
-  };
-
-  const handleExportExcel = () => {
-    setExportError(null);
-    if (!exportStartDate || !exportEndDate) {
-      setExportError("Por favor selecciona un rango de fechas.");
-      return;
-    }
-    if (exportStartDate > exportEndDate) {
-      setExportError("La fecha de inicio no puede ser posterior a la fecha de fin.");
-      return;
-    }
-
-    const stopsSource = allStops || [];
-    const filteredStops = stopsSource.filter(stop => {
-      if (!stop || !stop.date) return false;
-      return stop.date >= exportStartDate && stop.date <= exportEndDate;
-    });
-
-    if (filteredStops.length === 0) {
-      setExportError("No se encontraron registros de paros para el rango de fechas seleccionado.");
-      return;
-    }
-
-    const headers = [
-      'TEXTO DE CAUSA',
-      'PUESTO DE TRABAJO',
-      'CENTRO',
-      'USUARIO',
-      'HAC',
-      'EQUIPO',
-      'FECHA',
-      'INICIO',
-      'FECHAFIN',
-      'FIN',
-      'MÁQUINA AFECTADA',
-      'GPO.CÓD. OBJETO',
-      'PARTE OBJETO',
-      'GPO.CÓD. SINTOMA',
-      'CÓD. SINTOMA',
-      'TEXTO SÍNTOMA',
-      'TEXTO DE CAUSA',
-      'GPO.COD. CAUSA',
-      'CÓDIGO CAUSA'
-    ];
-
-    const dataRows = filteredStops.map(stop => {
-      const hacObj = masters.hacs.find(h => h.id === stop.hacId || h.hac === stop.hacId || h.hac === stop.hacName);
-      const causeObj = masters.causes.find(c => c.id === stop.causeId || c.text === stop.causeText);
-
-      const txtCausa = stop.causeText || causeObj?.text || '';
-      const workCenter = stop.workCenter || 'OPEREXP';
-      const center = stop.center || 'AMG0';
-      const usuario = stop.user || '';
-      const hacVal = stop.hacName || hacObj?.hac || '';
-      const equipo = stop.equipment || hacObj?.equipment || '';
-      const fecha = formatToSpanishDate(stop.date);
-      const inicio = formatToHhMmSs(stop.startTime);
-      const fechaFin = formatToSpanishDate(stop.finishDate || stop.date);
-      const fin = formatToHhMmSs(stop.endTime || '');
-      const maqAfectada = stop.machineHacText || stop.machineId || '';
-      const gpoCodObjeto = stop.gpoCodObjeto || hacObj?.gpoCodObjeto || '';
-      const parteObjeto = stop.partObject || causeObj?.partObject || '';
-      const gpoCodSintoma = stop.symptomGroup || causeObj?.symptomGroup || '';
-      const codSintoma = stop.symptomCode || causeObj?.symptomCode || '';
-      const txtSintoma = stop.symptomText || '';
-      const gpoCodCausa = stop.causeGroup || causeObj?.causeGroup || '';
-      const codCausa = stop.causeCode || causeObj?.causeCode || '';
-
-      return [
-        txtCausa,
-        workCenter,
-        center,
-        usuario,
-        hacVal,
-        equipo,
-        fecha,
-        inicio,
-        fechaFin,
-        fin,
-        maqAfectada,
-        gpoCodObjeto,
-        parteObjeto,
-        gpoCodSintoma,
-        codSintoma,
-        txtSintoma,
-        txtCausa,
-        gpoCodCausa,
-        codCausa
-      ];
-    });
-
-    const worksheetData = [headers, ...dataRows];
-    
-    const ws = XLSX.utils.aoa_to_sheet(worksheetData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Paros");
-    
-    const startFormatted = exportStartDate.replace(/-/g, '');
-    const endFormatted = exportEndDate.replace(/-/g, '');
-    XLSX.writeFile(wb, `Reporte_Paros_${startFormatted}_${endFormatted}.xlsx`);
-
-    setIsExportModalOpen(false);
-  };
 
   const selectedShift = useMemo(() => 
     masters.shifts.find(s => s.id === shiftId),
@@ -633,112 +499,38 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
       animate={{ opacity: 1, y: 0 }} 
       className="layout-container py-8 space-y-10"
     >
-      {/* Top Actions Section (Export & Batch stops) */}
-      {(canExport || canEdit) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {canExport && (
-            <GlassCard className="p-6 h-full flex items-center">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 w-full">
-                <div className="flex-1">
-                  <h3 className="text-md font-bold text-text-main flex items-center gap-2">
-                    <FileSpreadsheet size={18} className="text-primary" /> Exportar Datos de Paros
-                  </h3>
-                  <p className="text-xs text-text-muted mt-1">Descarga el historial de paros en formato Excel para un rango de fechas seleccionado.</p>
-                </div>
-                <GlassButton 
-                  onClick={() => {
-                    setExportStartDate(selectedDate);
-                    setExportEndDate(selectedDate);
-                    setExportError(null);
-                    setIsExportModalOpen(true);
-                  }}
-                  className="bg-primary hover:bg-primary-hover text-white gap-2 h-10 px-5 text-xs font-bold shrink-0 self-start sm:self-center uppercase tracking-wider"
-                >
-                  <Download size={14} /> Exportar
-                </GlassButton>
+      {/* Top Actions Section (Batch stops) */}
+      {canEdit && (
+        <div className="grid grid-cols-1 gap-6">
+          <GlassCard className="p-6 h-full flex items-center">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 w-full">
+              <div className="flex-1">
+                <h3 className="text-md font-bold text-text-main flex items-center gap-2">
+                  <Layers size={18} className="text-primary" /> Agrupamiento de Paros
+                </h3>
+                <p className="text-xs text-text-muted mt-1">Registra múltiples micro-paros individuales con la misma causa y equipo en un solo paso.</p>
               </div>
-            </GlassCard>
-          )}
-
-          {canEdit && (
-            <GlassCard className="p-6 h-full flex items-center">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 w-full">
-                <div className="flex-1">
-                  <h3 className="text-md font-bold text-text-main flex items-center gap-2">
-                    <Layers size={18} className="text-primary" /> Agrupamiento de Paros
-                  </h3>
-                  <p className="text-xs text-text-muted mt-1">Registra múltiples micro-paros individuales con la misma causa y equipo en un solo paso.</p>
-                </div>
-                <GlassButton 
-                  onClick={() => {
-                    setBatchMaterialId(formData.materialId || (masters.materials?.filter((m: any) => m && m.isProductive === true)?.[0]?.id || ''));
-                    setBatchHacId('');
-                    setBatchCauseId('');
-                    setBatchStopsList([]);
-                    setNewBatchStartTime('');
-                    setNewBatchEndTime('');
-                    setEditingBatchItemId(null);
-                    setBatchNoticeText('');
-                    setBatchError(null);
-                    setIsBatchModalOpen(true);
-                  }}
-                  className="bg-primary hover:bg-primary-hover text-white gap-2 h-10 px-5 text-xs font-bold shrink-0 self-start sm:self-center uppercase tracking-wider"
-                >
-                  <Layers size={14} /> Cargar Lote
-                </GlassButton>
-              </div>
-            </GlassCard>
-          )}
+              <GlassButton 
+                onClick={() => {
+                  setBatchMaterialId(formData.materialId || (masters.materials?.filter((m: any) => m && m.isProductive === true)?.[0]?.id || ''));
+                  setBatchHacId('');
+                  setBatchCauseId('');
+                  setBatchStopsList([]);
+                  setNewBatchStartTime('');
+                  setNewBatchEndTime('');
+                  setEditingBatchItemId(null);
+                  setBatchNoticeText('');
+                  setBatchError(null);
+                  setIsBatchModalOpen(true);
+                }}
+                className="bg-primary hover:bg-primary-hover text-white gap-2 h-10 px-5 text-xs font-bold shrink-0 self-start sm:self-center uppercase tracking-wider"
+              >
+                <Layers size={14} /> Cargar Lote
+              </GlassButton>
+            </div>
+          </GlassCard>
         </div>
       )}
-
-      {/* Export Modal */}
-      <Modal
-        isOpen={isExportModalOpen}
-        onClose={() => setIsExportModalOpen(false)}
-        title="Exportar Paros a Excel"
-        className="max-w-md"
-      >
-        <div className="space-y-6 pt-2">
-          <div className="grid grid-cols-2 gap-4">
-            <GlassInput
-              label="Fecha Inicio"
-              type="date"
-              value={exportStartDate}
-              onChange={(e: any) => setExportStartDate(e.target.value)}
-            />
-            <GlassInput
-              label="Fecha Fin"
-              type="date"
-              value={exportEndDate}
-              onChange={(e: any) => setExportEndDate(e.target.value)}
-            />
-          </div>
-
-          {exportError && (
-            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2">
-              <XCircle size={14} className="text-red-500 shrink-0" />
-              <p className="text-xs text-red-400 font-medium">{exportError}</p>
-            </div>
-          )}
-
-          <div className="flex gap-3 justify-end pt-4 border-t border-border">
-            <GlassButton
-              variant="secondary"
-              onClick={() => setIsExportModalOpen(false)}
-              className="h-10 px-4 text-xs font-bold"
-            >
-              Cancelar
-            </GlassButton>
-            <GlassButton
-              onClick={handleExportExcel}
-              className="h-10 px-4 text-xs font-bold uppercase tracking-wider gap-2"
-            >
-              <Download size={14} /> Descargar Excel
-            </GlassButton>
-          </div>
-        </div>
-      </Modal>
 
       {/* Shift Timeline Visualization */}
       {selectedShift && (

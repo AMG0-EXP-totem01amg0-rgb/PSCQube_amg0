@@ -13,6 +13,7 @@ export const SYSTEM_VIEWS: { id: string; label: string; section: 'PRODUCTIVITY' 
   { id: 'GASOIL', label: 'Combustible', section: 'PRODUCTIVITY' },
   { id: 'MANTENIMIENTO', label: 'Mantenimiento', section: 'PRODUCTIVITY' },
   { id: 'LOADING_LANES', label: 'Calles de Carga', section: 'PRODUCTIVITY' },
+  { id: 'REPORTS', label: 'Informes', section: 'PRODUCTIVITY' },
   { id: 'TURNOS', label: 'Maestro Turnos', section: 'ADMIN' },
   { id: 'PALETIZADORAS', label: 'Maestro Paletizadoras', section: 'ADMIN' },
   { id: 'EMBOLSADORAS', label: 'Maestro Ensacadoras', section: 'ADMIN' },
