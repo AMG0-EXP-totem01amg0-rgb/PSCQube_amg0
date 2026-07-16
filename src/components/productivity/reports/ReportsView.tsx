@@ -7,7 +7,7 @@ import {
   User, Eye, FilterX, HelpCircle, Layers, Sliders, Settings
 } from 'lucide-react';
 import { 
-  GlassCard, GlassButton, GlassInput, Modal 
+  GlassCard, GlassButton, GlassInput, Modal, ConfirmModal 
 } from '../../ui/GlassUI';
 import { fetchTable } from '../../../lib/dataService';
 import { MasterData, UserContext, MachineStop, ProductionReport } from '../../../types';
@@ -63,6 +63,8 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
     oee: number;
     reports: ProductionReport[];
   } | null>(null);
+
+  const [isConfirmExportOpen, setIsConfirmExportOpen] = useState(false);
 
   // Load data for the selected range
   const loadReportData = async () => {
@@ -174,6 +176,27 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
       return cleaned.substring(0, 5);
     }
     return cleaned;
+  };
+
+  const formatToHhMmSs = (timeStr: string): string => {
+    if (!timeStr) return '';
+    const cleaned = timeStr.trim();
+    if (cleaned.length >= 8) {
+      return cleaned.substring(0, 8);
+    }
+    if (cleaned.length >= 5) {
+      return cleaned.substring(0, 5) + ':00';
+    }
+    return cleaned ? `${cleaned}:00` : '';
+  };
+
+  const formatDurationToHhMmSs = (durationMins: number): string => {
+    const mins = Number(durationMins) || 0;
+    const hrs = Math.floor(mins / 60);
+    const remainingMins = mins % 60;
+    const hrsStr = String(hrs).padStart(2, '0');
+    const minsStr = String(remainingMins).padStart(2, '0');
+    return `${hrsStr}:${minsStr}:00`;
   };
 
   // Toggle Collapse handlers
@@ -435,7 +458,7 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
   }, [activeTab, groupedParos, groupedProduccion, pageSize]);
 
   // Excel Export logic
-  const handleExportExcel = () => {
+  const executeExportExcel = () => {
     if (activeTab === 'PAROS') {
       const sortedStops = [...stops].sort((a, b) => {
         const dateA = a.date || '';
@@ -448,7 +471,7 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
 
       const headers = [
         'TEXTO DE CAUSA', 'PUESTO DE TRABAJO', 'CENTRO', 'USUARIO', 'HAC', 'EQUIPO',
-        'FECHA', 'INICIO', 'FECHAFIN', 'FIN', 'MÁQUINA AFECTADA', 'GPO.CÓD. OBJETO',
+        'FECHA', 'INICIO', 'FECHAFIN', 'FIN', 'DURACIÓN', 'MÁQUINA AFECTADA', 'GPO.CÓD. OBJETO',
         'PARTE OBJETO', 'GPO.CÓD. SINTOMA', 'CÓD. SINTOMA', 'TEXTO SÍNTOMA',
         'TEXTO DE CAUSA', 'GPO.COD. CAUSA', 'CÓDIGO CAUSA'
       ];
@@ -465,9 +488,10 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
           stop.hacName || stop.hacId || 'N/A',
           stop.equipment || '',
           formatToSpanishDate(stop.date),
-          formatToHhMm(stop.startTime),
+          formatToHhMmSs(stop.startTime),
           formatToSpanishDate(stop.finishDate || ''),
-          formatToHhMm(stop.endTime || ''),
+          formatToHhMmSs(stop.endTime || ''),
+          formatDurationToHhMmSs(stop.durationMinutes),
           lineObj?.name || stop.palletizerId || stop.machineId || 'N/A',
           stop.gpoCodObjeto || '',
           stop.partObject || '',
@@ -545,6 +569,10 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
       const endF = dateTo.replace(/-/g, '');
       XLSX.writeFile(wb, `Reporte_Produccion_${startF}_${endF}.xlsx`);
     }
+  };
+
+  const handleExportExcel = () => {
+    setIsConfirmExportOpen(true);
   };
 
   return (
@@ -1176,6 +1204,20 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
           );
         })()}
       </Modal>
+
+      {/* ----------------- CONFIRM EXPORT MODAL ----------------- */}
+      <ConfirmModal
+        isOpen={isConfirmExportOpen}
+        onClose={() => setIsConfirmExportOpen(false)}
+        onConfirm={() => {
+          setIsConfirmExportOpen(false);
+          executeExportExcel();
+        }}
+        title="Confirmar Exportación"
+        message={`¿Quiere exportar el reporte desde la fecha ${formatToSpanishDate(dateFrom)} hasta ${formatToSpanishDate(dateTo)}?`}
+        confirmLabel="Exportar"
+        cancelLabel="Cancelar"
+      />
     </motion.div>
   );
 }
