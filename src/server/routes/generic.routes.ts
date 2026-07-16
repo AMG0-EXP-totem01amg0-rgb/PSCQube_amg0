@@ -13,6 +13,14 @@ const router = Router();
 
 // Helper to trace and log incoming calls with comprehensive diagnostics
 function logTraceRequest(req: any, endpoint: string, tableRequested: string) {
+  const isProd = process.env.NODE_ENV === "production";
+  if (isProd) {
+    const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+    const firstIp = typeof rawIp === 'string' ? rawIp.split(',')[0].trim() : 'unknown';
+    console.log(`[PSCQUBE] ${new Date().toISOString()} - ${endpoint} - Table: ${tableRequested} - IP: ${firstIp}`);
+    return;
+  }
+
   const timestamp = new Date().toISOString();
   const queryParams = JSON.stringify(req.query || {});
   const bodyParams = req.body ? JSON.stringify(req.body) : "{}";
@@ -96,11 +104,12 @@ async function reconcileTableData(tableName: string, incomingData: any[], allowD
     }
   });
 
+  // Batch enrich all incoming valid items in a single call to prevent N sequential network/db requests
+  const validIncomingItems = incomingData.filter(item => !!item);
+  await MaestrosService.enrichDataIfNeeded(tableName, validIncomingItems);
+
   for (const item of incomingData) {
     if (!item) continue;
-
-    // Enrich item if needed (so looking up shiftDescription, materialDescription, etc. happens BEFORE we compare or save)
-    await MaestrosService.enrichDataIfNeeded(tableName, [item]);
 
     const itemId = String(item[clientKey]);
     if (dbMap.has(itemId)) {

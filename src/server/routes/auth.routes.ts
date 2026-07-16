@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { google } from "googleapis";
 import { AuthService } from "../services/auth.service.js";
 
 // Escapa caracteres especiales HTML para prevenir XSS
@@ -15,7 +14,7 @@ function escapeHtml(str: string): string {
 const router = Router();
 
 // Generate Google OAuth Authorization URL
-router.get("/api/auth/google/url", (req, res) => {
+router.get("/api/auth/google/url", async (req, res) => {
   const customRedirect = req.query.redirectUri as string;
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
@@ -27,6 +26,7 @@ router.get("/api/auth/google/url", (req, res) => {
     });
   }
 
+  const { google } = await import("googleapis");
   const redirectUri = customRedirect || `${req.protocol}://${req.get("host")}/auth/callback`;
 
   const oauth2Client = new google.auth.OAuth2(
@@ -65,6 +65,7 @@ router.get(["/auth/callback", "/auth/callback/"], async (req, res) => {
   }
 
   try {
+    const { google } = await import("googleapis");
     const oauth2Client = new google.auth.OAuth2(
       clientId,
       clientSecret,
