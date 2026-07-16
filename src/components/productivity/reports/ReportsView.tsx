@@ -447,8 +447,10 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
       });
 
       const headers = [
-        'FECHA', 'INICIO', 'FIN', 'DURACIÓN (MIN)', 'MÁQUINA/PALETIZADORA', 
-        'HAC AFECTADO', 'TEXTO DE CAUSA', 'CAUSA SAP', 'TIPO PARO', 'MAQUINISTA', 'OBSERVACIONES'
+        'TEXTO DE CAUSA', 'PUESTO DE TRABAJO', 'CENTRO', 'USUARIO', 'HAC', 'EQUIPO',
+        'FECHA', 'INICIO', 'FECHAFIN', 'FIN', 'MÁQUINA AFECTADA', 'GPO.CÓD. OBJETO',
+        'PARTE OBJETO', 'GPO.CÓD. SINTOMA', 'CÓD. SINTOMA', 'TEXTO SÍNTOMA',
+        'TEXTO DE CAUSA', 'GPO.COD. CAUSA', 'CÓDIGO CAUSA'
       ];
 
       const dataRows = sortedStops.map(stop => {
@@ -456,17 +458,25 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
         const lineObj = masters.palletizers.find(p => p.id === stop.palletizerId || p.id === stop.machineId);
         
         return [
+          stop.causeText || causeObj?.text || '',
+          stop.workCenter || 'OPEREXP',
+          stop.center || 'AMG0',
+          stop.user || '',
+          stop.hacName || stop.hacId || 'N/A',
+          stop.equipment || '',
           formatToSpanishDate(stop.date),
           formatToHhMm(stop.startTime),
+          formatToSpanishDate(stop.finishDate || ''),
           formatToHhMm(stop.endTime || ''),
-          stop.durationMinutes || 0,
           lineObj?.name || stop.palletizerId || stop.machineId || 'N/A',
-          stop.hacName || stop.hacId || 'N/A',
+          stop.gpoCodObjeto || '',
+          stop.partObject || '',
+          stop.symptomGroup || '',
+          stop.symptomCode || '',
+          stop.symptomText || '',
           stop.causeText || causeObj?.text || '',
-          stop.causeCode || causeObj?.causeCode || stop.causeId || '',
-          String(stop.stopType || causeObj?.stopType || 'INTERNO').toUpperCase(),
-          stop.user || '',
-          stop.observations || ''
+          stop.causeGroup || '',
+          stop.causeCode || causeObj?.causeCode || stop.causeId || ''
         ];
       });
 
@@ -482,7 +492,7 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
       // Export Production
       const flatRows: any[] = [];
       const headers = [
-        'FECHA', 'TURNO', 'LÍNEA (PALETIZADORA)', 'MAQUINISTAS', 'TN PRODUCIDAS', 
+        'FECHA', 'TURNO', 'LÍNEA (PALETIZADORA)', 'MAQUINISTAS', 'TN PRODUCIDAS', 'TN POR PRODUCTO',
         'ENSACADORAS', 'HS MARCHA', 'RENDIMIENTO (%)', 'DISPONIBILIDAD (%)', 'OEE (%)'
       ];
 
@@ -492,12 +502,31 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
           const sGroup = dGroup.shifts[shiftK];
           Object.keys(sGroup.lines).forEach(lineK => {
             const lGroup = sGroup.lines[lineK];
+
+            // Calculate tons per product
+            const productTonsMap: Record<string, number> = {};
+            lGroup.reports.forEach((r: any) => {
+              if (r.materialsDetails && r.materialsDetails.length > 0) {
+                r.materialsDetails.forEach((detail: any) => {
+                  const matName = masters.materials.find(m => m.id === detail.materialId)?.name || detail.materialId || 'N/A';
+                  productTonsMap[matName] = (productTonsMap[matName] || 0) + (Number(detail.tonsProduced) || 0);
+                });
+              } else {
+                const matName = masters.materials.find(m => m.id === r.materialId)?.name || r.materialId || 'N/A';
+                productTonsMap[matName] = (productTonsMap[matName] || 0) + (Number(r.tonsProduced) || 0);
+              }
+            });
+            const productTonsStr = Object.entries(productTonsMap)
+              .map(([prodName, tons]) => `${prodName}: ${tons.toFixed(1)} Tn`)
+              .join(', ') || 'N/A';
+
             flatRows.push([
               formatToSpanishDate(dGroup.date),
               sGroup.shiftName,
               lGroup.lineName,
               lGroup.machinists.join(', ') || 'N/A',
               lGroup.totalTons,
+              productTonsStr,
               lGroup.baggers.join(', ') || 'N/A',
               lGroup.runHours,
               lGroup.performance,
@@ -809,6 +838,21 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
                                         // Producción row style
                                         const totalMachinists = line.machinists.join(', ') || 'Sin designar';
                                         const totalBaggers = line.baggers.join(', ') || 'N/A';
+
+                                        // Calculate tons per product
+                                        const productTonsMap: Record<string, number> = {};
+                                        line.reports.forEach((r: any) => {
+                                          if (r.materialsDetails && r.materialsDetails.length > 0) {
+                                            r.materialsDetails.forEach((detail: any) => {
+                                              const matName = masters.materials.find(m => m.id === detail.materialId)?.name || detail.materialId || 'N/A';
+                                              productTonsMap[matName] = (productTonsMap[matName] || 0) + (Number(detail.tonsProduced) || 0);
+                                            });
+                                          } else {
+                                            const matName = masters.materials.find(m => m.id === r.materialId)?.name || r.materialId || 'N/A';
+                                            productTonsMap[matName] = (productTonsMap[matName] || 0) + (Number(r.tonsProduced) || 0);
+                                          }
+                                        });
+
                                         return (
                                           <div key={lineKey} className="border border-border/40 rounded-lg overflow-hidden bg-surface-elevated/20 p-3">
                                             {/* Production table with aggregated stats for that line */}
@@ -831,7 +875,14 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
                                                   <tr className="text-[11px] text-text-main">
                                                     <td className="py-2 font-bold text-primary">{line.lineName}</td>
                                                     <td className="py-2 font-medium max-w-[150px] truncate" title={totalMachinists}>{totalMachinists}</td>
-                                                    <td className="py-2 font-mono font-extrabold text-emerald-400">{line.totalTons.toFixed(1)} Tn</td>
+                                                    <td className="py-2">
+                                                      <div className="font-mono font-extrabold text-emerald-400">{line.totalTons.toFixed(1)} Tn</div>
+                                                      {Object.entries(productTonsMap).map(([prodName, tons]) => (
+                                                        <div key={prodName} className="text-[9px] text-text-muted mt-0.5 leading-tight">
+                                                          <span className="font-semibold text-text-main">{prodName}:</span> {tons.toFixed(1)} Tn
+                                                        </div>
+                                                      ))}
+                                                    </td>
                                                     <td className="py-2 text-text-muted text-[10px] font-semibold">{totalBaggers}</td>
                                                     <td className="py-2 text-center font-mono font-bold">{line.performance}%</td>
                                                     <td className="py-2 text-center font-mono font-bold text-blue-400">{line.availability}%</td>
@@ -1077,8 +1128,25 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
                     </thead>
                     <tbody className="divide-y divide-border/20 text-xs">
                       {d.reports.map((r, idx) => {
-                        const matObj = masters.materials.find(m => m.id === r.materialId);
                         const baggerObj = masters.baggers.find(b => b.id === r.baggerId);
+                        
+                        if (r.materialsDetails && r.materialsDetails.length > 0) {
+                          return r.materialsDetails.map((detail, dIdx) => {
+                            const matObj = masters.materials.find(m => m.id === detail.materialId);
+                            return (
+                              <tr key={`${r.id || idx}-${dIdx}`} className="hover:bg-surface-elevated/25 transition-colors">
+                                <td className="p-3 font-semibold text-text-muted uppercase tracking-tight">{baggerObj?.name || r.baggerId || 'Ensacadora'}</td>
+                                <td className="p-3 font-bold text-text-main">{matObj?.name || detail.materialId || 'N/A'}</td>
+                                <td className="p-3 font-mono">{detail.bagsProduced || 0}</td>
+                                <td className="p-3 font-mono font-extrabold text-emerald-400">{Number(detail.tonsProduced || 0).toFixed(1)} Tn</td>
+                                <td className="p-3 font-mono text-text-muted">{detail.bdp || 100} t/h</td>
+                                <td className="p-3 font-mono font-bold text-primary">{r.availableNozzlesShift || 4}</td>
+                              </tr>
+                            );
+                          });
+                        }
+
+                        const matObj = masters.materials.find(m => m.id === r.materialId);
                         return (
                           <tr key={r.id || idx} className="hover:bg-surface-elevated/25 transition-colors">
                             <td className="p-3 font-semibold text-text-muted uppercase tracking-tight">{baggerObj?.name || r.baggerId || 'Ensacadora'}</td>
