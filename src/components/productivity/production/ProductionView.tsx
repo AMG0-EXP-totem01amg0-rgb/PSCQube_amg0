@@ -1083,6 +1083,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                     value={activeDetail.bags} 
                     onChange={e => setActiveDetail(prev => ({...prev, bags: (e.target as HTMLInputElement).value}))} 
                     placeholder="0"
+                    className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
                 <div className="md:col-span-4">
