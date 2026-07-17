@@ -986,6 +986,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                   value={formData.availableNozzlesShift} 
                   onChange={e => setFormData(prev => ({...prev, availableNozzlesShift: (e.target as HTMLInputElement).value}))} 
                   placeholder="Ej: 4"
+                  className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
                 <GlassInput 
                   className={!showTisInput ? "hidden" : ""}
@@ -1115,24 +1116,28 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                       type="number" 
                       value={activeDetail.discardedBagsBagger} 
                       onChange={e => setActiveDetail(prev => ({...prev, discardedBagsBagger: (e.target as HTMLInputElement).value}))} 
+                      className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                     <GlassInput 
                       label="No Emboquilladas" 
                       type="number" 
                       value={activeDetail.notNozzledBags} 
                       onChange={e => setActiveDetail(prev => ({...prev, notNozzledBags: (e.target as HTMLInputElement).value}))} 
+                      className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                     <GlassInput 
                       label="Ventocheck" 
                       type="number" 
                       value={activeDetail.discardedBagsVentocheck} 
                       onChange={e => setActiveDetail(prev => ({...prev, discardedBagsVentocheck: (e.target as HTMLInputElement).value}))} 
+                      className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                     <GlassInput 
                       label="Transporte" 
                       type="number" 
                       value={activeDetail.discardedBagsTransport} 
                       onChange={e => setActiveDetail(prev => ({...prev, discardedBagsTransport: (e.target as HTMLInputElement).value}))} 
+                      className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                   </div>
                 </div>
