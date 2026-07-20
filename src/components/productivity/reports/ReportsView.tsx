@@ -492,7 +492,7 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
           formatToSpanishDate(stop.finishDate || ''),
           formatToHhMmSs(stop.endTime || ''),
           formatDurationToHhMmSs(stop.durationMinutes),
-          lineObj?.name || stop.palletizerId || stop.machineId || 'N/A',
+          stop.machineHacText || '',
           stop.gpoCodObjeto || '',
           stop.partObject || '',
           stop.symptomGroup || '',
