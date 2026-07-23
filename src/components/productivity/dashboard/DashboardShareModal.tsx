@@ -406,7 +406,7 @@ export default function DashboardShareModal({
               <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm bg-white flex flex-col justify-between">
                 <div>
                   <div className="bg-gray-100/80 px-3 py-1.5 border-b border-gray-200 flex justify-between items-center">
-                    <span className="text-[9px] sm:text-[10px] font-black text-gray-700 uppercase tracking-wider">No Productivos y Insumos</span>
+                    <span className="text-[9px] sm:text-[10px] font-black text-gray-700 uppercase tracking-wider">No Productivos - Insumos</span>
                     <span className="text-[8px] font-bold text-gray-400 font-mono uppercase">{sideBySideRight.length} ítems</span>
                   </div>
                   <table className="w-full text-left text-[10px] sm:text-[11px]">
