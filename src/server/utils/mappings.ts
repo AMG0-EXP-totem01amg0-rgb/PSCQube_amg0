@@ -32,9 +32,8 @@ export function getIdColumnAndKey(tableName: string): { sheetCol: string; client
 export function mapItemForSupabase(tableName: string, item: any): Record<string, any> {
   const upperTable = tableName.toUpperCase();
   const schema = TABLE_SCHEMAS[upperTable];
-  const mapped: Record<string, any> = {};
 
-  if (!item) return mapped;
+  if (!item) return {};
 
   // For PAROSV2, we must preserve exact quoted column keys from the database schema (e.g., "causa sap", "tipo paro")
   if (schema && upperTable === "PAROSV2") {
@@ -72,47 +71,68 @@ export function mapItemForSupabase(tableName: string, item: any): Record<string,
   }
 
   // If a schema exists to enforce database alignment, strictly construct the payload
-  // containing only sanitized, valid database columns.
+  // containing only valid database columns (preserving exact sheetHeaders column names).
   if (schema) {
     const allowedColumns = new Set<string>();
+    const headerMap = new Map<string, string>(); // sanitized -> exact header
+
     for (const header of schema.sheetHeaders) {
-      allowedColumns.add(sanitizeColumnName(header));
+      allowedColumns.add(header);
+      const clean = sanitizeColumnName(header);
+      allowedColumns.add(clean);
+      headerMap.set(clean, header);
+      headerMap.set(header, header);
     }
 
     const tempPayload: Record<string, any> = {};
 
-    // 1. Copy original keys that map directly to the allowed sanitized columns
+    // 1. Copy original keys that map directly
     for (const [key, val] of Object.entries(item)) {
       if (val !== undefined && val !== null) {
         const cleanKey = sanitizeColumnName(key);
-        if (allowedColumns.has(cleanKey)) {
-          tempPayload[cleanKey] = getProcessedValue(cleanKey, key, val);
+        let targetCol: string | undefined;
+        if (allowedColumns.has(key)) {
+          targetCol = key;
+        } else if (allowedColumns.has(cleanKey)) {
+          targetCol = headerMap.get(cleanKey) || cleanKey;
+        }
+        if (targetCol) {
+          tempPayload[targetCol] = getProcessedValue(targetCol, key, val);
         }
       }
     }
 
-    // 2. Process schema mappings to find any omitted properties by clientKey or sheet header
-    for (const [header, clientKey] of Object.entries(schema.sheetToClient)) {
+    // 2. Process schema.clientToSheet mappings
+    for (const [clientKey, header] of Object.entries(schema.clientToSheet)) {
       const cleanCol = sanitizeColumnName(header);
-      
+      const targetHeader = headerMap.get(header) || headerMap.get(cleanCol) || header;
+
       let val = item[clientKey];
       if (val === undefined) {
         val = item[header];
+      }
+      if (val === undefined) {
+        val = item[targetHeader];
       }
       if (val === undefined) {
         val = item[cleanCol];
       }
 
       if (val !== undefined && val !== null) {
-        tempPayload[cleanCol] = getProcessedValue(cleanCol, clientKey, val);
+        tempPayload[targetHeader] = getProcessedValue(targetHeader, clientKey, val);
       }
     }
 
-    // 3. Keep only columns that present in the strictly allowed database set
+    // 3. Keep only columns present in sheetHeaders (using exact header names)
     const strictMapped: Record<string, any> = {};
-    for (const col of allowedColumns) {
-      if (tempPayload[col] !== undefined) {
-        strictMapped[col] = tempPayload[col];
+    for (const header of schema.sheetHeaders) {
+      if (tempPayload[header] !== undefined) {
+        strictMapped[header] = tempPayload[header];
+      } else {
+        const clean = sanitizeColumnName(header);
+        if (tempPayload[clean] !== undefined) {
+          strictMapped[header] = tempPayload[clean];
+        }
       }
     }
 
@@ -129,6 +149,7 @@ export function mapItemForSupabase(tableName: string, item: any): Record<string,
   }
 
   // If no schema exists, fall back to best-effort key sanitization of original item attributes
+  const mapped: Record<string, any> = {};
   for (const [key, val] of Object.entries(item)) {
     if (val !== undefined && val !== null) {
       const cleanKey = sanitizeColumnName(key);
