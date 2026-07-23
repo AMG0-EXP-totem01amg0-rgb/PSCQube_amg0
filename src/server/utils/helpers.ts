@@ -129,6 +129,18 @@ export function areRecordsEqual(recordA: any, recordB: any, schemaHeaders: strin
     
     const normalize = (v: any) => {
       if (v === undefined || v === null) return "";
+      if (typeof v === "boolean") return v ? "true" : "false";
+      if (typeof v === "string") {
+        const lower = v.trim().toLowerCase();
+        if (lower === "true" || lower === "si" || lower === "sí" || lower === "1" || lower === "yes") return "true";
+        if (lower === "false" || lower === "no" || lower === "0") return "false";
+        return v.trim();
+      }
+      if (typeof v === "number") {
+        if (v === 1) return "true";
+        if (v === 0) return "false";
+        return String(v);
+      }
       if (typeof v === "object") {
         try { return JSON.stringify(v); } catch { return ""; }
       }

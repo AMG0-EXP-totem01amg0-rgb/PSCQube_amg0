@@ -1,5 +1,5 @@
 import { TABLE_SCHEMAS } from "../schemas/tableSchemas.js";
-import { sanitizeColumnName, getProcessedValue, toBoolean } from "./sanitizers.js";
+import { sanitizeColumnName, getProcessedValue, toBoolean, BOOLEAN_COLUMNS } from "./sanitizers.js";
 
 export const TABLE_ALIASES: Record<string, string[]> = {
   "carga_combustiblev2": ["carga_combustible", "carga_combustibles", "cargas_combustibles", "cargas_combustible"],
@@ -178,7 +178,12 @@ export function mapSupabaseRowToClient(tableName: string, dbRow: any): any {
       }
 
       if (val !== undefined && val !== null) {
-        clientObj[clientKey] = processValue(val);
+        const cleanClientKey = sanitizeColumnName(clientKey);
+        if (BOOLEAN_COLUMNS.has(cleanHeader) || BOOLEAN_COLUMNS.has(cleanClientKey) || header.endsWith("?")) {
+          clientObj[clientKey] = toBoolean(val);
+        } else {
+          clientObj[clientKey] = processValue(val);
+        }
       }
     }
   }
