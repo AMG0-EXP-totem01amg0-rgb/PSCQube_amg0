@@ -373,7 +373,10 @@ export default function DashboardView({
         dispatchVal = (dispatchEntries || []).filter(d => d.materialId === m.id)
           .reduce((sum, d) => sum + (Number(d.tons) || 0), 0);
 
-        totalVal = stockVal + productionVal - dispatchVal;
+        stockVal = Math.max(0, stockVal);
+        productionVal = Math.max(0, productionVal);
+        dispatchVal = Math.max(0, dispatchVal);
+        totalVal = Math.max(0, stockVal + productionVal - dispatchVal);
       }
 
       const materialEntries = sortedEntries.filter(e => e.materialId === m.id);

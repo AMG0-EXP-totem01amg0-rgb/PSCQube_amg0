@@ -418,7 +418,7 @@ export default function DashboardShareModal({
                       {sideBySideRight.map((item, idx) => (
                         <tr key={idx} className="hover:bg-gray-50/50">
                           <td className="px-3 py-1.5 font-semibold text-gray-700 uppercase truncate max-w-[150px]">{item.name}</td>
-                          <td className="px-3 py-1.5 text-right font-mono font-bold text-blue-900">{Math.round(item.total).toFixed(0)} {item.isUnitary ? 'U' : 'TN'}</td>
+                          <td className="px-3 py-1.5 text-right font-mono font-bold text-blue-900">{Math.max(0, Math.round(item.total)).toFixed(0)} {item.isUnitary ? 'U' : 'TN'}</td>
                         </tr>
                       ))}
                       {sideBySideRight.length === 0 && (
