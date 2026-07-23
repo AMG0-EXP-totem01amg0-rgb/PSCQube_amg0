@@ -36,8 +36,26 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
   const shifts = useMemo(() => masters?.shifts || [], [masters?.shifts]);
   const safeHistory = useMemo(() => Array.isArray(history) ? history.filter(Boolean) : [], [history]);
 
+  // Helper for boolean detection from master properties (es_granel? / es_despacho?)
+  const isTrueVal = (val: any) =>
+    val === true ||
+    String(val).toUpperCase() === 'SI' ||
+    String(val).toUpperCase() === 'TRUE' ||
+    val === 1;
+
+  const isMaterialBulk = (m?: Material | null) => {
+    if (!m) return false;
+    return isTrueVal(m.isBulk) || isTrueVal((m as any)['es_granel?']);
+  };
+
+  const isMaterialBolsa = (m?: Material | null) => {
+    if (!m) return false;
+    if (isMaterialBulk(m)) return false;
+    return isTrueVal(m.isDispatch) || isTrueVal((m as any)['es_despacho?']);
+  };
+
   const productiveMaterials = useMemo(() => 
-    materials.filter(m => m && m.isDispatch === true),
+    materials.filter(m => m && (isMaterialBolsa(m) || isMaterialBulk(m) || m.isDispatch === true)),
     [materials]
   );
 
@@ -49,23 +67,55 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
     [productiveMaterials, searchTerm]
   );
 
-  // Totalizers calculation (Granel vs Bolsa vs Total) - Sin decimales
+  // Totalizers calculation (Granel vs Bolsa vs Total) - Sin decimales y acumulativo por turno
   const totals = useMemo(() => {
+    const getShiftOrder = (shiftId: string) => {
+      const idx = shifts.findIndex(s => s.id === shiftId);
+      if (idx !== -1) return idx;
+      const match = shiftId.match(/\d+/);
+      return match ? parseInt(match[0], 10) : 999;
+    };
+
+    // Map: materialId -> { shiftId -> totalTonsInShift }
+    const materialShiftTotals: Record<string, Record<string, number>> = {};
+    const shiftListForMaterial: Record<string, string[]> = {};
+
+    safeHistory.forEach(entry => {
+      if (!entry || !entry.materialId) return;
+      const matId = entry.materialId;
+      const sId = entry.shiftId || 'UNASSIGNED';
+      const tons = Number(entry.tons) || 0;
+
+      if (!materialShiftTotals[matId]) {
+        materialShiftTotals[matId] = {};
+        shiftListForMaterial[matId] = [];
+      }
+      if (materialShiftTotals[matId][sId] === undefined) {
+        materialShiftTotals[matId][sId] = 0;
+        shiftListForMaterial[matId].push(sId);
+      }
+      materialShiftTotals[matId][sId] += tons;
+    });
+
     let bulkTons = 0;
     let bagTons = 0;
 
-    safeHistory.forEach(entry => {
-      if (!entry) return;
-      const mat = materials.find(m => m.id === entry.materialId);
-      const tons = Number(entry.tons) || 0;
-      
-      // Granel: es_granel? === true
-      if (mat?.isBulk) {
-        bulkTons += tons;
-      } 
-      // Bolsa: es_despacho? === true (y no granel)
-      else if (mat?.isDispatch) {
-        bagTons += tons;
+    // For each material, the latest shift reported holds the cumulative total for the day
+    Object.keys(materialShiftTotals).forEach(matId => {
+      const mat = materials.find(m => m.id === matId);
+      const shiftIds = shiftListForMaterial[matId];
+
+      shiftIds.sort((a, b) => getShiftOrder(a) - getShiftOrder(b));
+
+      const latestShiftId = shiftIds[shiftIds.length - 1];
+      const effectiveTons = materialShiftTotals[matId][latestShiftId] || 0;
+
+      if (isMaterialBulk(mat)) {
+        bulkTons += effectiveTons;
+      } else if (isMaterialBolsa(mat)) {
+        bagTons += effectiveTons;
+      } else {
+        bagTons += effectiveTons;
       }
     });
 
@@ -74,7 +124,7 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
       bag: Math.round(bagTons),
       total: Math.round(bulkTons + bagTons)
     };
-  }, [safeHistory, materials]);
+  }, [safeHistory, materials, shifts]);
 
   // Group history entries by shift
   const historyByShift = useMemo(() => {
@@ -254,9 +304,9 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
                           <p className="text-[10px] font-black text-text-muted uppercase tracking-widest">{m.code || 'S/C'}</p>
                           <span className={cn(
                             "px-2 py-0.5 rounded text-[9px] font-bold uppercase",
-                            m.isBulk ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" : "bg-blue-500/10 text-blue-500 border border-blue-500/20"
+                            isMaterialBulk(m) ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" : "bg-blue-500/10 text-blue-500 border border-blue-500/20"
                           )}>
-                            {m.isBulk ? 'Granel' : 'Bolsa'}
+                            {isMaterialBulk(m) ? 'Granel' : 'Bolsa'}
                           </span>
                         </div>
                         <h4 className="text-sm font-bold text-text-main group-hover:text-primary transition-colors">{m.name}</h4>
@@ -349,7 +399,6 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
                           <table className="w-full text-left border-collapse">
                             <thead className="bg-white/5 border-b border-white/5">
                               <tr>
-                                <th className="px-6 py-3 text-[10px] font-black text-text-muted uppercase tracking-widest">Hora</th>
                                 <th className="px-6 py-3 text-[10px] font-black text-text-muted uppercase tracking-widest">Material</th>
                                 <th className="px-6 py-3 text-[10px] font-black text-text-muted uppercase tracking-widest">Tipo</th>
                                 <th className="px-6 py-3 text-[10px] font-black text-text-muted uppercase tracking-widest text-right">Toneladas</th>
@@ -364,9 +413,6 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
 
                                 return (
                                   <tr key={entry.id} className="hover:bg-white/5 transition-colors">
-                                    <td className="px-6 py-3.5 text-xs font-mono text-text-muted whitespace-nowrap">
-                                      {formatTimestamp(entry.timestamp)}
-                                    </td>
                                     <td className="px-6 py-3.5">
                                       <div className="flex flex-col">
                                         <span className="text-sm font-bold text-text-main">{material?.name || entry.materialDescription || entry.materialId}</span>
@@ -376,9 +422,9 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
                                     <td className="px-6 py-3.5 whitespace-nowrap">
                                       <span className={cn(
                                         "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
-                                        material?.isBulk ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" : "bg-blue-500/10 text-blue-500 border border-blue-500/20"
+                                        isMaterialBulk(material) ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" : "bg-blue-500/10 text-blue-500 border border-blue-500/20"
                                       )}>
-                                        {material?.isBulk ? 'Granel' : 'Bolsa'}
+                                        {isMaterialBulk(material) ? 'Granel' : 'Bolsa'}
                                       </span>
                                     </td>
                                     <td className="px-6 py-3.5 text-right whitespace-nowrap">
