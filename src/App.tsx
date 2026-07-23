@@ -1967,7 +1967,7 @@ export default function App() {
                     <DespachosView 
                       masters={masters}
                       currentUser={currentUser}
-                      history={dispatchEntries.filter(d => d.shiftId === userContext.selectedShiftId && d.date === userContext.selectedDate)}
+                      history={(dispatchEntries || []).filter(d => d && d.date === userContext.selectedDate)}
                       onSave={handleSaveDispatch}
                       onDelete={handleDeleteDispatch}
                       selectedShiftId={userContext.selectedShiftId}

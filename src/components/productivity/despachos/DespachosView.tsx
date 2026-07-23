@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Truck, Search, History, Plus, Save, Trash2, Edit2, Check, AlertCircle } from 'lucide-react';
+import { Truck, Search, History, Plus, Save, Trash2, Edit2, Check, AlertCircle, Package, Layers } from 'lucide-react';
 import { MasterData, AppUser, DispatchEntry, Material } from '../../../types';
 import { cn } from '../../../lib/utils';
 import { GlassCard, GlassInput, GlassButton } from '../../ui/GlassUI';
@@ -31,14 +31,45 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
   const [weights, setWeights] = useState<Record<string, string>>({});
   const [isEditingId, setIsEditingId] = useState<string | null>(null);
 
+  const materials = useMemo(() => masters?.materials || [], [masters?.materials]);
+  const shifts = useMemo(() => masters?.shifts || [], [masters?.shifts]);
+  const safeHistory = useMemo(() => Array.isArray(history) ? history.filter(Boolean) : [], [history]);
+
   const productiveMaterials = useMemo(() => 
-    masters.materials.filter(m => m.isDispatch === true),
-    [masters.materials]
+    materials.filter(m => m && m.isDispatch === true),
+    [materials]
   );
 
-  const filteredMaterials = productiveMaterials.filter(m => 
-    m.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredMaterials = useMemo(() => 
+    productiveMaterials.filter(m => 
+      (m.name || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+      (m.code || '').toLowerCase().includes((searchTerm || '').toLowerCase())
+    ),
+    [productiveMaterials, searchTerm]
   );
+
+  // Totalizers calculation (Granel vs Bolsa vs Total)
+  const totals = useMemo(() => {
+    let bulkTons = 0;
+    let bagTons = 0;
+
+    safeHistory.forEach(entry => {
+      if (!entry) return;
+      const mat = materials.find(m => m.id === entry.materialId);
+      const tons = Number(entry.tons) || 0;
+      if (mat?.isBulk) {
+        bulkTons += tons;
+      } else {
+        bagTons += tons;
+      }
+    });
+
+    return {
+      bulk: bulkTons,
+      bag: bagTons,
+      total: bulkTons + bagTons
+    };
+  }, [safeHistory, materials]);
 
   const handleSaveAll = () => {
     const now = new Date().toISOString();
@@ -53,8 +84,8 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
         shiftId: selectedShiftId,
         materialId,
         tons,
-        userId: currentUser.dni,
-        userName: currentUser.name,
+        userId: currentUser?.dni || '',
+        userName: currentUser?.name || 'Sistema',
         timestamp: now
       };
       
@@ -71,8 +102,59 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
     setIsEditingId(null);
   };
 
+  const formatTimestamp = (ts: string) => {
+    if (!ts) return '--:--:--';
+    try {
+      const d = new Date(ts);
+      if (isNaN(d.getTime())) return '--:--:--';
+      return format(d, 'HH:mm:ss');
+    } catch {
+      return '--:--:--';
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* Totalizers Summary Header */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <GlassCard className="p-4 flex items-center gap-4 border-l-4 border-l-amber-500">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+            <Truck size={20} />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-text-muted uppercase tracking-wider">Despachos a Granel</p>
+            <h4 className="text-xl font-bold font-mono text-text-main mt-0.5">
+              {totals.bulk.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-sans text-amber-500 font-bold">TN</span>
+            </h4>
+          </div>
+        </GlassCard>
+
+        <GlassCard className="p-4 flex items-center gap-4 border-l-4 border-l-blue-500">
+          <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
+            <Package size={20} />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-text-muted uppercase tracking-wider">Despachos en Bolsa</p>
+            <h4 className="text-xl font-bold font-mono text-text-main mt-0.5">
+              {totals.bag.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-sans text-blue-500 font-bold">TN</span>
+            </h4>
+          </div>
+        </GlassCard>
+
+        <GlassCard className="p-4 flex items-center gap-4 border-l-4 border-l-primary">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <Layers size={20} />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-text-muted uppercase tracking-wider">Total Despachado (Día)</p>
+            <h4 className="text-xl font-bold font-mono text-primary mt-0.5">
+              {totals.total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-sans text-primary font-bold">TN</span>
+            </h4>
+          </div>
+        </GlassCard>
+      </div>
+
+      {/* View Mode Toggle */}
       <div className="flex items-center justify-between bg-surface/50 backdrop-blur-sm p-1 rounded-xl border border-border w-fit">
         <button
           onClick={() => setActiveTab('FORM')}
@@ -90,7 +172,7 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
             activeTab === 'HISTORY' ? "bg-primary text-white shadow-lg" : "text-text-muted hover:text-text-main"
           )}
         >
-          <History size={14} /> Historial del Turno
+          <History size={14} /> Historial del Día ({safeHistory.length})
         </button>
       </div>
 
@@ -125,7 +207,15 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
                 {filteredMaterials.map(m => (
                   <div key={m.id} className="bg-bg/30 border border-white/5 rounded-2xl p-4 flex flex-col justify-between group hover:border-primary/30 transition-all">
                     <div>
-                        <p className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-1">{m.code || 'S/C'}</p>
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <p className="text-[10px] font-black text-text-muted uppercase tracking-widest">{m.code || 'S/C'}</p>
+                          <span className={cn(
+                            "px-2 py-0.5 rounded text-[9px] font-bold uppercase",
+                            m.isBulk ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" : "bg-blue-500/10 text-blue-500 border border-blue-500/20"
+                          )}>
+                            {m.isBulk ? 'Granel' : 'Bolsa'}
+                          </span>
+                        </div>
                         <h4 className="text-sm font-bold text-text-main group-hover:text-primary transition-colors">{m.name}</h4>
                     </div>
                     <div className="mt-4 pt-4 border-t border-white/5">
@@ -136,7 +226,7 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
                              value={weights[m.id] || ''}
                              disabled={!canEdit}
                              onChange={(e) => setWeights({ ...weights, [m.id]: e.target.value })}
-                             className="text-right font-mono disabled:opacity-60 disabled:cursor-not-allowed"
+                             className="text-right font-mono disabled:opacity-60 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                            />
                            <span className="text-[10px] font-black text-text-muted">TN</span>
                         </div>
@@ -153,7 +243,7 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
                     className="h-14 px-12 group"
                   >
                     <Save className="mr-2 group-hover:scale-110 transition-transform" />
-                    GURADAR REGISTROS
+                    GUARDAR REGISTROS
                   </GlassButton>
                 </div>
               )}
@@ -171,30 +261,46 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
                  <table className="w-full text-left border-collapse">
                    <thead className="bg-white/5 border-b border-white/5">
                      <tr>
+                       <th className="px-6 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Turno</th>
                        <th className="px-6 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Hora</th>
                        <th className="px-6 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Material</th>
+                       <th className="px-6 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Tipo</th>
                        <th className="px-6 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest text-right">Toneladas</th>
                        <th className="px-6 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Usuario</th>
                        <th className="px-6 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest text-right">Acciones</th>
                      </tr>
                    </thead>
                    <tbody className="divide-y divide-white/5">
-                     {history.length > 0 ? history.sort((a,b) => b.timestamp.localeCompare(a.timestamp)).map((entry) => {
-                       const material = masters.materials.find(m => m.id === entry.materialId);
+                     {safeHistory.length > 0 ? [...safeHistory].sort((a,b) => (b.timestamp || '').localeCompare(a.timestamp || '')).map((entry) => {
+                       const material = materials.find(m => m.id === entry.materialId);
+                       const shiftObj = shifts.find(s => s.id === entry.shiftId);
                        const isEditing = isEditingId === entry.id;
 
                        return (
                          <tr key={entry.id} className="hover:bg-white/5 transition-colors">
+                           <td className="px-6 py-4 text-xs font-bold text-text-main whitespace-nowrap">
+                             <span className="px-2.5 py-1 bg-primary/10 text-primary border border-primary/20 rounded-lg text-xs">
+                               {shiftObj?.name || entry.shiftDescription || `Turno ${entry.shiftId}`}
+                             </span>
+                           </td>
                            <td className="px-6 py-4 text-xs font-mono text-text-muted whitespace-nowrap">
-                             {format(new Date(entry.timestamp), 'HH:mm:ss')}
+                             {formatTimestamp(entry.timestamp)}
                            </td>
                            <td className="px-6 py-4">
                              <div className="flex flex-col">
-                               <span className="text-sm font-bold text-text-main">{material?.name}</span>
-                               <span className="text-[10px] text-text-muted uppercase tracking-widest">{material?.code}</span>
+                               <span className="text-sm font-bold text-text-main">{material?.name || entry.materialDescription || entry.materialId}</span>
+                               <span className="text-[10px] text-text-muted uppercase tracking-widest">{material?.code || 'S/C'}</span>
                              </div>
                            </td>
-                           <td className="px-6 py-4 text-right">
+                           <td className="px-6 py-4 whitespace-nowrap">
+                             <span className={cn(
+                               "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                               material?.isBulk ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" : "bg-blue-500/10 text-blue-500 border border-blue-500/20"
+                             )}>
+                               {material?.isBulk ? 'Granel' : 'Bolsa'}
+                             </span>
+                           </td>
+                           <td className="px-6 py-4 text-right whitespace-nowrap">
                              {isEditing ? (
                                <div className="flex items-center justify-end gap-2">
                                  <input
@@ -206,36 +312,42 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
                                  <span className="text-[10px] font-bold text-text-muted uppercase">TN</span>
                                </div>
                              ) : (
-                               <span className="font-mono text-base font-bold text-primary">{entry.tons.toFixed(2)} TN</span>
+                               <span className="font-mono text-base font-bold text-primary">
+                                 {(Number(entry.tons) || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TN
+                               </span>
                              )}
                            </td>
-                           <td className="px-6 py-4">
-                             <span className="text-xs font-medium text-text-muted">{entry.userName}</span>
+                           <td className="px-6 py-4 whitespace-nowrap">
+                             <span className="text-xs font-medium text-text-muted">{entry.userName || entry.userId || 'Sistema'}</span>
                            </td>
-                           <td className="px-6 py-4 text-right">
+                           <td className="px-6 py-4 text-right whitespace-nowrap">
                              <div className="flex items-center justify-end gap-1">
-                               <button 
-                                 onClick={() => setIsEditingId(isEditing ? null : entry.id)}
-                                 className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:bg-primary/10 hover:text-primary transition-all"
-                               >
-                                 <Edit2 size={14} />
-                               </button>
-                               <button 
-                                 onClick={() => onDelete(entry.id)}
-                                 className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:bg-red-500/10 hover:text-red-500 transition-all"
-                               >
-                                 <Trash2 size={14} />
-                               </button>
+                               {canEdit && (
+                                 <>
+                                   <button 
+                                     onClick={() => setIsEditingId(isEditing ? null : entry.id)}
+                                     className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:bg-primary/10 hover:text-primary transition-all"
+                                   >
+                                     <Edit2 size={14} />
+                                   </button>
+                                   <button 
+                                     onClick={() => onDelete(entry.id)}
+                                     className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:bg-red-500/10 hover:text-red-500 transition-all"
+                                   >
+                                     <Trash2 size={14} />
+                                   </button>
+                                 </>
+                               )}
                              </div>
                            </td>
                          </tr>
                        );
                      }) : (
                        <tr>
-                         <td colSpan={5} className="px-6 py-12 text-center">
+                         <td colSpan={7} className="px-6 py-12 text-center">
                             <div className="flex flex-col items-center gap-2 opacity-30">
                                <Truck size={40} />
-                               <p className="text-xs font-bold uppercase tracking-widest">Sin registros en este turno</p>
+                               <p className="text-xs font-bold uppercase tracking-widest">Sin registros de despacho en esta fecha</p>
                             </div>
                          </td>
                        </tr>
@@ -266,3 +378,4 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
     </div>
   );
 }
+
