@@ -381,7 +381,7 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
                       <div className="text-right">
                         <span className="text-[10px] font-black text-text-muted uppercase tracking-wider block">Total Turno</span>
                         <span className="font-mono text-base font-bold text-primary">
-                          {group.totalTons.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TN
+                          {Math.round(group.totalTons).toLocaleString('es-ES')} TN
                         </span>
                       </div>
                     </div>
