@@ -200,7 +200,7 @@ export default function DashboardShareModal({
   const renderReportContent = (isOffscreen: boolean) => {
     // Merge insumos and others for the No Productivos y Otros side table
     const sideBySideLeft = inventorySummary.tarimas || [];
-    const sideBySideRight = [...(inventorySummary.insumos || []), ...(inventorySummary.others || [])];
+    const sideBySideRight = [...(inventorySummary.insumos || []), ...(inventorySummary.others || [])].filter(item => !item.isBulk);
 
     return (
       <div 

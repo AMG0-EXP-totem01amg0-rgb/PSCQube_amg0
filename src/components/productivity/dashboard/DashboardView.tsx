@@ -379,6 +379,7 @@ export default function DashboardView({
         totalVal = Math.max(0, stockVal + productionVal - dispatchVal);
       }
 
+      const isBulk = Boolean(m.isBulk || m['es_granel?'] || m.es_granel || m['es_granel']);
       const materialEntries = sortedEntries.filter(e => e.materialId === m.id);
       // Always show productive materials individually, otherwise check for actual activity or records
       if (m.isProductive || materialEntries.length > 0 || productionVal > 0 || dispatchVal > 0) {
@@ -392,6 +393,7 @@ export default function DashboardView({
           isUnitary,
           isProductive: m.isProductive,
           isBigBag: m.isBigBag,
+          isBulk,
           shiftProduction: m.isProductive ? shiftProduction : undefined
         };
 
@@ -400,11 +402,15 @@ export default function DashboardView({
         } else if (m.isBigBag) {
           groups.bigbags.push(item);
         } else if (m.isSupply) {
-          groups.insumos.push(item);
+          if (!isBulk) {
+            groups.insumos.push(item);
+          }
         } else if (m.isProductive) {
           groups.productive.push(item);
         } else {
-          groups.others.push(item);
+          if (!isBulk) {
+            groups.others.push(item);
+          }
         }
       }
     });
