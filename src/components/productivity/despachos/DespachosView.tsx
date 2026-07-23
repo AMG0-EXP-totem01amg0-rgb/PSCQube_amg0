@@ -60,10 +60,12 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
   );
 
   const filteredMaterials = useMemo(() => 
-    productiveMaterials.filter(m => 
-      (m.name || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
-      (m.code || '').toLowerCase().includes((searchTerm || '').toLowerCase())
-    ),
+    productiveMaterials
+      .filter(m => 
+        (m.name || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+        (m.code || '').toLowerCase().includes((searchTerm || '').toLowerCase())
+      )
+      .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' })),
     [productiveMaterials, searchTerm]
   );
 
@@ -407,7 +409,13 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
-                              {[...group.entries].sort((a,b) => (b.timestamp || '').localeCompare(a.timestamp || '')).map((entry) => {
+                              {[...group.entries]
+                                .sort((a, b) => {
+                                  const nameA = materials.find(m => m.id === a.materialId)?.name || a.materialDescription || '';
+                                  const nameB = materials.find(m => m.id === b.materialId)?.name || b.materialDescription || '';
+                                  return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
+                                })
+                                .map((entry) => {
                                 const material = materials.find(m => m.id === entry.materialId);
                                 const isEditing = isEditingId === entry.id;
 
