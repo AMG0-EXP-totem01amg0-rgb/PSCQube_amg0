@@ -4,6 +4,7 @@ import { readFromSupabase } from "../services/supabase.service.js";
 const router = Router();
 
 router.get("/api/sync/maestros", async (req, res) => {
+  res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
   try {
     const [
       turnos,

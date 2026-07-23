@@ -203,10 +203,20 @@ router.get("/api/supabase-test", async (req, res) => {
   }
 });
 
+// Helpers to handle Vercel CDN cache headers
+function setCdnCacheHeader(res: any, maxAge: number, sMaxAge: number) {
+  res.setHeader("Cache-Control", `public, max-age=${maxAge}, s-maxage=${sMaxAge}, stale-while-revalidate=600`);
+}
+
+function setNoCacheHeader(res: any) {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+}
+
 const APP_BUILD_VERSION = process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_APP_VERSION || "v2.0.1-stable";
 
 // GET Version Endpoint
 router.get("/api/version", (req, res) => {
+  setCdnCacheHeader(res, 60, 1800);
   return res.json({
     success: true,
     version: APP_BUILD_VERSION
@@ -215,6 +225,7 @@ router.get("/api/version", (req, res) => {
 
 // GET Status Endpoint (Google Sheets status is now mock-returned as we operate purely on Supabase)
 router.get("/api/sheets/status", async (req, res) => {
+  setCdnCacheHeader(res, 60, 300);
   return res.json({
     success: true,
     configured: true,
@@ -248,14 +259,21 @@ router.get("/api/catalogos", async (req, res) => {
     "VEHICULOSV2"
   ];
 
+  if (bypassCache) {
+    setNoCacheHeader(res);
+    catalogTables.forEach(t => invalidateCache(t));
+  } else {
+    setCdnCacheHeader(res, 60, 300);
+  }
+
   try {
-    const results: Record<string, any[]> = {};
-    for (const table of catalogTables) {
-      if (bypassCache) {
-        invalidateCache(table);
-      }
-      results[table] = await GenericRepository.findAll(table);
-    }
+    const resultsArray = await Promise.all(
+      catalogTables.map(async (table) => {
+        const data = await GenericRepository.findAll(table);
+        return [table, data] as const;
+      })
+    );
+    const results: Record<string, any[]> = Object.fromEntries(resultsArray);
     return res.json({ success: true, data: results });
   } catch (error: any) {
     console.error("GET /api/catalogos Error:", error);
@@ -268,7 +286,10 @@ router.get("/api/produccion", async (req, res) => {
   logTraceRequest(req, "GET /api/produccion", "PRODUCCIONV2");
   const bypassCache = req.query.bypassCache === "true";
   if (bypassCache) {
+    setNoCacheHeader(res);
     invalidateCache("PRODUCCIONV2");
+  } else {
+    setCdnCacheHeader(res, 30, 120);
   }
   try {
     let list = await GenericRepository.findAll("PRODUCCIONV2");
@@ -295,7 +316,10 @@ router.get("/api/paros", async (req, res) => {
   logTraceRequest(req, "GET /api/paros", "PAROSV2");
   const bypassCache = req.query.bypassCache === "true";
   if (bypassCache) {
+    setNoCacheHeader(res);
     invalidateCache("PAROSV2");
+  } else {
+    setCdnCacheHeader(res, 30, 120);
   }
   try {
     let list = await GenericRepository.findAll("PAROSV2");
@@ -326,7 +350,10 @@ router.get("/api/sheets", async (req, res) => {
 
   const bypassCache = req.query.bypassCache === "true";
   if (bypassCache) {
+    setNoCacheHeader(res);
     invalidateCache(table);
+  } else {
+    setCdnCacheHeader(res, 30, 120);
   }
 
   try {
@@ -376,6 +403,7 @@ router.get("/api/sheets", async (req, res) => {
 
 // POST Endpoint to read/write/create/update/delete tables
 router.post("/api/sheets", async (req, res) => {
+  setNoCacheHeader(res);
   const { action, table, data } = req.body;
   logTraceRequest(req, `POST /api/sheets (action: ${action || 'n/a'})`, table || "unspecified");
 
