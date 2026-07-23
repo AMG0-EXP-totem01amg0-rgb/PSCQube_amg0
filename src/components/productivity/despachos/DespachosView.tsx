@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Truck, Search, History, Plus, Save, Trash2, Edit2, Check, AlertCircle, Package, Layers } from 'lucide-react';
+import { Truck, Search, History, Plus, Save, Trash2, Edit2, Check, AlertCircle, Package, Layers, ChevronDown, ChevronRight } from 'lucide-react';
 import { MasterData, AppUser, DispatchEntry, Material } from '../../../types';
 import { cn } from '../../../lib/utils';
 import { GlassCard, GlassInput, GlassButton } from '../../ui/GlassUI';
@@ -20,6 +20,7 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
   const [activeTab, setActiveTab] = useState<'FORM' | 'HISTORY'>('FORM');
   const [searchTerm, setSearchTerm] = useState('');
   const [showToast, setShowToast] = useState(false);
+  const [collapsedShifts, setCollapsedShifts] = useState<Record<string, boolean>>({});
   
   const canEdit = useMemo(() => {
     if (currentUser?.profile === 'Administrador') return true;
@@ -48,7 +49,7 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
     [productiveMaterials, searchTerm]
   );
 
-  // Totalizers calculation (Granel vs Bolsa vs Total)
+  // Totalizers calculation (Granel vs Bolsa vs Total) - Sin decimales
   const totals = useMemo(() => {
     let bulkTons = 0;
     let bagTons = 0;
@@ -57,19 +58,61 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
       if (!entry) return;
       const mat = materials.find(m => m.id === entry.materialId);
       const tons = Number(entry.tons) || 0;
+      
+      // Granel: es_granel? === true
       if (mat?.isBulk) {
         bulkTons += tons;
-      } else {
+      } 
+      // Bolsa: es_despacho? === true (y no granel)
+      else if (mat?.isDispatch) {
         bagTons += tons;
       }
     });
 
     return {
-      bulk: bulkTons,
-      bag: bagTons,
-      total: bulkTons + bagTons
+      bulk: Math.round(bulkTons),
+      bag: Math.round(bagTons),
+      total: Math.round(bulkTons + bagTons)
     };
   }, [safeHistory, materials]);
+
+  // Group history entries by shift
+  const historyByShift = useMemo(() => {
+    const map: Record<string, { shiftId: string; shiftName: string; entries: DispatchEntry[]; totalTons: number }> = {};
+
+    safeHistory.forEach(entry => {
+      if (!entry) return;
+      const sId = entry.shiftId || 'UNASSIGNED';
+      const shiftObj = shifts.find(s => s.id === sId);
+      const shiftName = shiftObj?.name || entry.shiftDescription || (sId === 'UNASSIGNED' ? 'Sin Turno' : `Turno ${sId}`);
+
+      if (!map[sId]) {
+        map[sId] = {
+          shiftId: sId,
+          shiftName,
+          entries: [],
+          totalTons: 0
+        };
+      }
+      map[sId].entries.push(entry);
+      map[sId].totalTons += (Number(entry.tons) || 0);
+    });
+
+    // Sort shift groups according to shifts master order or shiftId
+    return Object.values(map).sort((a, b) => {
+      const idxA = shifts.findIndex(s => s.id === a.shiftId);
+      const idxB = shifts.findIndex(s => s.id === b.shiftId);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      return a.shiftName.localeCompare(b.shiftName);
+    });
+  }, [safeHistory, shifts]);
+
+  const toggleShiftCollapse = (shiftId: string) => {
+    setCollapsedShifts(prev => ({
+      ...prev,
+      [shiftId]: !prev[shiftId]
+    }));
+  };
 
   const handleSaveAll = () => {
     const now = new Date().toISOString();
@@ -124,7 +167,7 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
           <div>
             <p className="text-[10px] font-black text-text-muted uppercase tracking-wider">Despachos a Granel</p>
             <h4 className="text-xl font-bold font-mono text-text-main mt-0.5">
-              {totals.bulk.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-sans text-amber-500 font-bold">TN</span>
+              {totals.bulk.toLocaleString('es-ES')} <span className="text-xs font-sans text-amber-500 font-bold">TN</span>
             </h4>
           </div>
         </GlassCard>
@@ -136,7 +179,7 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
           <div>
             <p className="text-[10px] font-black text-text-muted uppercase tracking-wider">Despachos en Bolsa</p>
             <h4 className="text-xl font-bold font-mono text-text-main mt-0.5">
-              {totals.bag.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-sans text-blue-500 font-bold">TN</span>
+              {totals.bag.toLocaleString('es-ES')} <span className="text-xs font-sans text-blue-500 font-bold">TN</span>
             </h4>
           </div>
         </GlassCard>
@@ -148,7 +191,7 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
           <div>
             <p className="text-[10px] font-black text-text-muted uppercase tracking-wider">Total Despachado (Día)</p>
             <h4 className="text-xl font-bold font-mono text-primary mt-0.5">
-              {totals.total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-sans text-primary font-bold">TN</span>
+              {totals.total.toLocaleString('es-ES')} <span className="text-xs font-sans text-primary font-bold">TN</span>
             </h4>
           </div>
         </GlassCard>
@@ -255,107 +298,148 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
+            className="space-y-4"
           >
-            <GlassCard className="overflow-hidden">
-               <div className="overflow-x-auto">
-                 <table className="w-full text-left border-collapse">
-                   <thead className="bg-white/5 border-b border-white/5">
-                     <tr>
-                       <th className="px-6 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Turno</th>
-                       <th className="px-6 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Hora</th>
-                       <th className="px-6 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Material</th>
-                       <th className="px-6 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Tipo</th>
-                       <th className="px-6 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest text-right">Toneladas</th>
-                       <th className="px-6 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Usuario</th>
-                       <th className="px-6 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest text-right">Acciones</th>
-                     </tr>
-                   </thead>
-                   <tbody className="divide-y divide-white/5">
-                     {safeHistory.length > 0 ? [...safeHistory].sort((a,b) => (b.timestamp || '').localeCompare(a.timestamp || '')).map((entry) => {
-                       const material = materials.find(m => m.id === entry.materialId);
-                       const shiftObj = shifts.find(s => s.id === entry.shiftId);
-                       const isEditing = isEditingId === entry.id;
+            {historyByShift.length > 0 ? (
+              historyByShift.map(group => {
+                const isCollapsed = collapsedShifts[group.shiftId] === true;
 
-                       return (
-                         <tr key={entry.id} className="hover:bg-white/5 transition-colors">
-                           <td className="px-6 py-4 text-xs font-bold text-text-main whitespace-nowrap">
-                             <span className="px-2.5 py-1 bg-primary/10 text-primary border border-primary/20 rounded-lg text-xs">
-                               {shiftObj?.name || entry.shiftDescription || `Turno ${entry.shiftId}`}
-                             </span>
-                           </td>
-                           <td className="px-6 py-4 text-xs font-mono text-text-muted whitespace-nowrap">
-                             {formatTimestamp(entry.timestamp)}
-                           </td>
-                           <td className="px-6 py-4">
-                             <div className="flex flex-col">
-                               <span className="text-sm font-bold text-text-main">{material?.name || entry.materialDescription || entry.materialId}</span>
-                               <span className="text-[10px] text-text-muted uppercase tracking-widest">{material?.code || 'S/C'}</span>
-                             </div>
-                           </td>
-                           <td className="px-6 py-4 whitespace-nowrap">
-                             <span className={cn(
-                               "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
-                               material?.isBulk ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" : "bg-blue-500/10 text-blue-500 border border-blue-500/20"
-                             )}>
-                               {material?.isBulk ? 'Granel' : 'Bolsa'}
-                             </span>
-                           </td>
-                           <td className="px-6 py-4 text-right whitespace-nowrap">
-                             {isEditing ? (
-                               <div className="flex items-center justify-end gap-2">
-                                 <input
-                                   type="number"
-                                   className="w-24 bg-bg border border-primary/50 rounded-lg py-1 px-2 text-right text-sm font-mono outline-none"
-                                   defaultValue={entry.tons}
-                                   onBlur={(e) => handleUpdateSingle({ ...entry, tons: parseFloat(e.target.value) || entry.tons })}
-                                 />
-                                 <span className="text-[10px] font-bold text-text-muted uppercase">TN</span>
-                               </div>
-                             ) : (
-                               <span className="font-mono text-base font-bold text-primary">
-                                 {(Number(entry.tons) || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TN
-                               </span>
-                             )}
-                           </td>
-                           <td className="px-6 py-4 whitespace-nowrap">
-                             <span className="text-xs font-medium text-text-muted">{entry.userName || entry.userId || 'Sistema'}</span>
-                           </td>
-                           <td className="px-6 py-4 text-right whitespace-nowrap">
-                             <div className="flex items-center justify-end gap-1">
-                               {canEdit && (
-                                 <>
-                                   <button 
-                                     onClick={() => setIsEditingId(isEditing ? null : entry.id)}
-                                     className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:bg-primary/10 hover:text-primary transition-all"
-                                   >
-                                     <Edit2 size={14} />
-                                   </button>
-                                   <button 
-                                     onClick={() => onDelete(entry.id)}
-                                     className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:bg-red-500/10 hover:text-red-500 transition-all"
-                                   >
-                                     <Trash2 size={14} />
-                                   </button>
-                                 </>
-                               )}
-                             </div>
-                           </td>
-                         </tr>
-                       );
-                     }) : (
-                       <tr>
-                         <td colSpan={7} className="px-6 py-12 text-center">
-                            <div className="flex flex-col items-center gap-2 opacity-30">
-                               <Truck size={40} />
-                               <p className="text-xs font-bold uppercase tracking-widest">Sin registros de despacho en esta fecha</p>
-                            </div>
-                         </td>
-                       </tr>
-                     )}
-                   </tbody>
-                 </table>
-               </div>
-            </GlassCard>
+                return (
+                  <GlassCard key={group.shiftId} className="overflow-hidden border border-border/60">
+                    {/* Collapsible Shift Header */}
+                    <div 
+                      onClick={() => toggleShiftCollapse(group.shiftId)}
+                      className="p-4 bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-between cursor-pointer select-none"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                          {isCollapsed ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-text-main flex items-center gap-2">
+                            <span>{group.shiftName}</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary font-mono">
+                              {group.entries.length} {group.entries.length === 1 ? 'registro' : 'registros'}
+                            </span>
+                          </h4>
+                          <p className="text-[10px] text-text-muted uppercase tracking-wider mt-0.5">
+                            Turno de trabajo
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="text-[10px] font-black text-text-muted uppercase tracking-wider block">Total Turno</span>
+                        <span className="font-mono text-base font-bold text-primary">
+                          {group.totalTons.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TN
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Collapsible Table Content */}
+                    <AnimatePresence initial={false}>
+                      {!isCollapsed && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-x-auto border-t border-white/5"
+                        >
+                          <table className="w-full text-left border-collapse">
+                            <thead className="bg-white/5 border-b border-white/5">
+                              <tr>
+                                <th className="px-6 py-3 text-[10px] font-black text-text-muted uppercase tracking-widest">Hora</th>
+                                <th className="px-6 py-3 text-[10px] font-black text-text-muted uppercase tracking-widest">Material</th>
+                                <th className="px-6 py-3 text-[10px] font-black text-text-muted uppercase tracking-widest">Tipo</th>
+                                <th className="px-6 py-3 text-[10px] font-black text-text-muted uppercase tracking-widest text-right">Toneladas</th>
+                                <th className="px-6 py-3 text-[10px] font-black text-text-muted uppercase tracking-widest">Usuario</th>
+                                <th className="px-6 py-3 text-[10px] font-black text-text-muted uppercase tracking-widest text-right">Acciones</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                              {[...group.entries].sort((a,b) => (b.timestamp || '').localeCompare(a.timestamp || '')).map((entry) => {
+                                const material = materials.find(m => m.id === entry.materialId);
+                                const isEditing = isEditingId === entry.id;
+
+                                return (
+                                  <tr key={entry.id} className="hover:bg-white/5 transition-colors">
+                                    <td className="px-6 py-3.5 text-xs font-mono text-text-muted whitespace-nowrap">
+                                      {formatTimestamp(entry.timestamp)}
+                                    </td>
+                                    <td className="px-6 py-3.5">
+                                      <div className="flex flex-col">
+                                        <span className="text-sm font-bold text-text-main">{material?.name || entry.materialDescription || entry.materialId}</span>
+                                        <span className="text-[10px] text-text-muted uppercase tracking-widest">{material?.code || 'S/C'}</span>
+                                      </div>
+                                    </td>
+                                    <td className="px-6 py-3.5 whitespace-nowrap">
+                                      <span className={cn(
+                                        "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                                        material?.isBulk ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" : "bg-blue-500/10 text-blue-500 border border-blue-500/20"
+                                      )}>
+                                        {material?.isBulk ? 'Granel' : 'Bolsa'}
+                                      </span>
+                                    </td>
+                                    <td className="px-6 py-3.5 text-right whitespace-nowrap">
+                                      {isEditing ? (
+                                        <div className="flex items-center justify-end gap-2">
+                                          <input
+                                            type="number"
+                                            className="w-24 bg-bg border border-primary/50 rounded-lg py-1 px-2 text-right text-sm font-mono outline-none"
+                                            defaultValue={entry.tons}
+                                            onBlur={(e) => handleUpdateSingle({ ...entry, tons: parseFloat(e.target.value) || entry.tons })}
+                                          />
+                                          <span className="text-[10px] font-bold text-text-muted uppercase">TN</span>
+                                        </div>
+                                      ) : (
+                                        <span className="font-mono text-base font-bold text-primary">
+                                          {(Number(entry.tons) || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TN
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="px-6 py-3.5 whitespace-nowrap">
+                                      <span className="text-xs font-medium text-text-muted">{entry.userName || entry.userId || 'Sistema'}</span>
+                                    </td>
+                                    <td className="px-6 py-3.5 text-right whitespace-nowrap">
+                                      <div className="flex items-center justify-end gap-1">
+                                        {canEdit && (
+                                          <>
+                                            <button 
+                                              onClick={() => setIsEditingId(isEditing ? null : entry.id)}
+                                              className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:bg-primary/10 hover:text-primary transition-all"
+                                            >
+                                              <Edit2 size={14} />
+                                            </button>
+                                            <button 
+                                              onClick={() => onDelete(entry.id)}
+                                              className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:bg-red-500/10 hover:text-red-500 transition-all"
+                                            >
+                                              <Trash2 size={14} />
+                                            </button>
+                                          </>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </GlassCard>
+                );
+              })
+            ) : (
+              <GlassCard className="p-12 text-center">
+                <div className="flex flex-col items-center gap-2 opacity-30">
+                  <Truck size={40} />
+                  <p className="text-xs font-bold uppercase tracking-widest">Sin registros de despacho en esta fecha</p>
+                </div>
+              </GlassCard>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -378,4 +462,5 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
     </div>
   );
 }
+
 
