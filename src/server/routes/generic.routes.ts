@@ -453,8 +453,10 @@ router.post("/api/sheets", async (req, res) => {
       
       invalidateCache(table);
 
-      if (table === "PAROSV2" || table === "PRODUCCIONV2") {
-        await ProductionService.autoRecalculateProductionMetrics();
+      if (upperTable === "PAROSV2" || upperTable === "PRODUCCIONV2") {
+        ProductionService.autoRecalculateProductionMetrics().catch(err =>
+          console.error("[Background Recalculate Error]", err)
+        );
       }
       return res.json({ success: true, count: data.length });
     }
@@ -476,8 +478,10 @@ router.post("/api/sheets", async (req, res) => {
 
       invalidateCache(table);
 
-      if (table === "PAROSV2" || table === "PRODUCCIONV2") {
-        await ProductionService.autoRecalculateProductionMetrics();
+      if (upperTable === "PAROSV2" || upperTable === "PRODUCCIONV2") {
+        ProductionService.autoRecalculateProductionMetrics().catch(err =>
+          console.error("[Background Recalculate Error]", err)
+        );
       }
       return res.json({ success: true, message: "Registro guardado con éxito" });
     }
@@ -499,8 +503,10 @@ router.post("/api/sheets", async (req, res) => {
 
       invalidateCache(table);
 
-      if (table === "PAROSV2" || table === "PRODUCCIONV2") {
-        await ProductionService.autoRecalculateProductionMetrics();
+      if (upperTable === "PAROSV2" || upperTable === "PRODUCCIONV2") {
+        ProductionService.autoRecalculateProductionMetrics().catch(err =>
+          console.error("[Background Recalculate Error]", err)
+        );
       }
       return res.json({ success: true, message: "Registro actualizado con éxito" });
     }
@@ -521,8 +527,10 @@ router.post("/api/sheets", async (req, res) => {
       const isDeleted = await GenericRepository.delete(table, id);
       invalidateCache(table);
 
-      if ((table === "PAROSV2" || table === "PRODUCCIONV2") && isDeleted) {
-        await ProductionService.autoRecalculateProductionMetrics();
+      if ((upperTable === "PAROSV2" || upperTable === "PRODUCCIONV2") && isDeleted) {
+        ProductionService.autoRecalculateProductionMetrics().catch(err =>
+          console.error("[Background Recalculate Error]", err)
+        );
       }
       return res.json({ success: true, message: isDeleted ? "Registro eliminado con éxito" : "Registro no encontrado para eliminar" });
     }
