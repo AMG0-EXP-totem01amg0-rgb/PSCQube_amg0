@@ -38,48 +38,21 @@ import { cn } from './lib/utils';
 import { Shift, MachineStop, ProductionReport, DaterControl, ScaleControl, InventoryEntry, PalletClassification, UserContext, MasterData, AppUser, ProductChange, Company, FuelLoad, AlertNotification } from './types';
 import { SYSTEM_VIEWS } from './lib/mockData';
 import { fetchTable, createRecord as rawCreateRecord, updateRecord as rawUpdateRecord, deleteRecord as rawDeleteRecord, clearClientCache, syncTableToSheets } from './lib/dataService';
+import { safeCache } from './lib/safeCache';
 import { ToastContainer, ToastMessage } from './components/ui/Toast';
 
 // --- Utilities ---
 const saveToLocalStorageSafe = (
   key: string, 
-  value: string, 
-  onQuotaExceeded?: () => void
+  value: string
 ): boolean => {
   try {
-    localStorage.setItem(key, value);
-    return true;
-  } catch (e: any) {
-    const isQuota = e?.name === 'QuotaExceededError' || 
-                    e?.code === 22 || 
-                    e?.code === 1014;
-    if (isQuota) {
-      console.warn("[Cache] localStorage lleno. Limpiando entradas antiguas de PSCQUBE...");
-      // Limpiar solo las entradas del cache operacional de PSCQUBE
-      const keysToDelete: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k.startsWith('pscqube_op_cache_')) {
-          keysToDelete.push(k);
-        }
-      }
-      // Eliminar todas las entradas del cache operacional
-      keysToDelete.forEach(k => localStorage.removeItem(k));
-      console.warn(`[Cache] Se eliminaron ${keysToDelete.length} entradas del cache operacional.`);
-      
-      // Reintentar el guardado
-      try {
-        localStorage.setItem(key, value);
-        return true;
-      } catch (e2) {
-        console.error("[Cache] No se pudo guardar en localStorage incluso después de limpiar.", e2);
-        if (onQuotaExceeded) onQuotaExceeded();
-        return false;
-      }
-    }
-    console.error("[Cache] Error inesperado al guardar en localStorage.", e);
-    return false;
+    const parsed = JSON.parse(value);
+    safeCache.set(key, parsed, 12 * 60 * 60 * 1000);
+  } catch {
+    safeCache.set(key, value, 12 * 60 * 60 * 1000);
   }
+  return true;
 };
 
 const getCurrentShift = (shifts: Shift[]): Shift | null => {
@@ -595,6 +568,11 @@ export default function App() {
     }
   }, [users, userContext.currentUserDni]);
 
+  // Purge legacy localStorage cache entries once on mount to reclaim quota space
+  useEffect(() => {
+    safeCache.purgeLegacyLocalStorage();
+  }, []);
+
   // Redirect if current tab is hidden
   useEffect(() => {
     if (activeSection === 'PRODUCTIVITY' && !canView(prodTab)) {
@@ -766,14 +744,7 @@ export default function App() {
     const key = getCooldownKey(tableName, actualDate, actualShiftId);
     
     operationalDataByKeyRef.current[key] = data;
-    saveToLocalStorageSafe(
-      'pscqube_op_cache_' + key,
-      JSON.stringify(data),
-      () => addToast(
-        "El almacenamiento local está lleno. Algunos datos en caché fueron limpiados automáticamente. La información sigue disponible desde la base de datos.",
-        "warning"
-      )
-    );
+    safeCache.set('pscqube_op_cache_' + key, data, 12 * 60 * 60 * 1000);
   }, [userContext.selectedDate, userContext.selectedShiftId, getCooldownKey]);
 
   // --- On-demand database synchronization triggered by pressing "Ingresar"
@@ -784,22 +755,14 @@ export default function App() {
     setIsSyncing(true);
     setSyncMessage('Iniciando sincronización...');
     try {
-      let maestrosData;
-      const cachedMaestros = localStorage.getItem('pscqube_maestros_cache');
-      if (cachedMaestros) {
-        try {
-          maestrosData = JSON.parse(cachedMaestros);
-        } catch {
-          maestrosData = null;
-        }
-      }
+      let maestrosData = await safeCache.get('pscqube_maestros_cache');
 
       if (!maestrosData) {
         setSyncMessage('Cargando catálogos maestros...');
         const maestrosRes = await fetch('/api/sync/maestros');
         maestrosData = await maestrosRes.json();
         if (maestrosData && maestrosData.success && maestrosData.data) {
-          localStorage.setItem('pscqube_maestros_cache', JSON.stringify(maestrosData));
+          await safeCache.set('pscqube_maestros_cache', maestrosData, 30 * 60 * 1000);
         }
       }
 
@@ -943,34 +906,34 @@ export default function App() {
     
     console.log(`[Immediate Restore] Context changed to Date: ${date}, Shift: ${shiftId}, Tab: ${prodTab}. Restoring snapshots.`);
     
-    tables.forEach(tableName => {
-      const key = getCooldownKey(tableName, date, shiftId);
-      
-      // Try memory ref first
-      let cachedData = operationalDataByKeyRef.current[key];
-      
-      // If not in memory, check localStorage
-      if (cachedData === undefined) {
-        const raw = localStorage.getItem('pscqube_op_cache_' + key);
-        if (raw) {
-          try {
-            cachedData = JSON.parse(raw);
+    const restoreSnapshots = async () => {
+      for (const tableName of tables) {
+        const key = getCooldownKey(tableName, date, shiftId);
+        
+        // Try memory ref first
+        let cachedData = operationalDataByKeyRef.current[key];
+        
+        // If not in memory, check safeCache (IndexedDB)
+        if (cachedData === undefined) {
+          const loaded = await safeCache.get('pscqube_op_cache_' + key);
+          if (loaded) {
+            cachedData = loaded;
             operationalDataByKeyRef.current[key] = cachedData;
-          } catch (e) {
-            console.warn("[Immediate Restore] Error parsing localStorage cache for", key, e);
           }
         }
+        
+        if (cachedData !== undefined) {
+          console.log(`[Immediate Restore] Found snapshot for ${tableName} (key: ${key}). Restoring.`);
+          updateTableState(tableName, cachedData, date, shiftId);
+        } else {
+          // First-time visit or no cache: clear the state to prevent leaking previous context's data in local UI filters
+          console.log(`[Immediate Restore] No snapshot found for ${tableName} (key: ${key}). Clearing state.`);
+          updateTableState(tableName, [], date, shiftId);
+        }
       }
-      
-      if (cachedData !== undefined) {
-        console.log(`[Immediate Restore] Found snapshot for ${tableName} (key: ${key}). Restoring.`);
-        updateTableState(tableName, cachedData, date, shiftId);
-      } else {
-        // First-time visit or no cache: clear the state to prevent leaking previous context's data in local UI filters
-        console.log(`[Immediate Restore] No snapshot found for ${tableName} (key: ${key}). Clearing state.`);
-        updateTableState(tableName, [], date, shiftId);
-      }
-    });
+    };
+
+    restoreSnapshots();
   }, [hasEnteredApp, userContext.selectedDate, userContext.selectedShiftId, prodTab, getCooldownKey, updateTableState, OPERATIONAL_TABLES_MAP]);
 
   const fetchTableWithGuards = useCallback(async (tableName: string, bypassCache = false, source = "unspecified") => {
@@ -988,12 +951,10 @@ export default function App() {
         // Ensure state contains latest cache as a fallback/guard
         let cachedData = operationalDataByKeyRef.current[key];
         if (cachedData === undefined) {
-          const raw = localStorage.getItem('pscqube_op_cache_' + key);
-          if (raw) {
-            try {
-              cachedData = JSON.parse(raw);
-              operationalDataByKeyRef.current[key] = cachedData;
-            } catch {}
+          const loaded = await safeCache.get('pscqube_op_cache_' + key);
+          if (loaded) {
+            cachedData = loaded;
+            operationalDataByKeyRef.current[key] = cachedData;
           }
         }
         if (cachedData !== undefined) {
@@ -2109,7 +2070,7 @@ export default function App() {
                     onTabChange={setAdminTab} 
                     onUserSwitch={dni => setUserContext({...userContext, currentUserDni: dni})}
                     onUpdateMasters={(type, data) => {
-                      localStorage.removeItem('pscqube_maestros_cache');
+                      safeCache.remove('pscqube_maestros_cache');
                       let targetData = data;
                       if (type === 'SHIFTS') setShifts(data as Shift[]);
                       if (type === 'MACHINES') setPalletizers(data);
@@ -2225,7 +2186,8 @@ export default function App() {
                 console.warn("[Logout Supabase SignOut Warning]", e);
               }
               sessionStorage.clear();
-              localStorage.removeItem('pscqube_maestros_cache');
+              await safeCache.remove('pscqube_maestros_cache');
+              safeCache.purgeLegacyLocalStorage();
               window.location.reload();
             }}
             title="Cerrar Sesión"

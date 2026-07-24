@@ -22,72 +22,55 @@ export const MASTER_TABLES = [
   "EMPRESASV2", "PUNTOS_CARGAV2", "PROVEEDORES_BOLSAV2", "VEHICULOSV2"
 ];
 
-function getBrowserCache(
+import { safeCache } from './safeCache';
+
+async function getBrowserCache(
   tableName: string,
   filters?: { date?: string; shiftId?: string; palletizerId?: string; dateFrom?: string; dateTo?: string }
-): any[] | null {
-  try {
-    let key = `app_cache_v2_${tableName.toUpperCase()}`;
-    if (filters?.date) key += `_${filters.date}`;
-    if (filters?.dateFrom) key += `_from_${filters.dateFrom}`;
-    if (filters?.dateTo) key += `_to_${filters.dateTo}`;
-    const value = localStorage.getItem(key);
-    if (!value) return null;
-    const parsed = JSON.parse(value);
-    if (!parsed || !Array.isArray(parsed.data)) return null;
-    const isMaster = MASTER_TABLES.includes(tableName.toUpperCase());
-    const ttl = isMaster ? 30 * 60 * 1000 : 12 * 60 * 60 * 1000;
-    if (Date.now() - parsed.timestamp < ttl) return parsed.data;
-  } catch (err) {
-    console.warn("Error reading cache for " + tableName, err);
-  }
-  return null;
+): Promise<any[] | null> {
+  let key = `app_cache_v2_${tableName.toUpperCase()}`;
+  if (filters?.date) key += `_${filters.date}`;
+  if (filters?.dateFrom) key += `_from_${filters.dateFrom}`;
+  if (filters?.dateTo) key += `_to_${filters.dateTo}`;
+  return await safeCache.get<any[]>(key);
 }
 
-function setBrowserCache(
+async function setBrowserCache(
   tableName: string,
   data: any[],
   filters?: { date?: string; shiftId?: string; palletizerId?: string; dateFrom?: string; dateTo?: string }
-): void {
-  try {
-    let key = `app_cache_v2_${tableName.toUpperCase()}`;
-    if (filters?.date) key += `_${filters.date}`;
-    if (filters?.dateFrom) key += `_from_${filters.dateFrom}`;
-    if (filters?.dateTo) key += `_to_${filters.dateTo}`;
-    localStorage.setItem(key, JSON.stringify({ timestamp: Date.now(), data }));
-  } catch (err) {
-    console.warn("Error writing cache for " + tableName, err);
-  }
+): Promise<void> {
+  let key = `app_cache_v2_${tableName.toUpperCase()}`;
+  if (filters?.date) key += `_${filters.date}`;
+  if (filters?.dateFrom) key += `_from_${filters.dateFrom}`;
+  if (filters?.dateTo) key += `_to_${filters.dateTo}`;
+  const isMaster = MASTER_TABLES.includes(tableName.toUpperCase());
+  const ttl = isMaster ? 30 * 60 * 1000 : 12 * 60 * 60 * 1000;
+  await safeCache.set(key, data, ttl);
 }
 
-export function clearClientCache(tableName?: string): void {
+export async function clearClientCache(tableName?: string): Promise<void> {
   try {
     if (tableName) {
       const sheetName = tableName.toUpperCase();
       const keysToClear = [sheetName, sheetName.endsWith('V2') ? sheetName : `${sheetName}V2`];
-      keysToClear.forEach(k => {
-        localStorage.removeItem(`app_cache_v2_${k}`);
-        sessionStorage.removeItem(CACHE_PREFIX + k);
-      });
+      for (const k of keysToClear) {
+        await safeCache.remove(`app_cache_v2_${k}`);
+        if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(CACHE_PREFIX + k);
+      }
       if (sheetName.includes("PARO") || sheetName.includes("PRODUC")) {
-        localStorage.removeItem(`app_cache_v2_PAROSV2`);
-        localStorage.removeItem(`app_cache_v2_PRODUCCIONV2`);
-        sessionStorage.removeItem(CACHE_PREFIX + "PAROSV2");
-        sessionStorage.removeItem(CACHE_PREFIX + "PRODUCCIONV2");
+        await safeCache.remove(`app_cache_v2_PAROSV2`);
+        await safeCache.remove(`app_cache_v2_PRODUCCIONV2`);
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.removeItem(CACHE_PREFIX + "PAROSV2");
+          sessionStorage.removeItem(CACHE_PREFIX + "PRODUCCIONV2");
+        }
       }
     } else {
-      const keysToClearL: string[] = [];
-      const keysToClearS: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith("app_cache_v2_")) keysToClearL.push(key);
+      await safeCache.clearByPrefix("app_cache_v2_");
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.clear();
       }
-      for (let i = 0; i < sessionStorage.length; i++) {
-        const key = sessionStorage.key(i);
-        if (key && key.startsWith(CACHE_PREFIX)) keysToClearS.push(key);
-      }
-      keysToClearL.forEach(k => localStorage.removeItem(k));
-      keysToClearS.forEach(k => sessionStorage.removeItem(k));
     }
   } catch (err) {
     console.warn("[Client Cache Clear Error]", err);
@@ -104,13 +87,13 @@ export async function fetchTable(
   if (!sheetName.endsWith('V2')) sheetName = `${sheetName}V2`;
 
   if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-    const cached = getBrowserCache(sheetName, filters);
+    const cached = await getBrowserCache(sheetName, filters);
     if (cached) return { success: true, data: cached };
     return { success: false, error: "Query skipped: Tab is backgrounded and cache is absent" };
   }
 
   if (!forceBypass) {
-    const cached = getBrowserCache(sheetName, filters);
+    const cached = await getBrowserCache(sheetName, filters);
     if (cached) return { success: true, data: cached };
   }
 
@@ -137,7 +120,7 @@ export async function fetchTable(
     }
     const result = await response.json();
     if (result.success && Array.isArray(result.data)) {
-      setBrowserCache(sheetName, result.data, filters);
+      await setBrowserCache(sheetName, result.data, filters);
       return { success: true, data: result.data };
     }
     return { success: false, error: result.error || "Formato de respuesta inválido" };
