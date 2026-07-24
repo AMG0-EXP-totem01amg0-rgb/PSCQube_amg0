@@ -10,7 +10,7 @@ const PORT = 3000;
 
 async function startServer() {
   if (process.env.VERCEL) {
-    console.log("Running in Vercel serverless environment. Dynamic port listening is bypassed.");
+    console.log("[PSCQUBE Server] Running in Vercel serverless environment (Anti-timeout 8s & CDN Cache-Control enabled). Dynamic port listening is bypassed.");
     return;
   }
 

@@ -35,6 +35,34 @@ app.use(cors({
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
+// Vercel-specific optimizations: Anti-timeout and global GET Cache-Control
+if (process.env.VERCEL) {
+  // 1. Anti-Timeout middleware: aborts hung requests after 8 seconds with 504
+  app.use("/api", (req, res, next) => {
+    const timer = setTimeout(() => {
+      if (!res.headersSent) {
+        res.status(504).json({
+          error: "Gateway Timeout",
+          message: "La petición excedió el límite de tiempo de ejecución (8s).",
+        });
+      }
+    }, 8000);
+
+    res.on("finish", () => clearTimeout(timer));
+    res.on("close", () => clearTimeout(timer));
+
+    next();
+  });
+
+  // 2. Global Cache-Control for GET /api requests
+  app.use("/api", (req, res, next) => {
+    if (req.method === "GET") {
+      res.setHeader("Cache-Control", "public, max-age=60, s-maxage=120, stale-while-revalidate=600");
+    }
+    next();
+  });
+}
+
 // Register routes
 app.use(authRoutes);
 app.use(maestrosRoutes);
