@@ -38,14 +38,14 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
     }
   },
   ENSACADORAV2: {
-    sheetHeaders: ["id", "tipo", "nombre", "boquillas", "hac_id", "es_punto_de_muestreo?"],
+    sheetHeaders: ["id", "tipo", "nombre", "boquillas", "hac_id", "es_punto_de_muestreo"],
     clientToSheet: {
       id: "id",
       type: "tipo",
       name: "nombre",
       nozzles: "boquillas",
       hacId: "hac_id",
-      isSamplingPoint: "es_punto_de_muestreo?"
+      isSamplingPoint: "es_punto_de_muestreo"
     },
     sheetToClient: {
       id: "id",
@@ -53,19 +53,20 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
       nombre: "name",
       boquillas: "nozzles",
       hac_id: "hacId",
+      es_punto_de_muestreo: "isSamplingPoint",
       "es_punto_de_muestreo?": "isSamplingPoint"
     }
   },
   HACSV2: {
-    sheetHeaders: ["id", "hac", "descripcion_hac", "gpo_codigo_objeto", "equipo", "es_fechador?", "es_balanza?"],
+    sheetHeaders: ["id", "hac", "descripcion_hac", "gpo_codigo_objeto", "equipo", "es_fechador", "es_balanza"],
     clientToSheet: {
       id: "id",
       hac: "hac",
       detail: "descripcion_hac",
       gpoCodObjeto: "gpo_codigo_objeto",
       equipment: "equipo",
-      isDater: "es_fechador?",
-      isScale: "es_balanza?"
+      isDater: "es_fechador",
+      isScale: "es_balanza"
     },
     sheetToClient: {
       id: "id",
@@ -152,7 +153,7 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
       "es_insumo",
       "es_bigbag",
       "es_despacho",
-      "es_granel?"
+      "es_granel"
     ],
     clientToSheet: {
       id: "id",
@@ -165,7 +166,7 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
       isSupply: "es_insumo",
       isBigBag: "es_bigbag",
       isDispatch: "es_despacho",
-      isBulk: "es_granel?"
+      isBulk: "es_granel"
     },
     sheetToClient: {
       id: "id",
@@ -463,7 +464,7 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
       "descripcion_maquinista",
       "turno_id",
       "hac_fechador",
-      "purga?",
+      "purga",
       "nivel_recipiente",
       "calidad_impresion",
       "stock_tinta",
@@ -478,7 +479,7 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
       userName: "descripcion_maquinista",
       shiftId: "turno_id",
       hac: "hac_fechador",
-      purge: "purga?",
+      purge: "purga",
       containerLevel: "nivel_recipiente",
       printQuality: "calidad_impresion",
       inkStock: "stock_tinta",
@@ -493,6 +494,7 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
       descripcion_maquinista: "userName",
       turno_id: "shiftId",
       hac_fechador: "hac",
+      purga: "purge",
       "purga?": "purge",
       nivel_recipiente: "containerLevel",
       calidad_impresion: "printQuality",
@@ -719,7 +721,7 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
       "descripcion_turno",
       "punto_carga_id",
       "descripcion_punto_de_carga",
-      "habilitada?",
+      "habilitada",
       "materiales_permitidos",
       "observaciones_falla"
     ],
@@ -730,7 +732,7 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
       shiftDescription: "descripcion_turno",
       loadingPointId: "punto_carga_id",
       loadingPointDescription: "descripcion_punto_de_carga",
-      isEnabled: "habilitada?",
+      isEnabled: "habilitada",
       materialIds: "materiales_permitidos",
       observation: "observaciones_falla"
     },
@@ -741,6 +743,7 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
       descripcion_turno: "shiftDescription",
       punto_carga_id: "loadingPointId",
       descripcion_punto_de_carga: "loadingPointDescription",
+      habilitada: "isEnabled",
       "habilitada?": "isEnabled",
       materiales_permitidos: "materialIds",
       observaciones_falla: "observation"

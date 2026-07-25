@@ -73,6 +73,9 @@ export function toBoolean(val: any): boolean {
 export function getProcessedValue(colName: string, originalKey: string, val: any): any {
   const cleanCol = sanitizeColumnName(colName);
   const cleanOrig = sanitizeColumnName(originalKey);
+  if (cleanCol === 'purga' || cleanOrig === 'purge') {
+    return toBoolean(val) ? 'SI' : 'NO';
+  }
   if (BOOLEAN_COLUMNS.has(cleanCol) || BOOLEAN_COLUMNS.has(cleanOrig) || colName.endsWith('?') || originalKey.endsWith('?')) {
     return toBoolean(val);
   }
