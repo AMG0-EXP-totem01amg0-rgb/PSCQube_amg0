@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ClipboardList, Plus, Trash2, Save, Printer, Calendar, FilterX, RefreshCcw, Droplet, Droplets, Cpu, Boxes } from 'lucide-react';
+import { ClipboardList, Plus, Trash2, Save, Printer, Calendar, FilterX, RefreshCcw, Droplet, Droplets, Cpu, Boxes, Clock } from 'lucide-react';
 import { MasterData, DaterControl, AppUser } from '../../../types';
 import { DataTable, Column, TableActions } from '../../ui/DataTable';
 import { GlassCard, GlassButton, GlassInput, GlassSelect, ConfirmModal } from '../../ui/GlassUI';
@@ -98,6 +98,71 @@ export default function DaterControlView({ masters, currentUser, onSave, onDelet
       return isSameDate;
     });
   }, [history, localRangeHistory, dateFrom, dateTo, selectedDate]);
+
+  // Group filtered history by Date -> Shift
+  const groupedHistory = useMemo(() => {
+    if (!filteredHistory || filteredHistory.length === 0) return [];
+
+    const dateMap: Record<string, Record<string, DaterControl[]>> = {};
+
+    filteredHistory.forEach((item) => {
+      if (!item || !item.date) return;
+      const d = item.date;
+      const s = item.shiftId || 'SIN_TURNO';
+
+      if (!dateMap[d]) {
+        dateMap[d] = {};
+      }
+      if (!dateMap[d][s]) {
+        dateMap[d][s] = [];
+      }
+      dateMap[d][s].push(item);
+    });
+
+    // Sort dates descending (newest dates first)
+    const sortedDates = Object.keys(dateMap).sort((a, b) => b.localeCompare(a));
+
+    return sortedDates.map((dateStr) => {
+      let formattedDate = dateStr;
+      try {
+        formattedDate = format(parseISO(dateStr), 'dd/MM/yyyy');
+      } catch (e) {
+        formattedDate = dateStr;
+      }
+
+      const shiftsMap = dateMap[dateStr];
+      const shiftKeys = Object.keys(shiftsMap).sort((a, b) => a.localeCompare(b));
+
+      const shifts = shiftKeys.map((shiftId) => {
+        const shiftObj = masters.shifts?.find(
+          (s) => s.id === shiftId || s.name === shiftId
+        );
+        const shiftName = shiftObj?.name || (shiftId === 'SIN_TURNO' ? 'Sin Turno' : shiftId);
+        const records = shiftsMap[shiftId];
+
+        // Find stock record for this shift group if any
+        const stockRecord = records.find(
+          (r) => Number(r.inkStock) > 0 || Number(r.solventStock) > 0 || Number(r.headsStock) > 0
+        );
+
+        return {
+          shiftId,
+          shiftName,
+          records,
+          stockRecord,
+        };
+      });
+
+      const totalRecords = shifts.reduce((acc, curr) => acc + curr.records.length, 0);
+
+      return {
+        date: dateStr,
+        formattedDate,
+        shifts,
+        totalRecords,
+      };
+    });
+  }, [filteredHistory, masters.shifts]);
 
   // Find if there is any record in the current shift/date that has registered stock values
   const shiftStockRecord = useMemo(() => {
@@ -416,9 +481,62 @@ export default function DaterControlView({ masters, currentUser, onSave, onDelet
         )}
       </AnimatePresence>
 
-      <GlassCard className="overflow-hidden border border-white/10 shadow-2xl">
-        <DataTable data={filteredHistory} columns={columns} />
-      </GlassCard>
+      {/* Grouped History List by Date and Shift */}
+      {groupedHistory.length === 0 ? (
+        <GlassCard className="overflow-hidden border border-white/10 shadow-2xl">
+          <DataTable data={[]} columns={columns} />
+        </GlassCard>
+      ) : (
+        <div className="space-y-8">
+          {groupedHistory.map((dateGroup) => (
+            <div key={dateGroup.date} className="space-y-4">
+              {/* Date Group Header */}
+              <div className="flex items-center gap-3 px-1 border-b border-border/50 pb-2">
+                <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 px-3 py-1 rounded-xl text-primary font-bold text-xs">
+                  <Calendar size={14} />
+                  <span>{dateGroup.formattedDate}</span>
+                </div>
+                <span className="text-xs text-text-muted font-medium">
+                  {dateGroup.totalRecords} {dateGroup.totalRecords === 1 ? 'registro' : 'registros'}
+                </span>
+              </div>
+
+              {/* Shift Groups */}
+              <div className="space-y-4 pl-1 sm:pl-3">
+                {dateGroup.shifts.map((shiftGroup) => (
+                  <div key={shiftGroup.shiftId} className="space-y-2">
+                    {/* Shift Badge Header */}
+                    <div className="flex items-center justify-between gap-3 bg-bg/40 px-3 py-1.5 rounded-lg border border-border/40">
+                      <div className="flex items-center gap-2">
+                        <Clock size={13} className="text-primary shrink-0" />
+                        <span className="text-xs font-bold text-text-main uppercase tracking-wider">
+                          {shiftGroup.shiftName}
+                        </span>
+                        <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">
+                          {shiftGroup.records.length} {shiftGroup.records.length === 1 ? 'control' : 'controles'}
+                        </span>
+                      </div>
+
+                      {shiftGroup.stockRecord && (
+                        <div className="hidden sm:flex items-center gap-3 text-[10px] font-mono bg-bg/60 px-2.5 py-1 rounded border border-white/5">
+                          <span className="text-blue-400 font-semibold">T: {shiftGroup.stockRecord.inkStock}</span>
+                          <span className="text-cyan-400 font-semibold">S: {shiftGroup.stockRecord.solventStock}</span>
+                          <span className="text-purple-400 font-semibold">C: {shiftGroup.stockRecord.headsStock}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Records Table for this Shift */}
+                    <GlassCard className="overflow-hidden border border-white/10 shadow-lg">
+                      <DataTable data={shiftGroup.records} columns={columns} />
+                    </GlassCard>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <ConfirmModal 
         isOpen={!!deletingId} 
