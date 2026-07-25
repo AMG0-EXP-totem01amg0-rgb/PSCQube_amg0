@@ -220,11 +220,29 @@ export function ConfirmModal({
 export function GlassSearchableSelect({ label, options, value, onChange, placeholder = "Seleccionar...", disabled }: any) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [search, setSearch] = React.useState('');
+  const [openUpward, setOpenUpward] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
 
   const isTouchDevice = React.useMemo(() => {
     return typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
   }, []);
+
+  const toggleDropdown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (disabled) return;
+    if (!isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      if (spaceBelow < 280 && spaceAbove > spaceBelow) {
+        setOpenUpward(true);
+      } else {
+        setOpenUpward(false);
+      }
+    }
+    setIsOpen((prev) => !prev);
+  };
 
   React.useEffect(() => {
     function handleClickOutside(event: Event) {
@@ -262,11 +280,7 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
       <label className="text-xs font-semibold text-text-muted ml-0.5">{label}</label>
       
       <div 
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (!disabled) setIsOpen((prev) => !prev);
-        }}
+        onClick={toggleDropdown}
         className={cn(
           "h-11 bg-bg-input text-sm border-border text-text-main focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/5 transition-all rounded-lg px-3.5 border flex items-center justify-between cursor-pointer select-none",
           disabled && "opacity-50 cursor-not-allowed"
@@ -281,12 +295,15 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
       <AnimatePresence>
         {isOpen && (
           <motion.div 
-            initial={{ opacity: 0, y: 3 }}
+            initial={{ opacity: 0, y: openUpward ? -3 : 3 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 3 }}
+            exit={{ opacity: 0, y: openUpward ? -3 : 3 }}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
-            className="absolute top-full left-0 right-0 mt-1.5 bg-surface-elevated border border-border shadow-[0_15px_45px_rgba(0,0,0,0.15)] rounded-xl z-[9999] overflow-hidden flex flex-col max-h-64"
+            className={cn(
+              "absolute left-0 right-0 bg-surface-elevated border border-border shadow-[0_15px_45px_rgba(0,0,0,0.25)] rounded-xl z-[9999] overflow-hidden flex flex-col max-h-72",
+              openUpward ? "bottom-full mb-1.5" : "top-full mt-1.5"
+            )}
           >
             {/* Search Input Bar */}
             <div 
@@ -323,7 +340,7 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
             </div>
 
              {/* List */}
-            <div className="overflow-y-auto max-h-48 divide-y divide-border/20 custom-scrollbar">
+            <div className="overflow-y-auto max-h-60 divide-y divide-border/20 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               {filtered.length === 0 ? (
                 <div className="p-3 text-xs text-text-muted/50 text-center uppercase tracking-wider font-semibold">
                   Sin resultados
