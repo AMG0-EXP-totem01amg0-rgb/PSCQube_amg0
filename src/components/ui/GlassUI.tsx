@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '../../lib/utils';
 
 export function GlassCard({ children, className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
@@ -220,43 +221,75 @@ export function ConfirmModal({
 export function GlassSearchableSelect({ label, options, value, onChange, placeholder = "Seleccionar...", disabled }: any) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [search, setSearch] = React.useState('');
-  const [openUpward, setOpenUpward] = React.useState(false);
-  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = React.useState<{ top?: number; bottom?: number; left: number; width: number; openUpward: boolean }>({
+    left: 0,
+    width: 0,
+    openUpward: false
+  });
+
+  const triggerRef = React.useRef<HTMLDivElement>(null);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
 
   const isTouchDevice = React.useMemo(() => {
     return typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+  }, []);
+
+  const updatePosition = React.useCallback(() => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const openUpward = spaceBelow < 280 && spaceAbove > spaceBelow;
+
+      setCoords({
+        left: rect.left,
+        width: rect.width,
+        openUpward,
+        top: openUpward ? undefined : rect.bottom + 6,
+        bottom: openUpward ? window.innerHeight - rect.top + 6 : undefined
+      });
+    }
   }, []);
 
   const toggleDropdown = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (disabled) return;
-    if (!isOpen && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const spaceAbove = rect.top;
-      if (spaceBelow < 280 && spaceAbove > spaceBelow) {
-        setOpenUpward(true);
-      } else {
-        setOpenUpward(false);
-      }
+    if (!isOpen) {
+      updatePosition();
     }
     setIsOpen((prev) => !prev);
   };
 
   React.useEffect(() => {
+    if (!isOpen) return;
+
     function handleClickOutside(event: Event) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        triggerRef.current && !triggerRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
         setIsOpen(false);
       }
     }
+
+    function handleScrollOrResize() {
+      updatePosition();
+    }
+
     document.addEventListener("mousedown", handleClickOutside);
     document.addEventListener("touchstart", handleClickOutside);
+    window.addEventListener("scroll", handleScrollOrResize, true);
+    window.addEventListener("resize", handleScrollOrResize);
+
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("touchstart", handleClickOutside);
+      window.removeEventListener("scroll", handleScrollOrResize, true);
+      window.removeEventListener("resize", handleScrollOrResize);
     };
-  }, []);
+  }, [isOpen, updatePosition]);
 
   const selectedOption = options.find((o: any) => o && String(o.value) === String(value));
 
@@ -276,43 +309,49 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
   });
 
   return (
-    <div className="flex flex-col gap-2 w-full" ref={containerRef}>
+    <div className="flex flex-col gap-2 w-full">
       {label && <label className="text-xs font-semibold text-text-muted ml-0.5">{label}</label>}
       
-      <div className="relative w-full">
-        <div 
-          onClick={toggleDropdown}
-          className={cn(
-            "h-11 bg-bg-input text-sm border-border text-text-main focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/5 transition-all rounded-lg px-3.5 border flex items-center justify-between cursor-pointer select-none",
-            disabled && "opacity-50 cursor-not-allowed"
-          )}
-        >
-          <span className={cn("truncate pr-2", !selectedOption && "text-text-muted/50")}>
-            {selectedOption ? selectedOption.label : placeholder}
-          </span>
-          <ChevronDown size={16} className={cn("text-text-muted/50 transition-transform shrink-0", isOpen && "rotate-180")} />
-        </div>
+      <div 
+        ref={triggerRef}
+        onClick={toggleDropdown}
+        className={cn(
+          "h-11 bg-bg-input text-sm border-border text-text-main focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/5 transition-all rounded-lg px-3.5 border flex items-center justify-between cursor-pointer select-none",
+          disabled && "opacity-50 cursor-not-allowed"
+        )}
+      >
+        <span className={cn("truncate pr-2", !selectedOption && "text-text-muted/50")}>
+          {selectedOption ? selectedOption.label : placeholder}
+        </span>
+        <ChevronDown size={16} className={cn("text-text-muted/50 transition-transform shrink-0", isOpen && "rotate-180")} />
+      </div>
 
+      {isOpen && typeof document !== 'undefined' && createPortal(
         <AnimatePresence>
-          {isOpen && (
-            <motion.div 
-              initial={{ opacity: 0, y: openUpward ? -4 : 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: openUpward ? -4 : 4 }}
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-              className={cn(
-                "absolute left-0 right-0 bg-surface-elevated border border-border shadow-[0_15px_45px_rgba(0,0,0,0.3)] rounded-xl z-[9999] overflow-hidden flex flex-col max-h-72",
-                openUpward ? "bottom-full mb-2" : "top-full mt-2"
-              )}
-            >
+          <motion.div 
+            ref={dropdownRef}
+            initial={{ opacity: 0, scale: 0.98, y: coords.openUpward ? -4 : 4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.98, y: coords.openUpward ? -4 : 4 }}
+            style={{
+              position: 'fixed',
+              left: `${coords.left}px`,
+              width: `${coords.width}px`,
+              top: coords.top !== undefined ? `${coords.top}px` : undefined,
+              bottom: coords.bottom !== undefined ? `${coords.bottom}px` : undefined,
+              zIndex: 99999,
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-surface-elevated border border-border shadow-[0_15px_45px_rgba(0,0,0,0.35)] rounded-xl overflow-hidden flex flex-col max-h-72"
+          >
             {/* Search Input Bar */}
             <div 
-              className="p-2 border-b border-border bg-bg/50 flex items-center gap-2" 
+              className="p-2 border-b border-border bg-bg/50 flex items-center gap-2 shrink-0" 
               onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
             >
-              <Search size={14} className="text-text-muted/60 ml-2" />
+              <Search size={14} className="text-text-muted/60 ml-2 shrink-0" />
               <input 
                 type="text"
                 autoFocus={!isTouchDevice}
@@ -333,14 +372,14 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
                 <button 
                   type="button" 
                   onClick={() => setSearch('')} 
-                  className="text-[10px] text-text-muted hover:text-text-main bg-bg px-1.5 py-0.5 rounded"
+                  className="text-[10px] text-text-muted hover:text-text-main bg-bg px-1.5 py-0.5 rounded shrink-0"
                 >
                   Limpiar
                 </button>
               )}
             </div>
 
-             {/* List */}
+            {/* List */}
             <div className="overflow-y-auto max-h-60 divide-y divide-border/20 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               {filtered.length === 0 ? (
                 <div className="p-3 text-xs text-text-muted/50 text-center uppercase tracking-wider font-semibold">
@@ -372,9 +411,9 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
               )}
             </div>
           </motion.div>
-        )}
-      </AnimatePresence>
-      </div>
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 }
