@@ -276,35 +276,36 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
   });
 
   return (
-    <div className="flex flex-col gap-2 w-full relative" ref={containerRef}>
-      <label className="text-xs font-semibold text-text-muted ml-0.5">{label}</label>
+    <div className="flex flex-col gap-2 w-full" ref={containerRef}>
+      {label && <label className="text-xs font-semibold text-text-muted ml-0.5">{label}</label>}
       
-      <div 
-        onClick={toggleDropdown}
-        className={cn(
-          "h-11 bg-bg-input text-sm border-border text-text-main focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/5 transition-all rounded-lg px-3.5 border flex items-center justify-between cursor-pointer select-none",
-          disabled && "opacity-50 cursor-not-allowed"
-        )}
-      >
-        <span className={cn("truncate pr-2", !selectedOption && "text-text-muted/50")}>
-          {selectedOption ? selectedOption.label : placeholder}
-        </span>
-        <ChevronDown size={16} className={cn("text-text-muted/50 transition-transform shrink-0", isOpen && "rotate-180")} />
-      </div>
+      <div className="relative w-full">
+        <div 
+          onClick={toggleDropdown}
+          className={cn(
+            "h-11 bg-bg-input text-sm border-border text-text-main focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/5 transition-all rounded-lg px-3.5 border flex items-center justify-between cursor-pointer select-none",
+            disabled && "opacity-50 cursor-not-allowed"
+          )}
+        >
+          <span className={cn("truncate pr-2", !selectedOption && "text-text-muted/50")}>
+            {selectedOption ? selectedOption.label : placeholder}
+          </span>
+          <ChevronDown size={16} className={cn("text-text-muted/50 transition-transform shrink-0", isOpen && "rotate-180")} />
+        </div>
 
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div 
-            initial={{ opacity: 0, y: openUpward ? -3 : 3 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: openUpward ? -3 : 3 }}
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-            className={cn(
-              "absolute left-0 right-0 bg-surface-elevated border border-border shadow-[0_15px_45px_rgba(0,0,0,0.25)] rounded-xl z-[9999] overflow-hidden flex flex-col max-h-72",
-              openUpward ? "bottom-full mb-1.5" : "top-full mt-1.5"
-            )}
-          >
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div 
+              initial={{ opacity: 0, y: openUpward ? -4 : 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: openUpward ? -4 : 4 }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              className={cn(
+                "absolute left-0 right-0 bg-surface-elevated border border-border shadow-[0_15px_45px_rgba(0,0,0,0.3)] rounded-xl z-[9999] overflow-hidden flex flex-col max-h-72",
+                openUpward ? "bottom-full mb-2" : "top-full mt-2"
+              )}
+            >
             {/* Search Input Bar */}
             <div 
               className="p-2 border-b border-border bg-bg/50 flex items-center gap-2" 
@@ -373,6 +374,7 @@ export function GlassSearchableSelect({ label, options, value, onChange, placeho
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </div>
   );
 }
