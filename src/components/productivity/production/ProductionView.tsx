@@ -989,7 +989,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                   className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
                 <GlassInput 
-                  className={!showTisInput ? "hidden" : ""}
+                  className={cn(!showTisInput ? "hidden" : "", "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
                   label="Hs. Marcha TIS" 
                   type="number"
                   step="0.01"
@@ -1297,14 +1297,19 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
               </div>
               <GlassButton
                 type="button"
-                variant="secondary"
+                variant={formData.baggerId ? "primary" : "secondary"}
                 disabled={!formData.baggerId}
                 onClick={() => {
                   setEditingNozzleId(null);
                   setTempNews({ nozzleNumber: '', startTime: '', endTime: '', isAllShift: false, observation: '' });
                   setIsNozzleModalOpen(true);
                 }}
-                className="h-9 px-4 text-xs font-bold bg-primary/10 hover:bg-primary text-primary hover:text-white border-primary/20"
+                className={cn(
+                  "h-9 px-4 text-xs font-bold transition-all shadow-sm",
+                  formData.baggerId
+                    ? "bg-primary text-white hover:bg-primary-hover border-transparent shadow-primary/20"
+                    : "bg-primary/10 text-primary/40 border-primary/10 cursor-not-allowed opacity-50"
+                )}
               >
                 <Plus size={14} className="mr-1" />
                 Añadir Novedad
