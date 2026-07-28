@@ -32,6 +32,24 @@ function safeHacMatch(hacA: any, hacB: any): boolean {
   return strA === strB;
 }
 
+const getShiftDurationMinutes = (shift?: Shift | null): number => {
+  if (!shift) return 8 * 60;
+  if (shift.startTime && shift.endTime) {
+    try {
+      const start = parse(shift.startTime, 'HH:mm', new Date());
+      let end = parse(shift.endTime, 'HH:mm', new Date());
+      if (shift.endTime <= shift.startTime) {
+        end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+      }
+      const diffMins = differenceInMinutes(end, start);
+      if (diffMins > 0) return diffMins;
+    } catch {
+      // Fallback below
+    }
+  }
+  return Math.round((shift.durationHours || 8) * 60);
+};
+
 export default function StopsView({ masters, currentUser, onSave, onDelete, palletizerId, shiftId, selectedDate, history, allStops, onSaveMultiple }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -89,7 +107,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
       }
       const mins = differenceInMinutes(end, start);
       
-      const shiftDurationMinutes = (selectedShift?.durationHours || 8) * 60;
+      const shiftDurationMinutes = getShiftDurationMinutes(selectedShift);
       if (mins > shiftDurationMinutes) {
         return { 
           text: `La duración (${mins} min) no puede superar la duración del turno (${shiftDurationMinutes} min)`, 
@@ -139,7 +157,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
     const duration = differenceInMinutes(end, start);
     if (duration <= 0) return false;
 
-    const shiftDurationMinutes = (shift?.durationHours || 8) * 60;
+    const shiftDurationMinutes = getShiftDurationMinutes(shift);
     if (duration > shiftDurationMinutes) return false;
 
     return true;
@@ -316,7 +334,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
       }
       const mins = differenceInMinutes(end, start);
       
-      const shiftDurationMinutes = (selectedShift?.durationHours || 8) * 60;
+      const shiftDurationMinutes = getShiftDurationMinutes(selectedShift);
       if (mins > shiftDurationMinutes) {
         return { 
           text: `La duración (${mins} min) no puede superar la duración del turno (${shiftDurationMinutes} min)`, 
