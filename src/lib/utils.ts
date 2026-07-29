@@ -45,63 +45,113 @@ export function cleanShiftKey(val: any): string {
 export function isStopForMachine(stop: any, machine: any, mastersAvailable?: any): boolean {
   if (!stop || !machine) return false;
 
-  let selId = '';
-  let selHacText = '';
-  let selDescription = '';
+  const clean = (s: any) => String(s || '').trim().toUpperCase();
+  const cleanAlpha = (s: any) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+  const selValues = new Set<string>();
+  const selAlphaValues = new Set<string>();
+
+  const addSelValue = (v: any) => {
+    const s = clean(v);
+    if (s) {
+      selValues.add(s);
+      const alpha = cleanAlpha(s);
+      if (alpha) selAlphaValues.add(alpha);
+    }
+  };
 
   if (typeof machine === 'object' && machine !== null) {
-    selId = String(machine.id || '').trim().toUpperCase();
-    selHacText = String(machine.hacText || machine.hacId || machine.hac_id || machine.machineHacText || '').trim().toUpperCase();
-    selDescription = String(machine.description || machine.descripcion || machine.name || machine.nombre || '').trim().toUpperCase();
+    addSelValue(machine.id);
+    addSelValue(machine.name || machine.nombre || machine.description || machine.descripcion);
+    addSelValue(machine.hacId || machine.hac_id || machine.hacText || machine.hac || machine.machineHacText);
   } else {
-    selId = String(machine).trim().toUpperCase();
-    if (mastersAvailable) {
-      const found = (mastersAvailable.palletizers || []).find((p: any) => p && (
-        String(p.id).trim().toUpperCase() === selId ||
-        String(p.hacId || p.hac_id || '').trim().toUpperCase() === selId ||
-        String(p.name || p.nombre || '').trim().toUpperCase() === selId
-      )) || (mastersAvailable.baggers || []).find((b: any) => b && (
-        String(b.id).trim().toUpperCase() === selId ||
-        String(b.hacId || b.hac_id || '').trim().toUpperCase() === selId ||
-        String(b.name || b.nombre || '').trim().toUpperCase() === selId
-      ));
-      if (found) {
-        selId = String(found.id || '').trim().toUpperCase();
-        selHacText = String(found.hacId || found.hac_id || found.hacText || '').trim().toUpperCase();
-        selDescription = String(found.name || found.nombre || found.description || '').trim().toUpperCase();
+    addSelValue(machine);
+  }
+
+  if (mastersAvailable) {
+    const allMachines = [...(mastersAvailable.palletizers || []), ...(mastersAvailable.baggers || [])];
+    
+    // Find matching machine in masters by any current selValue
+    const foundMachines = allMachines.filter((p: any) => {
+      if (!p) return false;
+      const pId = clean(p.id);
+      const pName = clean(p.name || p.nombre || p.description || p.descripcion);
+      const pHac = clean(p.hacId || p.hac_id || p.hacText || p.hac);
+      return selValues.has(pId) || selValues.has(pName) || selValues.has(pHac) ||
+             selAlphaValues.has(cleanAlpha(pId)) || selAlphaValues.has(cleanAlpha(pName)) || selAlphaValues.has(cleanAlpha(pHac));
+    });
+
+    foundMachines.forEach((p: any) => {
+      addSelValue(p.id);
+      addSelValue(p.name || p.nombre || p.description || p.descripcion);
+      addSelValue(p.hacId || p.hac_id || p.hacText || p.hac);
+    });
+
+    // Also check masters.hacs for linked HAC details
+    (mastersAvailable.hacs || []).forEach((h: any) => {
+      if (!h) return;
+      const hId = clean(h.id);
+      const hHac = clean(h.hac);
+      const hDetail = clean(h.detail || h.detalle);
+      if (selValues.has(hId) || selValues.has(hHac) || selValues.has(hDetail) ||
+          selAlphaValues.has(cleanAlpha(hId)) || selAlphaValues.has(cleanAlpha(hHac)) || selAlphaValues.has(cleanAlpha(hDetail))) {
+        addSelValue(h.id);
+        addSelValue(h.hac);
+        addSelValue(h.detail || h.detalle);
+      }
+    });
+  }
+
+  // Extract all potential machine identifier fields from the stop record
+  const stopValues = new Set<string>();
+  const stopAlphaValues = new Set<string>();
+
+  const addStopValue = (v: any) => {
+    const s = clean(v);
+    if (s) {
+      stopValues.add(s);
+      const alpha = cleanAlpha(s);
+      if (alpha) stopAlphaValues.add(alpha);
+    }
+  };
+
+  addStopValue(stop.machineId);
+  addStopValue(stop.palletizerId);
+  addStopValue(stop.maquina_id);
+  addStopValue(stop.equipo_id);
+  
+  addStopValue(stop.machineName);
+  addStopValue(stop.nombre_maquina);
+  addStopValue(stop.maquina_afectada);
+  addStopValue(stop.maquinaAfectada);
+  addStopValue(stop.equipoDescription);
+  addStopValue(stop.description);
+  
+  addStopValue(stop.machineHacText);
+  addStopValue(stop.maquina_hac);
+  addStopValue(stop.hacName);
+  addStopValue(stop.hacId);
+  addStopValue(stop.hac_id);
+  addStopValue(stop.hac_text);
+
+  // Direct exact match between any stop value and any selected machine value
+  for (const sv of stopValues) {
+    if (selValues.has(sv)) return true;
+  }
+
+  // Alphanumeric clean match
+  for (const sav of stopAlphaValues) {
+    if (selAlphaValues.has(sav)) return true;
+  }
+
+  // Substring / inclusion match for descriptive strings
+  for (const sv of stopValues) {
+    for (const selV of selValues) {
+      if (sv.length >= 3 && selV.length >= 3) {
+        if (sv.includes(selV) || selV.includes(sv)) return true;
       }
     }
   }
-
-  const stopMachineHacText = String(stop.machineHacText || stop.hacId || stop.hac_id || '').trim().toUpperCase();
-  const stopMachineId = String(stop.machineId || stop.palletizerId || stop.maquina_id || stop.equipo_id || '').trim().toUpperCase();
-  const stopMachineName = String(stop.machineName || stop.equipoDescription || stop.description || '').trim().toUpperCase();
-
-  // 1. Direct comparisons (Rule 2)
-  if (selHacText && stopMachineHacText === selHacText) return true;
-  if (selId && stopMachineId === selId) return true;
-  if (selDescription && stopMachineHacText === selDescription) return true;
-  if (selDescription && stopMachineName === selDescription) return true;
-  if (selHacText && stopMachineId === selHacText) return true;
-  if (selId && stopMachineHacText === selId) return true;
-
-  // 2. Inclusion & Substring
-  if (selHacText && stopMachineHacText && (stopMachineHacText.includes(selHacText) || selHacText.includes(stopMachineHacText))) return true;
-  if (selHacText && stopMachineId && (stopMachineId.includes(selHacText) || selHacText.includes(stopMachineId))) return true;
-
-  // 3. Clean alphanumeric match
-  const clean = (s: string) => s.replace(/[^A-Z0-9]/g, '');
-  const cStopHac = clean(stopMachineHacText);
-  const cSelHac = clean(selHacText);
-  const cStopId = clean(stopMachineId);
-  const cSelId = clean(selId);
-  const cStopName = clean(stopMachineName);
-  const cSelDesc = clean(selDescription);
-
-  if (cStopHac && cSelHac && cStopHac === cSelHac) return true;
-  if (cStopId && cSelId && cStopId === cSelId) return true;
-  if (cStopHac && cSelDesc && cStopHac === cSelDesc) return true;
-  if (cStopName && cSelDesc && cStopName === cSelDesc) return true;
 
   return false;
 }

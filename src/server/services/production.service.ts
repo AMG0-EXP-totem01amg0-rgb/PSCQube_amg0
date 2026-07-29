@@ -28,8 +28,8 @@ function isStopForMachine(stop: any, machineId: string | any, dbPalletizers: any
   ));
 
   const stopMachineId = String(stop.machineId || stop.maquina_id || "").trim().toUpperCase();
-  const stopMachineName = String(stop.machineName || stop.nombre_maquina || "").trim().toUpperCase();
-  const stopMachineHacText = String(stop.machineHacText || stop.maquina_hac || "").trim().toUpperCase();
+  const stopMachineName = String(stop.machineName || stop.nombre_maquina || stop.description || "").trim().toUpperCase();
+  const stopMachineHacText = String(stop.machineHacText || stop.maquina_hac || stop.maquina_afectada || stop.maquinaAfectada || stop.hacName || stop.hacId || "").trim().toUpperCase();
 
   if (!selectedMac) {
     return stopMachineId === targetId || stopMachineHacText === targetId || stopMachineName === targetId;

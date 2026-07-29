@@ -365,7 +365,7 @@ export default function DashboardView({
   const palletizerData = React.useMemo(() => {
     return masters.palletizers.map((p: any) => {
       const lineStops = stops.filter(s => s && matchDateFlexible(s.date || (s as any).fecha, selectedDate) && isStopForMachine(s, p, masters) && isStopForShift(s, selectedShift?.id, masters));
-      const lineReports = productionReports.filter(r => r.palletizerId === p.id);
+      const lineReports = productionReports.filter(r => r && isStopForMachine(r, p, masters));
 
       // 1. Top 4 Relevant Internal Stops
       const topStops = [...lineStops]

@@ -54,7 +54,14 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
 
     sortedStops.forEach((stop) => {
       const stopStart = getMinutesFromStart(stop.startTime, validShiftStart);
-      const stopDuration = Number(stop.durationMinutes || 0);
+      let stopDuration = Number(stop.durationMinutes || 0);
+      if (stopDuration <= 0 && stop.startTime && stop.endTime) {
+        const sM = getMinutesFromStart(stop.startTime, validShiftStart);
+        const eM = getMinutesFromStart(stop.endTime, validShiftStart);
+        let diff = eM - sM;
+        if (diff < 0) diff += 1440;
+        stopDuration = diff;
+      }
       const stopEnd = stopStart + stopDuration;
 
       // 1. GAP - OPERATIVE
@@ -70,7 +77,8 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
       }
 
       // 2. STOP SEGMENT
-      const stopTypeResolved = String(stop.stopType || 'INTERNO').toUpperCase();
+      const causeObj = masters?.causes?.find((c: any) => String(c.id).toLowerCase() === String(stop.causeId).toLowerCase() || c.text === stop.causeText);
+      const stopTypeResolved = String(stop.stopType || causeObj?.stopType || (causeObj as any)?.tipo_paro || 'INTERNO').toUpperCase();
       
       let hacText = 'S/D';
       if (stop.hacName && stop.hacDetail) {
