@@ -232,11 +232,13 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
       shifts: Record<string, {
         shiftId: string;
         shiftName: string;
+        shiftDurationHours: number;
         stopsCount: number;
         durationMinutes: number;
         lines: Record<string, {
           lineId: string;
           lineName: string;
+          durationMinutes: number;
           stops: MachineStop[];
         }>;
       }>;
@@ -246,13 +248,9 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
       if (!stop || !stop.date) return;
       const dateKey = stop.date;
       const shiftId = stop.shiftId || 'S_DESCONOCIDO';
-      const shiftObj = masters.shifts.find(s => s.id === shiftId || s.name === stop.shiftId);
+      const shiftObj = (masters.shifts || []).find(s => s.id === shiftId || s.name === stop.shiftId);
       const shiftName = shiftObj?.name || stop.shiftId || 'Shift';
-
-      // Find Palletizer/Line
-      const lineId = stop.palletizerId || stop.machineId || 'L_DESCONOCIDA';
-      const lineObj = masters.palletizers.find(p => p.id === lineId || p.hacId === lineId || p.name === lineId);
-      const lineName = lineObj?.name || lineId;
+      const shiftDurationHours = Number(shiftObj?.durationHours) || 8;
 
       if (!groups[dateKey]) {
         groups[dateKey] = {
@@ -264,28 +262,52 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
       }
 
       if (!groups[dateKey].shifts[shiftId]) {
+        // Pre-populate with all palletizers from masters.palletizers so every palletizer is present for the shift
+        const linesMap: Record<string, { lineId: string; lineName: string; durationMinutes: number; stops: MachineStop[] }> = {};
+        (masters.palletizers || []).forEach((p: any) => {
+          if (p && p.id) {
+            linesMap[p.id] = {
+              lineId: p.id,
+              lineName: p.name || p.id,
+              durationMinutes: 0,
+              stops: []
+            };
+          }
+        });
+
         groups[dateKey].shifts[shiftId] = {
           shiftId,
           shiftName,
+          shiftDurationHours,
           stopsCount: 0,
           durationMinutes: 0,
-          lines: {}
+          lines: linesMap
         };
       }
+
+      // Find Palletizer/Line
+      const rawLineId = stop.palletizerId || stop.machineId || 'L_DESCONOCIDA';
+      const lineObj = (masters.palletizers || []).find(p => p.id === rawLineId || p.hacId === rawLineId || p.name === rawLineId);
+      const lineId = lineObj?.id || rawLineId;
+      const lineName = lineObj?.name || rawLineId;
 
       if (!groups[dateKey].shifts[shiftId].lines[lineId]) {
         groups[dateKey].shifts[shiftId].lines[lineId] = {
           lineId,
           lineName,
+          durationMinutes: 0,
           stops: []
         };
       }
 
       groups[dateKey].shifts[shiftId].lines[lineId].stops.push(stop);
+      const dur = Number(stop.durationMinutes) || 0;
+      groups[dateKey].shifts[shiftId].lines[lineId].durationMinutes += dur;
+
       groups[dateKey].totalStopsCount += 1;
-      groups[dateKey].totalDurationMinutes += Number(stop.durationMinutes) || 0;
+      groups[dateKey].totalDurationMinutes += dur;
       groups[dateKey].shifts[shiftId].stopsCount += 1;
-      groups[dateKey].shifts[shiftId].durationMinutes += Number(stop.durationMinutes) || 0;
+      groups[dateKey].shifts[shiftId].durationMinutes += dur;
     });
 
     return Object.values(groups);
@@ -760,6 +782,11 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
                         {Object.values(item.shifts).map((shift: any) => {
                           const shiftKey = `${item.date}|${shift.shiftId}`;
                           const isShiftExpanded = !!expandedShifts[shiftKey];
+                          const shiftDurationHs = shift.shiftDurationHours || 8;
+                          const shiftStopHs = (shift.durationMinutes || 0) / 60;
+                          const shiftDiffHs = shiftStopHs - shiftDurationHs;
+                          const shiftDiffStr = (shiftDiffHs >= 0 ? '+' : '') + shiftDiffHs.toFixed(1) + ' hs';
+
                           return (
                             <div key={shiftKey} className="px-4 py-2">
                               {/* Shift Header Row (Level 2) */}
@@ -774,7 +801,7 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
                                   <span className="text-[11px] font-bold text-text-main">Turno: {shift.shiftName}</span>
                                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/10">
                                     {activeTab === 'PAROS' 
-                                      ? `${shift.stopsCount} paros` 
+                                      ? `Diferencia: ${shiftDiffStr} (${shiftStopHs.toFixed(1)} hs paros / ${shiftDurationHs} hs turno)` 
                                       : `${shift.totalTons.toFixed(1)} Tn`}
                                   </span>
                                 </div>
@@ -797,6 +824,11 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
                                       const isLineExpanded = !!expandedLines[lineKey];
 
                                       if (activeTab === 'PAROS') {
+                                        const lineStopHs = (line.durationMinutes || 0) / 60;
+                                        const lineDiffHs = lineStopHs - shiftDurationHs;
+                                        const lineDiffStr = (lineDiffHs >= 0 ? '+' : '') + lineDiffHs.toFixed(1) + ' hs';
+                                        const stopsLen = line.stops ? line.stops.length : 0;
+
                                         return (
                                           <div key={lineKey} className="border border-border/40 rounded-lg overflow-hidden bg-surface-elevated/20">
                                             {/* Line Header for Paros */}
@@ -809,7 +841,14 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
                                                   <Layers size={10} />
                                                 </div>
                                                 <span className="text-[11px] font-bold text-text-main">{line.lineName}</span>
-                                                <span className="text-[9px] font-extrabold text-danger/80">({line.stops.length} PAROS)</span>
+                                                <span className={cn(
+                                                  "text-[10px] font-extrabold px-2 py-0.5 rounded-full border",
+                                                  stopsLen === 0 
+                                                    ? "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
+                                                    : "text-amber-500 bg-amber-500/10 border-amber-500/20"
+                                                )}>
+                                                  Diferencia: {lineDiffStr} ({stopsLen} {stopsLen === 1 ? 'paro' : 'paros'} - {lineStopHs.toFixed(1)} hs)
+                                                </span>
                                               </div>
                                               <div>
                                                 {isLineExpanded ? <ChevronUp size={12} className="text-text-muted" /> : <ChevronDown size={12} className="text-text-muted" />}
@@ -819,45 +858,51 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
                                             {/* Stops table inside Line */}
                                             {isLineExpanded && (
                                               <div className="p-3 overflow-x-auto">
-                                                <table className="w-full text-left border-collapse">
-                                                  <thead>
-                                                    <tr className="border-b border-border/40 text-[9px] font-black text-text-muted uppercase tracking-wider">
-                                                      <th className="py-2">HAC PRODUCTIVO</th>
-                                                      <th className="py-2">TEXTO CAUSA</th>
-                                                      <th className="py-2">INICIO</th>
-                                                      <th className="py-2">FIN</th>
-                                                      <th className="py-2">DURACIÓN</th>
-                                                      <th className="py-2">CAUSA SAP</th>
-                                                      <th className="py-2 text-right">ACCIONES</th>
-                                                    </tr>
-                                                  </thead>
-                                                  <tbody className="divide-y divide-border/20">
-                                                    {line.stops.map((stop: MachineStop) => {
-                                                      const causeObj = masters.causes.find(c => c.id === stop.causeId || c.text === stop.causeText);
-                                                      return (
-                                                        <tr 
-                                                          key={stop.id}
-                                                          className="text-[11px] text-text-main hover:bg-surface-elevated/45 transition-colors group"
-                                                        >
-                                                          <td className="py-2 font-semibold text-text-muted uppercase tracking-tighter">{stop.hacName || stop.hacId || 'N/A'}</td>
-                                                          <td className="py-2 font-medium">{stop.causeText || causeObj?.text || 'N/A'}</td>
-                                                          <td className="py-2 font-mono text-text-muted">{formatToHhMm(stop.startTime)}</td>
-                                                          <td className="py-2 font-mono text-text-muted">{formatToHhMm(stop.endTime || '')}</td>
-                                                          <td className="py-2 font-mono text-emerald-400 font-extrabold">{stop.durationMinutes} min</td>
-                                                          <td className="py-2 font-mono text-text-muted/80">{stop.causeCode || causeObj?.causeCode || stop.causeId || ''}</td>
-                                                          <td className="py-2 text-right">
-                                                            <button 
-                                                              onClick={() => setSelectedStopDetail(stop)}
-                                                              className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-primary hover:text-primary-hover border border-primary/20 px-1.5 py-0.5 rounded bg-primary/5 hover:bg-primary/10 transition-colors"
-                                                            >
-                                                              <Eye size={10} /> Detalle
-                                                            </button>
-                                                          </td>
-                                                        </tr>
-                                                      );
-                                                    })}
-                                                  </tbody>
-                                                </table>
+                                                {stopsLen === 0 ? (
+                                                  <p className="text-[11px] text-text-muted italic py-2 text-center">
+                                                    Sin paros registrados en esta paletizadora para este turno.
+                                                  </p>
+                                                ) : (
+                                                  <table className="w-full text-left border-collapse">
+                                                    <thead>
+                                                      <tr className="border-b border-border/40 text-[9px] font-black text-text-muted uppercase tracking-wider">
+                                                        <th className="py-2">HAC PRODUCTIVO</th>
+                                                        <th className="py-2">TEXTO CAUSA</th>
+                                                        <th className="py-2">INICIO</th>
+                                                        <th className="py-2">FIN</th>
+                                                        <th className="py-2">DURACIÓN</th>
+                                                        <th className="py-2">CAUSA SAP</th>
+                                                        <th className="py-2 text-right">ACCIONES</th>
+                                                      </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-border/20">
+                                                      {line.stops.map((stop: MachineStop) => {
+                                                        const causeObj = masters.causes.find(c => c.id === stop.causeId || c.text === stop.causeText);
+                                                        return (
+                                                          <tr 
+                                                            key={stop.id}
+                                                            className="text-[11px] text-text-main hover:bg-surface-elevated/45 transition-colors group"
+                                                          >
+                                                            <td className="py-2 font-semibold text-text-muted uppercase tracking-tighter">{stop.hacName || stop.hacId || 'N/A'}</td>
+                                                            <td className="py-2 font-medium">{stop.causeText || causeObj?.text || 'N/A'}</td>
+                                                            <td className="py-2 font-mono text-text-muted">{formatToHhMm(stop.startTime)}</td>
+                                                            <td className="py-2 font-mono text-text-muted">{formatToHhMm(stop.endTime || '')}</td>
+                                                            <td className="py-2 font-mono text-emerald-400 font-extrabold">{stop.durationMinutes} min</td>
+                                                            <td className="py-2 font-mono text-text-muted/80">{stop.causeCode || causeObj?.causeCode || stop.causeId || ''}</td>
+                                                            <td className="py-2 text-right">
+                                                              <button 
+                                                                onClick={() => setSelectedStopDetail(stop)}
+                                                                className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-primary hover:text-primary-hover border border-primary/20 px-1.5 py-0.5 rounded bg-primary/5 hover:bg-primary/10 transition-colors"
+                                                              >
+                                                                <Eye size={10} /> Detalle
+                                                              </button>
+                                                            </td>
+                                                          </tr>
+                                                        );
+                                                      })}
+                                                    </tbody>
+                                                  </table>
+                                                )}
                                               </div>
                                             )}
                                           </div>
