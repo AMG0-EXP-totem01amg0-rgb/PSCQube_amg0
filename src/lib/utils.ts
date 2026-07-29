@@ -43,7 +43,8 @@ export function cleanShiftKey(val: any): string {
 }
 
 export function isStopForMachine(stop: any, machine: any, mastersAvailable?: any): boolean {
-  if (!stop || !machine) return false;
+  if (!stop) return false;
+  if (!machine || machine === 'ALL' || machine === 'TODAS' || machine === 'TODOS') return true;
 
   const clean = (s: any) => String(s || '').trim().toUpperCase();
   const cleanAlpha = (s: any) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -64,12 +65,19 @@ export function isStopForMachine(stop: any, machine: any, mastersAvailable?: any
     addSelValue(machine.id);
     addSelValue(machine.name || machine.nombre || machine.description || machine.descripcion);
     addSelValue(machine.hacId || machine.hac_id || machine.hacText || machine.hac || machine.machineHacText);
+    addSelValue(machine.linea || machine.equipo);
   } else {
     addSelValue(machine);
   }
 
   if (mastersAvailable) {
-    const allMachines = [...(mastersAvailable.palletizers || []), ...(mastersAvailable.baggers || [])];
+    const allMachines = [
+      ...(mastersAvailable.palletizers || []),
+      ...(mastersAvailable.baggers || []),
+      ...(mastersAvailable.lines || []),
+      ...(mastersAvailable.maquinas || []),
+      ...(mastersAvailable.equipos || [])
+    ];
     
     // Find matching machine in masters by any current selValue
     const foundMachines = allMachines.filter((p: any) => {
@@ -85,6 +93,7 @@ export function isStopForMachine(stop: any, machine: any, mastersAvailable?: any
       addSelValue(p.id);
       addSelValue(p.name || p.nombre || p.description || p.descripcion);
       addSelValue(p.hacId || p.hac_id || p.hacText || p.hac);
+      addSelValue(p.linea || p.equipo);
     });
 
     // Also check masters.hacs for linked HAC details
@@ -124,15 +133,23 @@ export function isStopForMachine(stop: any, machine: any, mastersAvailable?: any
   addStopValue(stop.nombre_maquina);
   addStopValue(stop.maquina_afectada);
   addStopValue(stop.maquinaAfectada);
+  addStopValue(stop['máquina afectada']);
   addStopValue(stop.equipoDescription);
   addStopValue(stop.description);
+  addStopValue(stop.linea);
+  addStopValue(stop.equipo);
+  addStopValue(stop.equipment);
   
   addStopValue(stop.machineHacText);
   addStopValue(stop.maquina_hac);
   addStopValue(stop.hacName);
+  addStopValue(stop.hac);
+  addStopValue(stop['hac']);
   addStopValue(stop.hacId);
   addStopValue(stop.hac_id);
   addStopValue(stop.hac_text);
+  addStopValue(stop['detalle hac']);
+  addStopValue(stop.hacDetail);
 
   // Direct exact match between any stop value and any selected machine value
   for (const sv of stopValues) {
@@ -166,7 +183,7 @@ export function isStopForShift(stop: any, shiftId: string | null | undefined, ma
   const stopShiftId = String(stop.shiftId || stop.shift_id || stop.id_turno || '').trim().toLowerCase();
   const cleanStopShiftId = cleanShiftKey(stopShiftId);
 
-  const stopShiftName = String(stop.shiftName || stop.shiftDescription || stop.turno || '').trim().toLowerCase();
+  const stopShiftName = String(stop.shiftName || stop.shiftDescription || stop.turno || stop['turno'] || '').trim().toLowerCase();
   const cleanStopShiftName = cleanShiftKey(stopShiftName);
 
   if (stopShiftId && (stopShiftId === targetId || cleanStopShiftId === cleanTargetId)) return true;
@@ -197,24 +214,41 @@ export function isStopForShift(stop: any, shiftId: string | null | undefined, ma
 export function ensureHhMm(val: any): string {
   if (!val) return "00:00";
   let s = String(val).trim();
-  if (s.length >= 5) {
+  if (s.includes("T")) s = s.split("T")[1];
+  if (s.includes(" ")) {
+    const parts = s.split(" ");
+    s = parts.find(p => p.includes(":")) || parts[parts.length - 1];
+  }
+  const match = s.match(/(\d{1,2}):(\d{2})/);
+  if (match) {
+    const hh = match[1].padStart(2, "0");
+    const mm = match[2];
+    return `${hh}:${mm}`;
+  }
+  if (s.length >= 5 && s.includes(":")) {
     return s.substring(0, 5);
   }
-  return s;
+  return s || "00:00";
 }
 
 export function ensureHhMmSs(val: any): string {
   if (!val) return "00:00:00";
   let s = String(val).trim();
+  if (s.includes("T")) s = s.split("T")[1];
+  if (s.includes(" ")) {
+    const parts = s.split(" ");
+    s = parts.find(p => p.includes(":")) || parts[parts.length - 1];
+  }
+  const match = s.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (match) {
+    const hh = match[1].padStart(2, "0");
+    const mm = match[2];
+    const ss = match[3] ? match[3].padStart(2, "0") : "00";
+    return `${hh}:${mm}:${ss}`;
+  }
   if (s.length === 5 && s.includes(":")) {
     return `${s}:00`;
   }
-  if (s.length === 8) {
-    return s;
-  }
-  if (s.length > 8) {
-    return s.substring(0, 8);
-  }
-  return `${s}:00`;
+  return s || "00:00:00";
 }
 

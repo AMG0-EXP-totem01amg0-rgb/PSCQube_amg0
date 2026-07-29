@@ -76,15 +76,12 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
   };
 
   const getStopTimes = (stop: any) => {
-    const rawStart = stop.startTime || stop.horaInicio || stop.hora_inicio || stop.hora_inicio_paro || '';
-    const rawEnd = stop.endTime || stop.horaFin || stop.hora_fin || stop.hora_fin_paro || '';
+    const rawStart = stop.startTime || stop.horaInicio || stop.hora_inicio || stop.hora_inicio_paro || stop.inicio || stop['inicio'] || '';
+    const rawEnd = stop.endTime || stop.horaFin || stop.hora_fin || stop.hora_fin_paro || stop.fin || stop['fin'] || '';
     
     const extractTime = (val: any) => {
       if (!val) return '';
-      let s = String(val).trim();
-      if (s.includes('T')) s = s.split('T')[1];
-      if (s.includes(' ')) s = s.split(' ')[1];
-      return ensureHhMm(s);
+      return ensureHhMm(val);
     };
 
     const startTime = extractTime(rawStart);
@@ -95,6 +92,9 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
       stop.duracionMinutos || 
       stop.duracion_minutos || 
       stop.duracion_minutos_paro || 
+      stop.durationTime ||
+      stop['duración'] ||
+      stop.duracion ||
       0
     );
 
