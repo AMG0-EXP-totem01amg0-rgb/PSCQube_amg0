@@ -4,10 +4,10 @@ import { MachineStop, Shift, MasterData } from '../../../types';
 import { cn, ensureHhMm } from '../../../lib/utils';
 
 interface Props {
-  shift: Shift;
-  stops: MachineStop[];
-  masters: MasterData;
-  onEdit?: (stop: MachineStop) => void;
+  shift?: any;
+  stops: any[];
+  masters?: any;
+  onEdit?: (stop: any) => void;
   readOnly?: boolean;
 }
 
@@ -24,7 +24,42 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
     }
   };
 
-  const totalMinutes = (shift.durationHours || 8) * 60;
+  const validShiftStart = ensureHhMm(
+    shift?.startTime || 
+    shift?.hora_inicio || 
+    shift?.horaInicio || 
+    shift?.start_time || 
+    '06:00'
+  );
+
+  const validShiftEnd = ensureHhMm(
+    shift?.endTime || 
+    shift?.hora_fin || 
+    shift?.horaFin || 
+    shift?.end_time || 
+    '14:00'
+  );
+
+  const getShiftDurationMinutes = (sStart: string, sEnd: string) => {
+    try {
+      const start = parse(sStart, 'HH:mm', new Date());
+      const end = parse(sEnd, 'HH:mm', new Date());
+      let diff = differenceInMinutes(end, start);
+      if (diff <= 0) diff += 1440; // Overnight shift
+      return diff || 480;
+    } catch (e) {
+      return 480;
+    }
+  };
+
+  const totalMinutes = Math.max(
+    1,
+    shift?.durationHours 
+      ? shift.durationHours * 60 
+      : shift?.duracion_horas
+      ? shift.duracion_horas * 60
+      : getShiftDurationMinutes(validShiftStart, validShiftEnd)
+  );
 
   const [hoveredIdx, setHoveredIdx] = React.useState<number | null>(null);
   const [tooltipDirections, setTooltipDirections] = React.useState<Record<number, 'up' | 'down'>>({});
@@ -40,28 +75,68 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
     setHoveredIdx(null);
   };
 
+  const getStopTimes = (stop: any) => {
+    const rawStart = stop.startTime || stop.horaInicio || stop.hora_inicio || stop.hora_inicio_paro || '';
+    const rawEnd = stop.endTime || stop.horaFin || stop.hora_fin || stop.hora_fin_paro || '';
+    
+    const extractTime = (val: any) => {
+      if (!val) return '';
+      let s = String(val).trim();
+      if (s.includes('T')) s = s.split('T')[1];
+      if (s.includes(' ')) s = s.split(' ')[1];
+      return ensureHhMm(s);
+    };
+
+    const startTime = extractTime(rawStart);
+    const endTime = extractTime(rawEnd);
+
+    let durationMinutes = Number(
+      stop.durationMinutes || 
+      stop.duracionMinutos || 
+      stop.duracion_minutos || 
+      stop.duracion_minutos_paro || 
+      0
+    );
+
+    return { startTime, endTime, durationMinutes };
+  };
+
   const segments = useMemo(() => {
     const list: any[] = [];
-    const validShiftStart = ensureHhMm(shift?.startTime || '00:00');
-    const validShiftEnd = ensureHhMm(shift?.endTime || '23:59');
+
+    // Filter valid stops that have a start time
+    const validStops = (stops || []).filter((s) => {
+      if (!s) return false;
+      const { startTime } = getStopTimes(s);
+      return Boolean(startTime);
+    });
 
     // Sort stops chromatically by their start time relative to shift start
-    const sortedStops = [...(stops || [])].filter(Boolean).sort((a, b) => 
-      getMinutesFromStart(a.startTime, validShiftStart) - getMinutesFromStart(b.startTime, validShiftStart)
-    );
+    const sortedStops = [...validStops].sort((a, b) => {
+      const timesA = getStopTimes(a);
+      const timesB = getStopTimes(b);
+      return getMinutesFromStart(timesA.startTime, validShiftStart) - getMinutesFromStart(timesB.startTime, validShiftStart);
+    });
 
     let currentPointer = 0; // minutes from shift start
 
     sortedStops.forEach((stop) => {
-      const stopStart = getMinutesFromStart(stop.startTime, validShiftStart);
-      let stopDuration = Number(stop.durationMinutes || 0);
-      if (stopDuration <= 0 && stop.startTime && stop.endTime) {
-        const sM = getMinutesFromStart(stop.startTime, validShiftStart);
-        const eM = getMinutesFromStart(stop.endTime, validShiftStart);
+      const { startTime, endTime, durationMinutes } = getStopTimes(stop);
+      const stopStart = getMinutesFromStart(startTime, validShiftStart);
+      let stopDuration = durationMinutes;
+
+      if (stopDuration <= 0 && startTime && endTime) {
+        const sM = getMinutesFromStart(startTime, validShiftStart);
+        const eM = getMinutesFromStart(endTime, validShiftStart);
         let diff = eM - sM;
         if (diff < 0) diff += 1440;
         stopDuration = diff;
       }
+
+      if (stopDuration <= 0) {
+        stopDuration = 15; // default fallback 15m
+      }
+
       const stopEnd = stopStart + stopDuration;
 
       // 1. GAP - OPERATIVE
@@ -72,29 +147,48 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
           type: 'OPERATIVE',
           duration: gapDuration,
           startTime: format(addMinutes(shiftStartObj, currentPointer), 'HH:mm'),
-          endTime: ensureHhMm(stop.startTime)
+          endTime: format(addMinutes(shiftStartObj, stopStart), 'HH:mm')
         });
       }
 
       // 2. STOP SEGMENT
-      const causeObj = masters?.causes?.find((c: any) => String(c.id).toLowerCase() === String(stop.causeId).toLowerCase() || c.text === stop.causeText);
-      const stopTypeResolved = String(stop.stopType || causeObj?.stopType || (causeObj as any)?.tipo_paro || 'INTERNO').toUpperCase();
-      
+      const causeId = stop.causeId || stop.id_causa || stop.causa_id;
+      const causeText = stop.causeText || stop.motivo || stop.causa_paro || stop.observaciones || stop.descripcion || 'Sin Causa';
+
+      const causeObj = masters?.causes?.find((c: any) => 
+        (causeId && String(c.id).toLowerCase() === String(causeId).toLowerCase()) || 
+        c.text === causeText ||
+        c.nombre === causeText ||
+        c.descripcion === causeText
+      );
+
+      const rawStopType = String(
+        stop.stopType || 
+        stop.tipoParo || 
+        stop.tipo_paro || 
+        stop.tipo_de_paro || 
+        causeObj?.stopType || 
+        (causeObj as any)?.tipo_paro || 
+        'INTERNO'
+      ).toUpperCase();
+
       let hacText = 'S/D';
       if (stop.hacName && stop.hacDetail) {
         hacText = `${stop.hacName} - ${stop.hacDetail}`;
-      } else if (stop.hacName) {
-        hacText = stop.hacName;
+      } else if (stop.hacName || stop.hac || stop.equipo || stop.nombre_equipo || stop.linea) {
+        hacText = stop.hacName || stop.hac || stop.equipo || stop.nombre_equipo || stop.linea || 'S/D';
       } else if (stop.hacDetail) {
         hacText = stop.hacDetail;
       }
 
+      const calculatedEndTime = endTime || format(addMinutes(parse(validShiftStart, 'HH:mm', new Date()), stopEnd), 'HH:mm');
+
       list.push({
-        type: stopTypeResolved === 'EXTERNO' ? 'EXTERNAL' : 'INTERNAL',
+        type: rawStopType.includes('EXTERN') ? 'EXTERNAL' : 'INTERNAL',
         duration: stopDuration,
-        startTime: ensureHhMm(stop.startTime),
-        endTime: ensureHhMm(stop.endTime),
-        cause: stop.causeText || 'Sin Causa',
+        startTime: ensureHhMm(startTime),
+        endTime: ensureHhMm(calculatedEndTime),
+        cause: causeText,
         hac: hacText,
         stop: stop
       });
@@ -114,13 +208,12 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
     }
 
     return list;
-  }, [shift, stops, masters, totalMinutes]);
+  }, [shift, stops, masters, totalMinutes, validShiftStart, validShiftEnd]);
 
   const labels = useMemo(() => {
     const lbls = [];
-    const validShiftStart = ensureHhMm(shift?.startTime || '00:00');
     const shiftStartDate = parse(validShiftStart, 'HH:mm', new Date());
-    const durationHours = shift?.durationHours || 8;
+    const durationHours = Math.max(1, Math.round(totalMinutes / 60));
 
     for (let i = 0; i <= durationHours; i++) {
        const labelTime = format(addMinutes(shiftStartDate, i * 60), 'HH:mm');
@@ -130,7 +223,7 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
        });
     }
     return lbls;
-  }, [shift, totalMinutes]);
+  }, [validShiftStart, totalMinutes]);
 
 
   // Compute precise percentages for each segment relative to the entire timeline
