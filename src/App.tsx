@@ -905,48 +905,35 @@ export default function App() {
     const shiftId = userContext.selectedShiftId;
     const tables = OPERATIONAL_TABLES_MAP[prodTab] || [];
     
-    console.log(`[Immediate Restore] Context changed to Date: ${date}, Shift: ${shiftId}, Tab: ${prodTab}. Restoring snapshots.`);
+    console.log(`[Immediate Restore & Refresh] Context changed to Date: ${date}, Shift: ${shiftId}, Tab: ${prodTab}. Invalidating outdated snapshots and fetching fresh API data.`);
     
-    const restoreSnapshots = async () => {
+    const restoreAndRefresh = async () => {
       for (const tableName of tables) {
         const key = getCooldownKey(tableName, date, shiftId);
         
-        // Try memory ref first
-        let cachedData = operationalDataByKeyRef.current[key];
+        // Invalidate previous local memory cache, cooldowns, and IndexedDB snapshot
+        delete operationalDataByKeyRef.current[key];
+        delete tableCooldownsRef.current[key];
+        await safeCache.remove('pscqube_op_cache_' + key);
         
-        // If not in memory, check safeCache (IndexedDB)
-        if (cachedData === undefined) {
-          const loaded = await safeCache.get('pscqube_op_cache_' + key);
-          if (loaded) {
-            cachedData = loaded;
-            operationalDataByKeyRef.current[key] = cachedData;
-          }
-        }
-        
-        if (cachedData !== undefined) {
-          console.log(`[Immediate Restore] Found snapshot for ${tableName} (key: ${key}). Restoring.`);
-          updateTableState(tableName, cachedData, date, shiftId);
-        } else {
-          // First-time visit or no cache: clear the state to prevent leaking previous context's data in local UI filters
-          console.log(`[Immediate Restore] No snapshot found for ${tableName} (key: ${key}). Clearing state.`);
-          updateTableState(tableName, [], date, shiftId);
-        }
+        // Force fresh HTTP fetch from APIs
+        fetchTableWithGuards(tableName, true, "ContextChangeFetch");
       }
     };
 
-    restoreSnapshots();
-  }, [hasEnteredApp, userContext.selectedDate, userContext.selectedShiftId, prodTab, getCooldownKey, updateTableState, OPERATIONAL_TABLES_MAP]);
+    restoreAndRefresh();
+  }, [hasEnteredApp, userContext.selectedDate, userContext.selectedShiftId, prodTab, getCooldownKey, OPERATIONAL_TABLES_MAP]);
 
   const fetchTableWithGuards = useCallback(async (tableName: string, bypassCache = false, source = "unspecified") => {
     const date = userContext.selectedDate;
     const shiftId = userContext.selectedShiftId;
     const key = getCooldownKey(tableName, date, shiftId);
 
-    // 1. Cooldown Check (60 seconds)
+    // 1. Cooldown Check (reduced to 2 seconds for active operational views)
     if (!bypassCache) {
       const lastFetch = tableCooldownsRef.current[key] || 0;
       const now = Date.now();
-      if (now - lastFetch < 60000) {
+      if (now - lastFetch < 2000) {
         console.log(`[Cooldown Guard] Skipping fetch for ${tableName} (last fetch ${Math.round((now - lastFetch)/1000)}s ago)`);
         
         // Ensure state contains latest cache as a fallback/guard
@@ -1025,7 +1012,7 @@ export default function App() {
 
     tabChangeTimeoutRef.current = setTimeout(() => {
       console.log(`[Navigation Sync] Debounce trigger activeSection: ${activeSection}, prodTab: ${prodTab}`);
-      refreshOperationalDataForView(activeSection, prodTab, false, "NavigationDebounce");
+      refreshOperationalDataForView(activeSection, prodTab, true, "NavigationDebounce");
     }, 400);
 
     return () => {
