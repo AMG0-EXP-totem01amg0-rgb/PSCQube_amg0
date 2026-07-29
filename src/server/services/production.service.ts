@@ -152,13 +152,18 @@ export class ProductionService {
 
         const stops = dbParos.filter((s: any) => 
           s &&
-          String(s.date || s.fecha || "").substring(0, 10) === String(item.date || item.fecha || "").substring(0, 10) &&
+          String(s.date || "").substring(0, 10) === String(item.date || "").substring(0, 10) &&
           isStopForShift(s, shiftId, dbShifts) &&
           isStopForMachine(s, palId, dbPalletizers, dbBaggers)
         );
-        const stopMins = stops.reduce((sum: number, s: any) => sum + (Number(s.durationMinutes || s.duracion_minutos) || 0), 0);
-        const stopHours = stopMins / 60;
-        const actualHsMarchaVal = shiftDurationHours - stopHours;
+        const stopMins = stops.reduce((sum: number, s: any) => sum + (Number(s.durationMinutes) || 0), 0);
+        let hsMarcha = Math.max(0, shiftDurationHours - (stopMins / 60));
+
+        // If user reported hsMarchaTis, use it as the actual run hours for accuracy
+        const tisVal = item.hsMarchaTis !== undefined && item.hsMarchaTis !== null ? Number(item.hsMarchaTis) : 0;
+        if (tisVal > 0) {
+          hsMarcha = tisVal;
+        }
 
         const externalStopMinutes = stops
           .filter((s: any) => {
@@ -170,47 +175,95 @@ export class ProductionService {
                 cause.id === s.causeText
               )
             );
-            const stopType = String(s.stopType || c?.stopType || 'INTERNO').toUpperCase();
-            return stopType === 'EXTERNO';
+            return (c && c.stopType === 'EXTERNO') || s.stopType === 'EXTERNO';
           })
-          .reduce((sum: number, s: any) => sum + (Number(s.durationMinutes || s.duracion_minutos) || 0), 0);
+          .reduce((sum: number, s: any) => sum + (Number(s.durationMinutes) || 0), 0);
         const externalStopHours = externalStopMinutes / 60;
 
         // Disponibilidad = (hs. de paro externo + hs. de marcha) / duración de turno
-        let availVal = shiftDurationHours > 0 ? (externalStopHours + Math.max(0, actualHsMarchaVal)) / shiftDurationHours : 0;
-        availVal = Math.min(1, Math.max(0, availVal));
-        const availabilityPercent = Math.round(availVal * 100);
-
-        const availStr = `${availabilityPercent}%`;
+        let availabilityPercent = 100;
+        if (shiftDurationHours > 0) {
+          availabilityPercent = ((externalStopHours + hsMarcha) / shiftDurationHours) * 100;
+        }
+        const availStr = `${Math.min(100, Math.round(availabilityPercent))}%`;
         item.availability = availStr;
         item.disponibilidad = availStr;
 
-        // Rendimiento
+        // Rendimiento = (totalTons / hsMarcha) / bdp_ponderado
         const contextReports = data.filter((r: any) => 
           r &&
-          String(r.date || r.fecha || "").substring(0, 10) === String(item.date || item.fecha || "").substring(0, 10) &&
+          String(r.date || "").substring(0, 10) === String(item.date || "").substring(0, 10) &&
           (safeMatch(r.shiftId, shiftId) || safeMatch(r.turno_id, shiftId)) &&
           (safeMatch(r.palletizerId, palId) || safeMatch(r.palletizadora_id, palId))
         );
 
-        let perfVal = 0;
-        const actualHsMarchaUsed = Math.max(0, actualHsMarchaVal);
+        let yieldPercent = 100;
+        if (contextReports.length > 0 && hsMarcha > 0) {
+          let totalTons = 0;
+          let sumTonsOverBDP = 0;
 
-        if (contextReports.length > 0 && actualHsMarchaUsed > 0) {
-          const totalTons = contextReports.reduce((sum, r) => sum + (Number(r.tonsProduced || r.tn_producidas) || 0), 0);
-          const sumTonsOverBDP = contextReports.reduce((sum, r) => sum + ((Number(r.tonsProduced || r.tn_producidas) || 0) / (Number(r.bdp || r.bdp_teorico) || 100)), 0);
-          const theoreticBDPWeighted = sumTonsOverBDP > 0 ? totalTons / sumTonsOverBDP : 100;
-          perfVal = Math.min(1.5, (totalTons / actualHsMarchaUsed) / theoreticBDPWeighted);
+          contextReports.forEach((r: any) => {
+            const rDetails = dbDetails.filter((d: any) => 
+              String(d.productionId || d.produccion_id || d.id_produccion || "").trim() === String(r.id || "").trim()
+            );
+
+            if (rDetails.length > 0) {
+              rDetails.forEach((det: any) => {
+                const detTons = Number(det.tonsProduced || det.tn_producidas) || 0;
+                totalTons += detTons;
+
+                const detMatId = det.materialId || det.material_id;
+                const cap = dbCapacities.find((c: any) => 
+                  String(c.palletizerId || "").trim().toUpperCase() === String(r.palletizerId || "").trim().toUpperCase() &&
+                  String(c.baggerId || "").trim().toUpperCase() === String(r.baggerId || "").trim().toUpperCase() &&
+                  String(c.materialId || "").trim().toUpperCase() === String(detMatId || "").trim().toUpperCase()
+                );
+
+                const bdpVal = cap ? Number(cap.bdp) : (Number(det.bdp || det.bdp_teorico) || 100);
+                if (bdpVal > 0) {
+                  sumTonsOverBDP += detTons / bdpVal;
+                } else {
+                  sumTonsOverBDP += detTons / 100;
+                }
+              });
+            } else {
+              // Fallback just in case
+              const tons = Number(r.tonsProduced) || 0;
+              totalTons += tons;
+
+              const matId = r.materialId || r.material_id;
+              const cap = dbCapacities.find((c: any) => 
+                String(c.palletizerId || "").trim().toUpperCase() === String(r.palletizerId || "").trim().toUpperCase() &&
+                String(c.baggerId || "").trim().toUpperCase() === String(r.baggerId || "").trim().toUpperCase() &&
+                String(c.materialId || "").trim().toUpperCase() === String(matId || "").trim().toUpperCase()
+              );
+
+              const bdpVal = cap ? Number(cap.bdp) : (Number(r.bdp) || 100);
+              if (bdpVal > 0) {
+                sumTonsOverBDP += tons / bdpVal;
+              } else {
+                sumTonsOverBDP += tons / 100;
+              }
+            }
+          });
+
+          if (totalTons > 0 && sumTonsOverBDP > 0) {
+            const rate = totalTons / hsMarcha;
+            const bdpPonderado = totalTons / sumTonsOverBDP;
+            yieldPercent = (rate / bdpPonderado) * 100;
+          } else {
+            yieldPercent = 0;
+          }
+        } else {
+          yieldPercent = 0;
         }
-
-        const yieldPercent = Math.round(perfVal * 100);
-        const yieldStr = `${yieldPercent}%`;
+        
+        const yieldStr = `${Math.round(yieldPercent)}%`;
         item.yield = yieldStr;
         item.rendimiento = yieldStr;
 
-        const oeeVal = availVal * perfVal;
-        const oeePercent = Math.round(oeeVal * 100);
-        const oeeStr = `${oeePercent}%`;
+        const oeePercent = (availabilityPercent / 100) * (yieldPercent / 100) * 100;
+        const oeeStr = `${Math.round(oeePercent)}%`;
         item.oee = oeeStr;
       });
     } catch (enrichError) {
@@ -218,7 +271,7 @@ export class ProductionService {
     }
   }
 
-  static async autoRecalculateProductionMetrics(targetDate?: string, targetShiftId?: string): Promise<void> {
+  static async autoRecalculateProductionMetrics(): Promise<void> {
     try {
       console.log("[autoRecalculateProductionMetrics] Starting automatic OEE/Availability/Yield recalculation...");
       invalidateCache("PRODUCCIONV2");
@@ -232,18 +285,8 @@ export class ProductionService {
 
       await ProductionService.enrichProductionRecords(productionList);
 
-      const targetDateClean = targetDate ? String(targetDate).substring(0, 10) : undefined;
-      const targetShiftClean = targetShiftId ? String(targetShiftId).trim().toUpperCase() : undefined;
-
-      const toUpdate = productionList.filter((r: any) => {
-        if (!r) return false;
-        if (targetDateClean && String(r.date || r.fecha || "").substring(0, 10) !== targetDateClean) return false;
-        if (targetShiftClean && String(r.shiftId || r.turno_id || "").trim().toUpperCase() !== targetShiftClean) return false;
-        return true;
-      });
-
-      console.log(`[autoRecalculateProductionMetrics] Recalculated ${productionList.length} records. Committing ${toUpdate.length} target updates to Supabase...`);
-      for (const report of toUpdate) {
+      console.log(`[autoRecalculateProductionMetrics] Recalculated ${productionList.length} records. Committing updates to Supabase...`);
+      for (const report of productionList) {
         await GenericRepository.update("PRODUCCIONV2", report.id, report);
       }
       
