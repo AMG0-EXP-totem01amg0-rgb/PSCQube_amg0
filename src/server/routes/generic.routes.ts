@@ -304,10 +304,22 @@ router.get("/api/produccion", async (req, res) => {
 
     await ProductionService.enrichProductionReportsWithNozzleNews(list);
     await ProductionService.enrichProductionReportsWithDetails(list);
+    await ProductionService.enrichProductionRecords(list);
     return res.json({ success: true, data: list });
   } catch (error: any) {
     console.error("GET /api/produccion Error:", error);
     return res.status(500).json({ success: false, error: error.message || "Error al leer producción" });
+  }
+});
+
+// POST Endpoint to force recalculation and committing indicators (disponibilidad, rendimiento, oee) to Supabase
+router.post("/api/produccion/recalculate", async (req, res) => {
+  try {
+    await ProductionService.autoRecalculateProductionMetrics();
+    return res.json({ success: true, message: "Indicadores recalculados y actualizados en Supabase con éxito" });
+  } catch (error: any) {
+    console.error("POST /api/produccion/recalculate Error:", error);
+    return res.status(500).json({ success: false, error: error.message || "Error al recalcular indicadores" });
   }
 });
 
@@ -470,6 +482,10 @@ router.post("/api/sheets", async (req, res) => {
 
       await MaestrosService.enrichDataIfNeeded(table, [item]);
 
+      if (upperTable === "PRODUCCIONV2") {
+        await ProductionService.enrichProductionRecords([item]);
+      }
+
       await GenericRepository.create(table, item);
 
       if (upperTable === "PRODUCCIONV2") {
@@ -494,6 +510,10 @@ router.post("/api/sheets", async (req, res) => {
       }
 
       await MaestrosService.enrichDataIfNeeded(table, [item]);
+
+      if (upperTable === "PRODUCCIONV2") {
+        await ProductionService.enrichProductionRecords([item]);
+      }
 
       await GenericRepository.update(table, id, item);
 

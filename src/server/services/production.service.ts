@@ -157,7 +157,13 @@ export class ProductionService {
           isStopForMachine(s, palId, dbPalletizers, dbBaggers)
         );
         const stopMins = stops.reduce((sum: number, s: any) => sum + (Number(s.durationMinutes) || 0), 0);
-        const hsMarcha = Math.max(0, shiftDurationHours - (stopMins / 60));
+        let hsMarcha = Math.max(0, shiftDurationHours - (stopMins / 60));
+
+        // If user reported hsMarchaTis, use it as the actual run hours for accuracy
+        const tisVal = item.hsMarchaTis !== undefined && item.hsMarchaTis !== null ? Number(item.hsMarchaTis) : 0;
+        if (tisVal > 0) {
+          hsMarcha = tisVal;
+        }
 
         const externalStopMinutes = stops
           .filter((s: any) => {
@@ -179,7 +185,9 @@ export class ProductionService {
         if (shiftDurationHours > 0) {
           availabilityPercent = ((externalStopHours + hsMarcha) / shiftDurationHours) * 100;
         }
-        item.availability = `${Math.min(100, Math.round(availabilityPercent))}%`;
+        const availStr = `${Math.min(100, Math.round(availabilityPercent))}%`;
+        item.availability = availStr;
+        item.disponibilidad = availStr;
 
         // Rendimiento = (totalTons / hsMarcha) / bdp_ponderado
         const contextReports = data.filter((r: any) => 
@@ -250,10 +258,13 @@ export class ProductionService {
           yieldPercent = 0;
         }
         
-        item.yield = `${Math.round(yieldPercent)}%`;
+        const yieldStr = `${Math.round(yieldPercent)}%`;
+        item.yield = yieldStr;
+        item.rendimiento = yieldStr;
 
         const oeePercent = (availabilityPercent / 100) * (yieldPercent / 100) * 100;
-        item.oee = `${Math.round(oeePercent)}%`;
+        const oeeStr = `${Math.round(oeePercent)}%`;
+        item.oee = oeeStr;
       });
     } catch (enrichError) {
       console.error("Error enriching production data:", enrichError);
