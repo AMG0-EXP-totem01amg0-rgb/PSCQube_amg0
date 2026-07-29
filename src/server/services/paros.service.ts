@@ -14,7 +14,38 @@ export class ParosService {
         GenericRepository.findAll("MATERIALESV2").catch(() => [])
       ]);
 
-      data.forEach((item: any) => {
+      // Pre-index Palletizers and Baggers by ID, name, and nombre for fast lookup
+      const machinesList = [...dbPalletizers, ...dbBaggers];
+      const machineMap = new Map<string, any>();
+      for (let i = 0; i < machinesList.length; i++) {
+        const m = machinesList[i];
+        if (!m) continue;
+        if (m.id) machineMap.set(String(m.id).trim().toUpperCase(), m);
+        if (m.name) machineMap.set(String(m.name).trim().toUpperCase(), m);
+        if (m.nombre) machineMap.set(String(m.nombre).trim().toUpperCase(), m);
+      }
+
+      // Pre-index HACs by ID and HAC text
+      const hacMap = new Map<string, any>();
+      for (let i = 0; i < dbHacs.length; i++) {
+        const h = dbHacs[i];
+        if (!h) continue;
+        if (h.id) hacMap.set(String(h.id).trim().toUpperCase(), h);
+        if (h.hac) hacMap.set(String(h.hac).trim().toUpperCase(), h);
+      }
+
+      // Pre-index Materials
+      const materialMap = new Map<string, any>();
+      for (let i = 0; i < dbMaterials.length; i++) {
+        const m = dbMaterials[i];
+        if (!m) continue;
+        if (m.id) materialMap.set(String(m.id).trim().toUpperCase(), m);
+      }
+
+      for (let i = 0; i < data.length; i++) {
+        const item = data[i];
+        if (!item) continue;
+
         const shiftId = item.shiftId || item.turno_id;
         const shift = dbShifts.find((s: any) => s && (
           safeMatch(s.id, shiftId) || 
@@ -29,16 +60,21 @@ export class ParosService {
         item["turno"] = shiftName;
 
         if (item.machineId) {
-          const pal = dbPalletizers.find((p: any) => p && (safeMatch(p.id, item.machineId) || safeMatch(p.name, item.machineId) || safeMatch(p.nombre, item.machineId))) || 
+          const macKey = String(item.machineId).trim().toUpperCase();
+          const pal = machineMap.get(macKey) || dbPalletizers.find((p: any) => p && (safeMatch(p.id, item.machineId) || safeMatch(p.name, item.machineId) || safeMatch(p.nombre, item.machineId))) || 
                       dbBaggers.find((b: any) => b && (safeMatch(b.id, item.machineId) || safeMatch(b.name, item.machineId) || safeMatch(b.nombre, item.machineId)));
-          const hacPal = dbHacs.find((h: any) => h && (safeMatch(h.id, pal?.hacId) || safeMatch(h.hac, pal?.hacId) || safeHacMatch(h.hac, pal?.hacId)));
+          
+          const hacPalKey = pal ? String(pal.hacId || "").trim().toUpperCase() : "";
+          const hacPal = hacPalKey ? hacMap.get(hacPalKey) || dbHacs.find((h: any) => h && (safeMatch(h.id, pal?.hacId) || safeMatch(h.hac, pal?.hacId) || safeHacMatch(h.hac, pal?.hacId))) : null;
+          
           const targetHacId = pal?.hacId || pal?.hac_id || (hacPal ? hacPal.hac : (pal?.id || item.machineId));
           item.machineHacText = targetHacId;
           item["máquina afectada"] = targetHacId;
         }
 
         const matId = item.materialId || item.material_id;
-        const mat = dbMaterials.find((m: any) => m && safeMatch(m.id, matId));
+        const matKey = matId ? String(matId).trim().toUpperCase() : "";
+        const mat = matKey ? materialMap.get(matKey) || dbMaterials.find((m: any) => m && safeMatch(m.id, matId)) : null;
         const matName = mat ? (mat.nombre || mat.name || "") : "";
         item.materialDescription = matName;
         item["material"] = matName;
@@ -52,7 +88,7 @@ export class ParosService {
         item.durationTime = duration;
         item["duración"] = duration;
         item["duracion"] = duration;
-      });
+      }
     } catch (err) {
       console.error("Error enriching paros:", err);
     }
@@ -70,20 +106,71 @@ export class ParosService {
         GenericRepository.findAll("CAUSASV2").catch(() => []),
       ]);
 
-      list.forEach((item: any) => {
+      // 1. Pre-index Shifts
+      const shiftMap = new Map<string, any>();
+      for (let i = 0; i < shifts.length; i++) {
+        const s = shifts[i];
+        if (!s) continue;
+        if (s.name) shiftMap.set(String(s.name).trim().toUpperCase(), s);
+        if (s.nombre) shiftMap.set(String(s.nombre).trim().toUpperCase(), s);
+        if (s.id) shiftMap.set(String(s.id).trim().toUpperCase(), s);
+      }
+
+      // 2. Pre-process Machine metadata (Tiers 1, 2, 3)
+      const allMachines = [...palletizers, ...baggers];
+      const preparedMachines = new Array(allMachines.length);
+      for (let i = 0; i < allMachines.length; i++) {
+        const p = allMachines[i];
+        if (!p) continue;
+        const pId = String(p.id || "").trim().toUpperCase();
+        const pName = String(p.name || p.nombre || "").trim().toUpperCase();
+        const pHacId = String(p.hacId || p.hac_id || "").trim().toUpperCase();
+        preparedMachines[i] = {
+          raw: p,
+          pId,
+          pName,
+          pHacId,
+          cleanId: pId.replace(/[^A-Z0-9]/g, ""),
+          cleanName: pName.replace(/[^A-Z0-9]/g, ""),
+          cleanHacId: pHacId.replace(/[^A-Z0-9]/g, "")
+        };
+      }
+
+      // 3. Pre-index Materials by Name
+      const materialByNameMap = new Map<string, any>();
+      for (let i = 0; i < materials.length; i++) {
+        const m = materials[i];
+        if (m && m.name) materialByNameMap.set(String(m.name).trim(), m);
+      }
+
+      // 4. Pre-index HACs by cleaned HAC string
+      const hacCleanMap = new Map<string, any>();
+      for (let i = 0; i < hacs.length; i++) {
+        const h = hacs[i];
+        if (!h || !h.hac) continue;
+        const cleanH = String(h.hac).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+        hacCleanMap.set(cleanH, h);
+      }
+
+      // 5. Pre-index Causes by text and descripcion
+      const causeByTextMap = new Map<string, any>();
+      for (let i = 0; i < causes.length; i++) {
+        const c = causes[i];
+        if (!c) continue;
+        if (c.text) causeByTextMap.set(String(c.text).trim(), c);
+        if (c.descripcion) causeByTextMap.set(String(c.descripcion).trim(), c);
+      }
+
+      for (let i = 0; i < list.length; i++) {
+        const item = list[i];
+        if (!item) continue;
+
         // 1. Shift Mapping
         const targetShiftName = String(item.shiftName || "").trim().toUpperCase();
-        const shift = shifts.find((s: any) => 
-          s && (
-            String(s.name || "").trim().toUpperCase() === targetShiftName ||
-            String(s.nombre || "").trim().toUpperCase() === targetShiftName ||
-            String(s.id || "").trim().toUpperCase() === targetShiftName
-          )
-        );
+        let shift = shiftMap.get(targetShiftName);
         if (shift) {
           item.shiftId = shift.id;
         } else {
-          // Try loose check
           const looseShift = shifts.find((s: any) => 
             s && (
               String(s.name || "").trim().toUpperCase().includes(targetShiftName) ||
@@ -94,30 +181,30 @@ export class ParosService {
         }
 
         // 2. Machine Affected (Palletizer / Bagger)
-        const allMachines = [...palletizers, ...baggers];
         const targetMachineText = String(item.machineHacText || "").trim().toUpperCase();
-
         let pal = null;
 
         // Tier 1
-        pal = allMachines.find((p: any) => {
-          if (!p) return false;
-          const pId = String(p.id || "").trim().toUpperCase();
-          const pName = String(p.name || p.nombre || "").trim().toUpperCase();
-          const pHacId = String(p.hacId || p.hac_id || "").trim().toUpperCase();
-          return pId === targetMachineText || pName === targetMachineText || (pHacId && pHacId === targetMachineText);
-        });
+        for (let j = 0; j < preparedMachines.length; j++) {
+          const pm = preparedMachines[j];
+          if (!pm) continue;
+          if (pm.pId === targetMachineText || pm.pName === targetMachineText || (pm.pHacId && pm.pHacId === targetMachineText)) {
+            pal = pm.raw;
+            break;
+          }
+        }
 
         // Tier 2: Alphanumeric match
         if (!pal) {
           const cleanTarget = targetMachineText.replace(/[^A-Z0-9]/g, "");
-          pal = allMachines.find((p: any) => {
-            if (!p) return false;
-            const cleanId = String(p.id || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-            const cleanName = String(p.name || p.nombre || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-            const cleanHacId = String(p.hacId || p.hac_id || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-            return cleanId === cleanTarget || cleanName === cleanTarget || (cleanHacId && cleanHacId === cleanTarget);
-          });
+          for (let j = 0; j < preparedMachines.length; j++) {
+            const pm = preparedMachines[j];
+            if (!pm) continue;
+            if (pm.cleanId === cleanTarget || pm.cleanName === cleanTarget || (pm.cleanHacId && pm.cleanHacId === cleanTarget)) {
+              pal = pm.raw;
+              break;
+            }
+          }
         }
 
         // Tier 3: HAC table
@@ -129,44 +216,52 @@ export class ParosService {
             )
           );
           if (hacForPal) {
-            pal = allMachines.find((p: any) => {
-              if (!p) return false;
-              const pHacId = String(p.hacId || p.hac_id || "").trim().toUpperCase();
-              const hId = String(hacForPal.id || "").trim().toUpperCase();
-              const hHac = String(hacForPal.hac || "").trim().toUpperCase();
-              return (
-                pHacId === hId || 
-                pHacId === hHac || 
-                safeHacMatch(pHacId, hId) || 
-                safeHacMatch(pHacId, hHac)
-              );
-            });
+            const hId = String(hacForPal.id || "").trim().toUpperCase();
+            const hHac = String(hacForPal.hac || "").trim().toUpperCase();
+            for (let j = 0; j < preparedMachines.length; j++) {
+              const pm = preparedMachines[j];
+              if (!pm) continue;
+              if (
+                pm.pHacId === hId || 
+                pm.pHacId === hHac || 
+                safeHacMatch(pm.pHacId, hId) || 
+                safeHacMatch(pm.pHacId, hHac)
+              ) {
+                pal = pm.raw;
+                break;
+              }
+            }
           }
         }
 
         // Tier 4: Substring
         if (!pal) {
           const cleanTarget = targetMachineText.replace(/[^A-Z0-9]/g, "");
-          pal = allMachines.find((p: any) => {
-            if (!p) return false;
-            const cleanId = String(p.id || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-            const cleanName = String(p.name || p.nombre || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-            return (
-              (cleanId && cleanTarget.includes(cleanId)) || 
-              (cleanTarget && cleanId.includes(cleanTarget)) ||
-              (cleanName && cleanTarget.includes(cleanName)) || 
-              (cleanTarget && cleanName.includes(cleanTarget))
-            );
-          });
+          for (let j = 0; j < preparedMachines.length; j++) {
+            const pm = preparedMachines[j];
+            if (!pm) continue;
+            if (
+              (pm.cleanId && cleanTarget.includes(pm.cleanId)) || 
+              (cleanTarget && pm.cleanId.includes(cleanTarget)) ||
+              (pm.cleanName && cleanTarget.includes(pm.cleanName)) || 
+              (cleanTarget && pm.cleanName.includes(cleanTarget))
+            ) {
+              pal = pm.raw;
+              break;
+            }
+          }
         }
 
         // Tier 5: Split token match
         if (!pal) {
-          pal = allMachines.find((p: any) => {
-            if (!p) return false;
-            const pName = String(p.name || p.nombre || "").trim().toUpperCase();
-            return safeHacMatch(pName, targetMachineText);
-          });
+          for (let j = 0; j < preparedMachines.length; j++) {
+            const pm = preparedMachines[j];
+            if (!pm) continue;
+            if (safeHacMatch(pm.pName, targetMachineText)) {
+              pal = pm.raw;
+              break;
+            }
+          }
         }
 
         if (pal) {
@@ -178,7 +273,7 @@ export class ParosService {
         }
 
         // 3. Material
-        const mat = materials.find((m: any) => m && m.name === item.materialDescription);
+        const mat = item.materialDescription ? materialByNameMap.get(String(item.materialDescription).trim()) : null;
         if (mat) {
           item.materialId = mat.id;
         } else {
@@ -187,11 +282,7 @@ export class ParosService {
 
         // 4. HAC
         const cleanHacName = String(item.hacName || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-        let hacObj = hacs.find((h: any) => {
-          if (!h || !h.hac) return false;
-          const cleanH = String(h.hac).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-          return cleanH === cleanHacName;
-        });
+        let hacObj = hacCleanMap.get(cleanHacName);
 
         if (!hacObj) {
           hacObj = hacs.find((h: any) => h && h.hac && safeHacMatch(h.hac, item.hacName));
@@ -204,7 +295,7 @@ export class ParosService {
         }
 
         // 5. Cause
-        const causeObj = causes.find((c: any) => c && (c.text === item.causeText || c.descripcion === item.causeText));
+        const causeObj = item.causeText ? causeByTextMap.get(String(item.causeText).trim()) : null;
         if (causeObj) {
           item.causeId = causeObj.id;
         } else {
@@ -221,7 +312,7 @@ export class ParosService {
         if (item.endTime && item.endTime.length === 8) {
           item.endTime = item.endTime.slice(0, 5);
         }
-      });
+      }
     } catch (err) {
       console.error("Error enriching PAROSV2 on read:", err);
     }
