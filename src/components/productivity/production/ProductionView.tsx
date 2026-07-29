@@ -5,96 +5,9 @@ import { format, parse, differenceInMinutes } from 'date-fns';
 import { GlassCard, GlassInput, GlassSelect, GlassButton, ConfirmModal, Modal } from '../../ui/GlassUI';
 import { DataTable, Column, TableActions } from '../../ui/DataTable';
 import { MasterData, ProductionReport, NozzleNews, AppUser, MachineStop } from '../../../types';
-import { cn } from '../../../lib/utils';
+import { cn, matchDateFlexible, isStopForMachine, isStopForShift } from '../../../lib/utils';
 
-// Helper function to check if stop is for shift
-const isStopForShift = (stop: any, shiftId: string | null | undefined, mastersAvailable: MasterData) => {
-  if (!stop || !shiftId) return false;
-  const targetId = String(shiftId).trim().toUpperCase();
-  
-  const selectedS: any = (mastersAvailable.shifts || []).find((s: any) => s && String(s.id).trim().toUpperCase() === targetId);
-  if (!selectedS) {
-    return String(stop.shiftId || '').trim().toUpperCase() === targetId;
-  }
-  
-  const sId = String(selectedS.id).trim().toUpperCase();
-  const sName = String(selectedS.name || selectedS.nombre || "").trim().toUpperCase();
-  
-  const stopShiftId = String(stop.shiftId || "").trim().toUpperCase();
-  const stopShiftName = String(stop.shiftName || stop.turno || "").trim().toUpperCase();
-  
-  if (stopShiftId === sId) return true;
-  if (sName && (stopShiftName === sName || stopShiftId === sName)) return true;
-  
-  return false;
-};
 
-// Helper function to check if stop is for machine
-const isStopForMachine = (stop: any, machineId: string | any | null | undefined, mastersAvailable: MasterData) => {
-  if (!stop || !machineId) return false;
-  
-  // 1. Get the targetId helper
-  let targetId = "";
-  if (typeof machineId === 'object' && machineId !== null) {
-    targetId = String(machineId.id || machineId.hacId || machineId.hac_id || machineId.name || machineId.nombre || "").trim().toUpperCase();
-  } else {
-    targetId = String(machineId).trim().toUpperCase();
-  }
-  
-  if (!targetId) return false;
-
-  // 2. Find the selected machine object in palletizers or baggers
-  const selectedMac: any = (mastersAvailable.palletizers || []).find((p: any) => p && (
-    String(p.id).trim().toUpperCase() === targetId ||
-    String(p.hacId || p.hac_id || "").trim().toUpperCase() === targetId ||
-    String(p.name || p.nombre || "").trim().toUpperCase() === targetId
-  )) || (mastersAvailable.baggers || []).find((b: any) => b && (
-    String(b.id).trim().toUpperCase() === targetId ||
-    String(b.hacId || b.hac_id || "").trim().toUpperCase() === targetId ||
-    String(b.name || b.nombre || "").trim().toUpperCase() === targetId
-  ));
-
-  // Stop's fields
-  const stopMachineId = String(stop.machineId || "").trim().toUpperCase();
-  const stopMachineName = String(stop.machineName || "").trim().toUpperCase();
-  const stopMachineHacText = String(stop.machineHacText || "").trim().toUpperCase();
-
-  if (!selectedMac) {
-    // If we can't find reference in master tables, check if stop's fields strictly equal targetId
-    return stopMachineId === targetId || stopMachineHacText === targetId || stopMachineName === targetId;
-  }
-
-  // Machine's fields
-  const macId = String(selectedMac.id).trim().toUpperCase();
-  const macName = String(selectedMac.name || selectedMac.nombre || "").trim().toUpperCase();
-  const macHacId = String(selectedMac.hacId || selectedMac.hac_id || "").trim().toUpperCase();
-
-  // Strict match among any of the stop and mac fields
-  const stopFields = [stopMachineId, stopMachineName, stopMachineHacText].filter(Boolean);
-  const macFields = [macId, macName, macHacId].filter(Boolean);
-
-  for (const sField of stopFields) {
-    for (const mField of macFields) {
-      if (sField === mField) return true;
-    }
-  }
-
-  // Double check loose comparison (ignoring punctuation / space / special characters)
-  const cleanStr = (val: string) => val.replace(/[^A-Z0-9]/g, '');
-  const cleanStopFields = stopFields.map(cleanStr).filter(Boolean);
-  const cleanMacFields = macFields.map(cleanStr).filter(Boolean);
-
-  for (const sClean of cleanStopFields) {
-    for (const mClean of cleanMacFields) {
-      if (sClean === mClean) return true;
-    }
-  }
-
-  // Special inclusion match if they contain HAC ID (e.g. "MG.673-PZ1")
-  if (macHacId && (stopMachineHacText.includes(macHacId) || macHacId.includes(stopMachineHacText))) return true;
-
-  return false;
-};
 
 interface Props {
   masters: MasterData;
@@ -336,7 +249,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
 
     const machineStops = stops.filter(s => 
       s &&
-      s.date === selectedDate &&
+      matchDateFlexible(s.date || (s as any).fecha, selectedDate) &&
       isStopForMachine(s, palletizerId, masters) &&
       isStopForShift(s, shiftId, masters)
     );
