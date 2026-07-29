@@ -271,7 +271,7 @@ export class ProductionService {
     }
   }
 
-  static async autoRecalculateProductionMetrics(): Promise<void> {
+  static async autoRecalculateProductionMetrics(targetDate?: string, targetShiftId?: string): Promise<void> {
     try {
       console.log("[autoRecalculateProductionMetrics] Starting automatic OEE/Availability/Yield recalculation...");
       invalidateCache("PRODUCCIONV2");
@@ -285,8 +285,18 @@ export class ProductionService {
 
       await ProductionService.enrichProductionRecords(productionList);
 
-      console.log(`[autoRecalculateProductionMetrics] Recalculated ${productionList.length} records. Committing updates to Supabase...`);
-      for (const report of productionList) {
+      const targetDateClean = targetDate ? String(targetDate).substring(0, 10) : undefined;
+      const targetShiftClean = targetShiftId ? String(targetShiftId).trim().toUpperCase() : undefined;
+
+      const toUpdate = productionList.filter((r: any) => {
+        if (!r) return false;
+        if (targetDateClean && String(r.date || r.fecha || "").substring(0, 10) !== targetDateClean) return false;
+        if (targetShiftClean && String(r.shiftId || r.turno_id || "").trim().toUpperCase() !== targetShiftClean) return false;
+        return true;
+      });
+
+      console.log(`[autoRecalculateProductionMetrics] Recalculated ${productionList.length} records. Committing ${toUpdate.length} target updates to Supabase...`);
+      for (const report of toUpdate) {
         await GenericRepository.update("PRODUCCIONV2", report.id, report);
       }
       
