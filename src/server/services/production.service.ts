@@ -41,9 +41,9 @@ function isStopForMachine(stop: any, machineId: string | any, dbPalletizers: any
   const stopFields = [stopMachineId, stopMachineName, stopMachineHacText].filter(Boolean);
   const macFields = [macId, macName, macHacId].filter(Boolean);
 
-  for (const sField of stopFields) {
-    for (const mField of macFields) {
-      if (sField === mField) return true;
+  for (let i = 0; i < stopFields.length; i++) {
+    for (let j = 0; j < macFields.length; j++) {
+      if (stopFields[i] === macFields[j]) return true;
     }
   }
 
@@ -51,9 +51,9 @@ function isStopForMachine(stop: any, machineId: string | any, dbPalletizers: any
   const cleanStopFields = stopFields.map(cleanStr).filter(Boolean);
   const cleanMacFields = macFields.map(cleanStr).filter(Boolean);
 
-  for (const sClean of cleanStopFields) {
-    for (const mClean of cleanMacFields) {
-      if (sClean === mClean) return true;
+  for (let i = 0; i < cleanStopFields.length; i++) {
+    for (let j = 0; j < cleanMacFields.length; j++) {
+      if (cleanStopFields[i] === cleanMacFields[j]) return true;
     }
   }
 
@@ -83,10 +83,8 @@ function isStopForShift(stop: any, shiftId: string | null | undefined, dbShifts:
   if (stopShiftId === sName) return true;
   if (stopShiftName === sId) return true;
   
-  // Robust substring matching (e.g. "TURNO A" matching or including "A")
   if (sName && stopShiftName && (stopShiftName.includes(sName) || sName.includes(stopShiftName))) return true;
   
-  // Custom normalization: strip "TURNO" prefix/suffix
   const cleanSName = sName.replace("TURNO", "").trim();
   const cleanStopShiftName = stopShiftName.replace("TURNO", "").trim();
   if (cleanSName && cleanStopShiftName && cleanSName === cleanStopShiftName) return true;
@@ -110,10 +108,58 @@ export class ProductionService {
         GenericRepository.findAll("DETALLES_PRODUCCIONV2").catch(() => []),
       ]);
 
-      // Enrich raw dbParos with durationMinutes, machineId, shiftId, etc.
       await ParosService.enrichParosOnRead(dbParos);
 
+      // Fast Lookup Map for DETALLES_PRODUCCIONV2 grouped by productionId
+      const detailsByProdId = new Map<string, any[]>();
+      for (let i = 0; i < dbDetails.length; i++) {
+        const d = dbDetails[i];
+        if (!d) continue;
+        const pId = String(d.productionId || d.produccion_id || d.id_produccion || "").trim();
+        if (pId) {
+          if (!detailsByProdId.has(pId)) detailsByProdId.set(pId, []);
+          detailsByProdId.get(pId)!.push(d);
+        }
+      }
+
+      // Fast Lookup Map for PAROSV2 grouped by Date string YYYY-MM-DD
+      const parosByDate = new Map<string, any[]>();
+      for (let i = 0; i < dbParos.length; i++) {
+        const s = dbParos[i];
+        if (!s) continue;
+        const dateStr = String(s.date || "").substring(0, 10);
+        if (dateStr) {
+          if (!parosByDate.has(dateStr)) parosByDate.set(dateStr, []);
+          parosByDate.get(dateStr)!.push(s);
+        }
+      }
+
+      // Fast Lookup Map for CAUSASV2 indexed by ID and Text
+      const causeMap = new Map<string, any>();
+      for (let i = 0; i < dbCauses.length; i++) {
+        const c = dbCauses[i];
+        if (!c) continue;
+        if (c.id) causeMap.set(String(c.id).trim(), c);
+        if (c.text) causeMap.set(String(c.text).trim(), c);
+        if (c.descripcion) causeMap.set(String(c.descripcion).trim(), c);
+      }
+
+      // Fast Lookup Map for Context Reports grouped by Date|ShiftId|PalletizerId
+      const reportsByContextKey = new Map<string, any[]>();
+      for (let i = 0; i < data.length; i++) {
+        const r = data[i];
+        if (!r) continue;
+        const dStr = String(r.date || "").substring(0, 10);
+        const sId = String(r.shiftId || r.turno_id || "").trim();
+        const pId = String(r.palletizerId || r.palletizadora_id || "").trim();
+        const key = `${dStr}|${sId}|${pId}`;
+        
+        if (!reportsByContextKey.has(key)) reportsByContextKey.set(key, []);
+        reportsByContextKey.get(key)!.push(r);
+      }
+
       data.forEach((item: any) => {
+        const itemProdId = String(item.id || "").trim();
         const shiftId = item.shiftId || item.turno_id;
         const shift = dbShifts.find((s: any) => s && (safeMatch(s.id, shiftId) || safeMatch(s.id, item.shiftId)));
         const shiftName = shift ? (shift.name || shift.nombre || "") : "";
@@ -137,10 +183,8 @@ export class ProductionService {
         item.baggerHac = bagHacVal;
         item["hac_ensacadora"] = bagHacVal;
 
-        // Fallback for material ID lookup search details first if missing in root PRODUCCIONV2
-        const rDetailsOnItem = dbDetails.filter((d: any) => 
-          String(d.productionId || d.produccion_id || d.id_produccion || "").trim() === String(item.id || "").trim()
-        );
+        // O(1) lookup for details on item
+        const rDetailsOnItem = detailsByProdId.get(itemProdId) || [];
         const matId = item.materialId || item.material_id || (rDetailsOnItem[0] ? (rDetailsOnItem[0].materialId || rDetailsOnItem[0].material_id) : "");
         const mat = dbMaterials.find((m: any) => m && safeMatch(m.id, matId));
         const matName = mat ? (mat.nombre || mat.name || "") : "";
@@ -150,16 +194,18 @@ export class ProductionService {
 
         const shiftDurationHours = shift ? Number(shift.durationHours || 8) : 8;
 
-        const stops = dbParos.filter((s: any) => 
+        const itemDateStr = String(item.date || "").substring(0, 10);
+        const candidatesForDate = parosByDate.get(itemDateStr) || [];
+        
+        const stops = candidatesForDate.filter((s: any) => 
           s &&
-          String(s.date || "").substring(0, 10) === String(item.date || "").substring(0, 10) &&
           isStopForShift(s, shiftId, dbShifts) &&
           isStopForMachine(s, palId, dbPalletizers, dbBaggers)
         );
+        
         const stopMins = stops.reduce((sum: number, s: any) => sum + (Number(s.durationMinutes) || 0), 0);
         let hsMarcha = Math.max(0, shiftDurationHours - (stopMins / 60));
 
-        // If user reported hsMarchaTis, use it as the actual run hours for accuracy
         const tisVal = item.hsMarchaTis !== undefined && item.hsMarchaTis !== null ? Number(item.hsMarchaTis) : 0;
         if (tisVal > 0) {
           hsMarcha = tisVal;
@@ -167,20 +213,13 @@ export class ProductionService {
 
         const externalStopMinutes = stops
           .filter((s: any) => {
-            const c = dbCauses.find((cause: any) => 
-              cause && (
-                cause.id === s.causeId || 
-                cause.text === s.causeText || 
-                cause.descripcion === s.causeText || 
-                cause.id === s.causeText
-              )
-            );
+            const causeKey = String(s.causeId || s.causeText || "").trim();
+            const c = causeMap.get(causeKey);
             return (c && c.stopType === 'EXTERNO') || s.stopType === 'EXTERNO';
           })
           .reduce((sum: number, s: any) => sum + (Number(s.durationMinutes) || 0), 0);
         const externalStopHours = externalStopMinutes / 60;
 
-        // Disponibilidad = (hs. de paro externo + hs. de marcha) / duración de turno
         let availabilityPercent = 100;
         if (shiftDurationHours > 0) {
           availabilityPercent = ((externalStopHours + hsMarcha) / shiftDurationHours) * 100;
@@ -189,13 +228,9 @@ export class ProductionService {
         item.availability = availStr;
         item.disponibilidad = availStr;
 
-        // Rendimiento = (totalTons / hsMarcha) / bdp_ponderado
-        const contextReports = data.filter((r: any) => 
-          r &&
-          String(r.date || "").substring(0, 10) === String(item.date || "").substring(0, 10) &&
-          (safeMatch(r.shiftId, shiftId) || safeMatch(r.turno_id, shiftId)) &&
-          (safeMatch(r.palletizerId, palId) || safeMatch(r.palletizadora_id, palId))
-        );
+        // Context report lookup using indexed context keys
+        const contextKey = `${itemDateStr}|${String(shiftId || "").trim()}|${String(palId || "").trim()}`;
+        const contextReports = reportsByContextKey.get(contextKey) || [];
 
         let yieldPercent = 100;
         if (contextReports.length > 0 && hsMarcha > 0) {
@@ -203,9 +238,8 @@ export class ProductionService {
           let sumTonsOverBDP = 0;
 
           contextReports.forEach((r: any) => {
-            const rDetails = dbDetails.filter((d: any) => 
-              String(d.productionId || d.produccion_id || d.id_produccion || "").trim() === String(r.id || "").trim()
-            );
+            const rId = String(r.id || "").trim();
+            const rDetails = detailsByProdId.get(rId) || [];
 
             if (rDetails.length > 0) {
               rDetails.forEach((det: any) => {
@@ -227,7 +261,6 @@ export class ProductionService {
                 }
               });
             } else {
-              // Fallback just in case
               const tons = Number(r.tonsProduced) || 0;
               totalTons += tons;
 
@@ -302,11 +335,12 @@ export class ProductionService {
     if (!supabase) return;
     try {
       const list = await GenericRepository.findAll("PAROS_BOQUILLASV2");
+      const cleanProdId = String(productionId || "").trim();
       const matching = list.filter((n: any) => 
-        String(n.productionId || n.produccion_id || n.id_produccion || "").trim() === String(productionId || "").trim()
+        String(n.productionId || n.produccion_id || n.id_produccion || "").trim() === cleanProdId
       );
-      for (const match of matching) {
-        await GenericRepository.delete("PAROS_BOQUILLASV2", match.id);
+      for (let i = 0; i < matching.length; i++) {
+        await GenericRepository.delete("PAROS_BOQUILLASV2", matching[i].id);
       }
     } catch (err) {
       console.error("Error deleting old nozzles for productionId " + productionId + ":", err);
@@ -328,8 +362,8 @@ export class ProductionService {
 
       await ProductionService.deleteNozzlesForProduction(item.id);
 
-      for (const entry of nozzleNewsEntries) {
-        await GenericRepository.create("PAROS_BOQUILLASV2", entry);
+      for (let i = 0; i < nozzleNewsEntries.length; i++) {
+        await GenericRepository.create("PAROS_BOQUILLASV2", nozzleNewsEntries[i]);
       }
     } catch (err) {
       console.error("Error syncing production nozzles:", err);
@@ -341,11 +375,12 @@ export class ProductionService {
     if (!supabase) return;
     try {
       const list = await GenericRepository.findAll("DETALLES_PRODUCCIONV2");
+      const cleanProdId = String(productionId || "").trim();
       const matching = list.filter((d: any) => 
-        String(d.productionId || d.produccion_id || d.id_produccion || "").trim() === String(productionId || "").trim()
+        String(d.productionId || d.produccion_id || d.id_produccion || "").trim() === cleanProdId
       );
-      for (const match of matching) {
-        await GenericRepository.delete("DETALLES_PRODUCCIONV2", match.id);
+      for (let i = 0; i < matching.length; i++) {
+        await GenericRepository.delete("DETALLES_PRODUCCIONV2", matching[i].id);
       }
     } catch (err) {
       console.error("Error deleting old details for productionId " + productionId + ":", err);
@@ -374,8 +409,8 @@ export class ProductionService {
 
       await ProductionService.deleteDetailsForProduction(item.id);
 
-      for (const entry of detailEntries) {
-        await GenericRepository.create("DETALLES_PRODUCCIONV2", entry);
+      for (let i = 0; i < detailEntries.length; i++) {
+        await GenericRepository.create("DETALLES_PRODUCCIONV2", detailEntries[i]);
       }
     } catch (err) {
       console.error("Error syncing production details:", err);
@@ -395,10 +430,21 @@ export class ProductionService {
   static async enrichProductionReportsWithNozzleNews(list: any[]): Promise<void> {
     try {
       const nozzleList = await GenericRepository.findAll("PAROS_BOQUILLASV2");
+      const nozzleMap = new Map<string, any[]>();
+
+      for (let i = 0; i < nozzleList.length; i++) {
+        const n = nozzleList[i];
+        if (!n) continue;
+        const pId = String(n.productionId || n.produccion_id || n.id_produccion || "").trim();
+        if (pId) {
+          if (!nozzleMap.has(pId)) nozzleMap.set(pId, []);
+          nozzleMap.get(pId)!.push(n);
+        }
+      }
+
       list.forEach((item: any) => {
-        item.nozzleNews = nozzleList.filter((n: any) => 
-          String(n.productionId || n.produccion_id || n.id_produccion || "").trim() === String(item.id || "").trim()
-        );
+        const pId = String(item.id || "").trim();
+        item.nozzleNews = nozzleMap.get(pId) || [];
       });
     } catch (err) {
       console.error("Error fetching PAROS_BOQUILLASV2 on read:", err);
@@ -411,10 +457,21 @@ export class ProductionService {
   static async enrichProductionReportsWithDetails(list: any[]): Promise<void> {
     try {
       const detailsList = await GenericRepository.findAll("DETALLES_PRODUCCIONV2");
+      const detailsMap = new Map<string, any[]>();
+
+      for (let i = 0; i < detailsList.length; i++) {
+        const d = detailsList[i];
+        if (!d) continue;
+        const pId = String(d.productionId || d.produccion_id || d.id_produccion || "").trim();
+        if (pId) {
+          if (!detailsMap.has(pId)) detailsMap.set(pId, []);
+          detailsMap.get(pId)!.push(d);
+        }
+      }
+
       list.forEach((item: any) => {
-        item.materialsDetails = detailsList.filter((d: any) => 
-          String(d.productionId || d.produccion_id || d.id_produccion || "").trim() === String(item.id || "").trim()
-        );
+        const pId = String(item.id || "").trim();
+        item.materialsDetails = detailsMap.get(pId) || [];
       });
     } catch (err) {
       console.warn("Error fetching DETALLES_PRODUCCIONV2 on read:", err);
