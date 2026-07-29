@@ -34,10 +34,10 @@ import WelcomeScreen from './components/auth/WelcomeScreen';
 import { getSupabaseClient } from './lib/supabaseClient';
 
 // Lib & Types
-import { cn, normalizeDateStr, matchDateFlexible, isStopForMachine, isStopForShift } from './lib/utils';
+import { cn } from './lib/utils';
 import { Shift, MachineStop, ProductionReport, DaterControl, ScaleControl, InventoryEntry, PalletClassification, UserContext, MasterData, AppUser, ProductChange, Company, FuelLoad, AlertNotification } from './types';
 import { SYSTEM_VIEWS } from './lib/mockData';
-import { fetchTable, FetchResult, createRecord as rawCreateRecord, updateRecord as rawUpdateRecord, deleteRecord as rawDeleteRecord, clearClientCache, syncTableToSheets } from './lib/dataService';
+import { fetchTable, createRecord as rawCreateRecord, updateRecord as rawUpdateRecord, deleteRecord as rawDeleteRecord, clearClientCache, syncTableToSheets } from './lib/dataService';
 import { safeCache } from './lib/safeCache';
 import { ToastContainer, ToastMessage } from './components/ui/Toast';
 
@@ -67,7 +67,100 @@ const getCurrentShift = (shifts: Shift[]): Shift | null => {
   }) || null;
 };
 
+const isStopForMachine = (stop: any, machineId: string | any | null | undefined, mastersAvailable: MasterData) => {
+  if (!stop || !machineId) return false;
+  
+  // 1. Get the targetId helper
+  let targetId = "";
+  if (typeof machineId === 'object' && machineId !== null) {
+    targetId = String(machineId.id || machineId.hacId || machineId.hac_id || machineId.name || machineId.nombre || "").trim().toUpperCase();
+  } else {
+    targetId = String(machineId).trim().toUpperCase();
+  }
+  
+  if (!targetId) return false;
 
+  // 1.5 Direct robust match to prevent master lookup failures
+  const stopMacId = String(stop.machineId || stop.palletizerId || "").trim().toUpperCase();
+  if (stopMacId && targetId && (stopMacId === targetId || targetId.includes(stopMacId) || stopMacId.includes(targetId))) {
+    return true;
+  }
+
+  // 2. Find the selected machine object in palletizers or baggers
+  const selectedMac: any = (mastersAvailable.palletizers || []).find((p: any) => p && (
+    String(p.id).trim().toUpperCase() === targetId ||
+    String(p.hacId || p.hac_id || "").trim().toUpperCase() === targetId ||
+    String(p.name || p.nombre || "").trim().toUpperCase() === targetId
+  )) || (mastersAvailable.baggers || []).find((b: any) => b && (
+    String(b.id).trim().toUpperCase() === targetId ||
+    String(b.hacId || b.hac_id || "").trim().toUpperCase() === targetId ||
+    String(b.name || b.nombre || "").trim().toUpperCase() === targetId
+  ));
+
+  // Stop's fields
+  const stopMachineId = String(stop.machineId || "").trim().toUpperCase();
+  const stopMachineName = String(stop.machineName || "").trim().toUpperCase();
+  const stopMachineHacText = String(stop.machineHacText || "").trim().toUpperCase();
+
+  if (!selectedMac) {
+    // If we can't find reference in master tables, check if stop's fields strictly equal targetId
+    return stopMachineId === targetId || stopMachineHacText === targetId || stopMachineName === targetId;
+  }
+
+  // Machine's fields
+  const macId = String(selectedMac.id).trim().toUpperCase();
+  const macName = String(selectedMac.name || selectedMac.nombre || "").trim().toUpperCase();
+  const macHacId = String(selectedMac.hacId || selectedMac.hac_id || "").trim().toUpperCase();
+
+  // Strict match among any of the stop and mac fields
+  const stopFields = [stopMachineId, stopMachineName, stopMachineHacText].filter(Boolean);
+  const macFields = [macId, macName, macHacId].filter(Boolean);
+
+  for (const sField of stopFields) {
+    for (const mField of macFields) {
+      if (sField === mField) return true;
+    }
+  }
+
+  // Double check loose comparison (ignoring punctuation / space / special characters)
+  const cleanStr = (val: string) => val.replace(/[^A-Z0-9]/g, '');
+  const cleanStopFields = stopFields.map(cleanStr).filter(Boolean);
+  const cleanMacFields = macFields.map(cleanStr).filter(Boolean);
+
+  for (const sClean of cleanStopFields) {
+    for (const mClean of cleanMacFields) {
+      if (sClean === mClean) return true;
+    }
+  }
+
+  // Special inclusion match if they contain HAC ID (e.g. "MG.673-PZ1")
+  if (macHacId && (stopMachineHacText.includes(macHacId) || macHacId.includes(stopMachineHacText))) return true;
+
+  return false;
+};
+
+const isStopForShift = (stop: any, shiftId: string | null | undefined, mastersAvailable: MasterData) => {
+  if (!stop || !shiftId) return false;
+  const targetId = String(shiftId).trim().toUpperCase();
+  
+  const selectedS: any = (mastersAvailable.shifts || []).find((s: any) => s && String(s.id).trim().toUpperCase() === targetId);
+  if (!selectedS) {
+    return String(stop.shiftId || '').trim().toUpperCase() === targetId;
+  }
+  
+  const sId = String(selectedS.id).trim().toUpperCase();
+  const sName = String(selectedS.name || selectedS.nombre || "").trim().toUpperCase();
+  
+  const stopShiftId = String(stop.shiftId || "").trim().toUpperCase();
+  const stopShiftName = String(stop.shiftName || stop.turno || "").trim().toUpperCase();
+  
+  if (stopShiftId === sId) return true;
+  if (stopShiftName === sName) return true;
+  if (stopShiftId === sName) return true;
+  if (stopShiftName === sId) return true;
+  
+  return false;
+};
 
 type AppSection = 'PRODUCTIVITY' | 'SAFETY' | 'ENVIRONMENT' | 'HR' | 'ADMIN';
 type ProductivityTab = 'DASHBOARD' | 'PAROS' | 'PRODUCCION' | 'DATER' | 'SCALE' | 'STOCK' | 'PALLET_CLASS' | 'GASOIL' | 'MANTENIMIENTO' | 'CHANGE' | 'LOADING_LANES' | 'DESPACHOS' | 'REPORTS';
@@ -812,38 +905,48 @@ export default function App() {
     const shiftId = userContext.selectedShiftId;
     const tables = OPERATIONAL_TABLES_MAP[prodTab] || [];
     
-    console.log(`[Immediate Restore & Refresh] Context changed to Date: ${date}, Shift: ${shiftId}, Tab: ${prodTab}. Invalidating outdated snapshots and fetching fresh API data.`);
+    console.log(`[Immediate Restore] Context changed to Date: ${date}, Shift: ${shiftId}, Tab: ${prodTab}. Restoring snapshots.`);
     
-    // Clear all in-flight requests on context change to prevent stale locks
-    inFlightFetchesRef.current = {};
-
-    const restoreAndRefresh = async () => {
+    const restoreSnapshots = async () => {
       for (const tableName of tables) {
         const key = getCooldownKey(tableName, date, shiftId);
         
-        // Invalidate previous local memory cache, cooldowns, and IndexedDB snapshot
-        delete operationalDataByKeyRef.current[key];
-        delete tableCooldownsRef.current[key];
-        await safeCache.remove('pscqube_op_cache_' + key);
+        // Try memory ref first
+        let cachedData = operationalDataByKeyRef.current[key];
         
-        // Force fresh HTTP fetch from APIs
-        fetchTableWithGuards(tableName, true, "ContextChangeFetch");
+        // If not in memory, check safeCache (IndexedDB)
+        if (cachedData === undefined) {
+          const loaded = await safeCache.get('pscqube_op_cache_' + key);
+          if (loaded) {
+            cachedData = loaded;
+            operationalDataByKeyRef.current[key] = cachedData;
+          }
+        }
+        
+        if (cachedData !== undefined) {
+          console.log(`[Immediate Restore] Found snapshot for ${tableName} (key: ${key}). Restoring.`);
+          updateTableState(tableName, cachedData, date, shiftId);
+        } else {
+          // First-time visit or no cache: clear the state to prevent leaking previous context's data in local UI filters
+          console.log(`[Immediate Restore] No snapshot found for ${tableName} (key: ${key}). Clearing state.`);
+          updateTableState(tableName, [], date, shiftId);
+        }
       }
     };
 
-    restoreAndRefresh();
-  }, [hasEnteredApp, userContext.selectedDate, userContext.selectedShiftId, prodTab, getCooldownKey, OPERATIONAL_TABLES_MAP]);
+    restoreSnapshots();
+  }, [hasEnteredApp, userContext.selectedDate, userContext.selectedShiftId, prodTab, getCooldownKey, updateTableState, OPERATIONAL_TABLES_MAP]);
 
   const fetchTableWithGuards = useCallback(async (tableName: string, bypassCache = false, source = "unspecified") => {
     const date = userContext.selectedDate;
     const shiftId = userContext.selectedShiftId;
     const key = getCooldownKey(tableName, date, shiftId);
 
-    // 1. Cooldown Check (reduced to 2 seconds for active operational views)
+    // 1. Cooldown Check (60 seconds)
     if (!bypassCache) {
       const lastFetch = tableCooldownsRef.current[key] || 0;
       const now = Date.now();
-      if (now - lastFetch < 2000) {
+      if (now - lastFetch < 60000) {
         console.log(`[Cooldown Guard] Skipping fetch for ${tableName} (last fetch ${Math.round((now - lastFetch)/1000)}s ago)`);
         
         // Ensure state contains latest cache as a fallback/guard
@@ -868,31 +971,17 @@ export default function App() {
       return inFlightFetchesRef.current[key];
     }
 
-    // 3. Timeout Guard (3 seconds max to release in-flight lock automatically)
-    let timeoutId: any = null;
-    const timeoutPromise = new Promise<FetchResult>((resolve) => {
-      timeoutId = setTimeout(() => {
-        console.warn(`[In-Flight Guard] Timeout reached (3s) for ${tableName}. Releasing in-flight lock.`);
-        delete inFlightFetchesRef.current[key];
-        resolve({ success: false, error: "In-flight request timed out after 3s" });
-      }, 3000);
-    });
-
-    // 4. Perform Fetch with fetchTable
+    // 3. Perform Fetch with fetchTable
     const filters = { date, shiftId };
     const fetchPromise = (async () => {
       try {
-        const res = await Promise.race([
-          fetchTable(tableName, bypassCache, filters, source),
-          timeoutPromise
-        ]);
-        if (res && res.success && res.data) {
+        const res = await fetchTable(tableName, bypassCache, filters, source);
+        if (res.success && res.data) {
           updateTableState(tableName, res.data, date, shiftId);
           tableCooldownsRef.current[key] = Date.now();
         }
         return res;
       } finally {
-        if (timeoutId) clearTimeout(timeoutId);
         delete inFlightFetchesRef.current[key];
       }
     })();
@@ -936,8 +1025,7 @@ export default function App() {
 
     tabChangeTimeoutRef.current = setTimeout(() => {
       console.log(`[Navigation Sync] Debounce trigger activeSection: ${activeSection}, prodTab: ${prodTab}`);
-      inFlightFetchesRef.current = {};
-      refreshOperationalDataForView(activeSection, prodTab, true, "NavigationDebounce");
+      refreshOperationalDataForView(activeSection, prodTab, false, "NavigationDebounce");
     }, 400);
 
     return () => {
@@ -1521,53 +1609,37 @@ export default function App() {
 
   const currentShift = useMemo(() => getCurrentShift(masters.shifts), [masters.shifts]);
   
-  const selectedPalletizer = useMemo(() => {
-    const p: any = (masters.palletizers || []).find((item: any) => item && item.id === userContext.selectedPalletizerId) || null;
-    if (!p) return null;
-    const hacText = String(p.hacId || p.hac_id || p.hacText || p.machineHacText || p.hac || '').trim();
-    const description = String(p.name || p.nombre || p.description || p.descripcion || '').trim();
-    return {
-      ...p,
-      id: p.id,
-      hacText: hacText || p.id,
-      description: description || hacText || p.id
-    };
-  }, [masters.palletizers, userContext.selectedPalletizerId]);
+  const selectedPalletizer = useMemo(() => 
+    masters.palletizers.find(p => p.id === userContext.selectedPalletizerId) || null,
+    [masters.palletizers, userContext.selectedPalletizerId]
+  );
 
   // KPI calculations
   const kpis = useMemo(() => {
     if (!selectedPalletizer || !selectedShift) return { availability: 0, performance: 0, hsMarcha: 0, totalTons: 0 };
     const machineStops = stops.filter(s => 
       s &&
-      matchDateFlexible(s.date || s.fecha, userContext.selectedDate) &&
-      isStopForMachine(s, selectedPalletizer, masters) &&
+      s.date === userContext.selectedDate &&
+      isStopForMachine(s, selectedPalletizer.id, masters) &&
       isStopForShift(s, selectedShift.id, masters)
     );
     const contextReports = productionReports.filter(r => 
-      r &&
-      matchDateFlexible(r.date || r.fecha, userContext.selectedDate) &&
-      isStopForMachine(r, selectedPalletizer, masters) &&
-      isStopForShift(r, selectedShift.id, masters)
+      r.palletizerId === selectedPalletizer.id && 
+      r.shiftId === selectedShift.id &&
+      r.date === userContext.selectedDate
     );
 
-    const hsShift = selectedShift.durationHours || 8;
-    const totalStopMinutes = machineStops.reduce((sum, s) => sum + (Number(s.durationMinutes) || 0), 0);
+    const hsShift = selectedShift.durationHours;
+    const totalStopMinutes = machineStops.reduce((sum, s) => sum + s.durationMinutes, 0);
     const totalStopHours = totalStopMinutes / 60;
     
     const externalStopMinutes = machineStops
-      .filter(s => {
-        const typeOnStop = String(s.stopType || '').toUpperCase();
-        if (typeOnStop === 'EXTERNO') return true;
-        const causeObj = masters.causes.find(c => String(c.id).toLowerCase() === String(s.causeId).toLowerCase());
-        const type = String(s.stopType || causeObj?.stopType || (causeObj as any)?.tipo_paro || 'INTERNO').toUpperCase();
-        return type === 'EXTERNO';
-      })
-      .reduce((sum, s) => sum + (Number(s.durationMinutes) || 0), 0);
+      .filter(s => masters.causes.find(c => c.id === s.causeId)?.stopType === 'EXTERNO')
+      .reduce((sum, s) => sum + s.durationMinutes, 0);
     const externalStopHours = externalStopMinutes / 60;
 
-    const hsMarcha = Math.max(0, hsShift - totalStopHours);
-    const availVal = hsShift > 0 ? (externalStopHours + hsMarcha) / hsShift : 0;
-    const availability = Math.min(1, Math.max(0, availVal));
+    const hsMarcha = hsShift - totalStopHours;
+    const availability = hsShift > 0 ? (externalStopHours + hsMarcha) / hsShift : 0;
 
     let performance = 0;
     let totalTons = 0;
@@ -1938,7 +2010,7 @@ export default function App() {
                         palletizerId={userContext.selectedPalletizerId} 
                         shiftId={userContext.selectedShiftId} 
                         selectedDate={userContext.selectedDate}
-                        history={stops.filter(s => s && matchDateFlexible(s.date || s.fecha, userContext.selectedDate) && isStopForMachine(s, selectedPalletizer || userContext.selectedPalletizerId, masters) && isStopForShift(s, userContext.selectedShiftId, masters))}
+                        history={stops.filter(s => s && s.date === userContext.selectedDate && isStopForMachine(s, userContext.selectedPalletizerId, masters) && isStopForShift(s, userContext.selectedShiftId, masters))}
                         allStops={stops}
                     />
                   )}
@@ -1951,7 +2023,7 @@ export default function App() {
                         palletizerId={userContext.selectedPalletizerId} 
                         shiftId={userContext.selectedShiftId} 
                         selectedDate={userContext.selectedDate}
-                        history={productionReports.filter(r => r && matchDateFlexible(r.date || r.fecha, userContext.selectedDate) && isStopForMachine(r, selectedPalletizer || userContext.selectedPalletizerId, masters) && isStopForShift(r, userContext.selectedShiftId, masters))}
+                        history={productionReports.filter(r => r && String(r.palletizerId || '').trim().toUpperCase() === String(userContext.selectedPalletizerId || '').trim().toUpperCase() && String(r.shiftId || '').trim().toUpperCase() === String(userContext.selectedShiftId || '').trim().toUpperCase() && r.date === userContext.selectedDate)}
                         stops={stops}
                       />
                   )}

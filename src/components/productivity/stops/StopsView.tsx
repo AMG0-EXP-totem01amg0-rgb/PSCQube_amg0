@@ -5,7 +5,7 @@ import { format, parse, differenceInMinutes, isBefore, isAfter, isEqual } from '
 import { GlassCard, GlassInput, GlassSelect, GlassButton, ConfirmModal, GlassSearchableSelect, Modal } from '../../ui/GlassUI';
 import { ShiftTimeline } from '../dashboard';
 import { MasterData, MachineStop, Shift, AppUser } from '../../../types';
-import { cn, ensureHhMm, ensureHhMmSs } from '../../../lib/utils';
+import { cn } from '../../../lib/utils';
 import { DataTable, Column, TableActions } from '../../ui/DataTable';
 import * as XLSX from 'xlsx';
 
@@ -207,7 +207,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
 
     const machineObj = masters.palletizers.find(p => p.id === palletizerId) || masters.baggers.find(b => b.id === palletizerId);
     const machineName = machineObj?.name || palletizerId || '';
-    const machineHacText = machineObj?.hacId || (machineObj as any)?.hac || (machineObj as any)?.hacText || machineName; // 'máquina afectada' stores the machine's HAC
+    const machineHacText = machineObj?.hacId || machineName; // 'máquina afectada' column stores the machine's hac_id
     const shiftName = selectedShift?.name || '';
 
     onSave({
@@ -220,8 +220,8 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
       shiftId: shiftId || '',
       shiftName: shiftName, // TURNO de la carga del paro
       materialId: formData.materialId,
-      startTime: ensureHhMmSs(formData.startTime),
-      endTime: ensureHhMmSs(formData.endTime),
+      startTime: formData.startTime,
+      endTime: formData.endTime,
       durationMinutes: duration, // duración es la resta de FIN e INICIO
       
       // Lookups
@@ -312,8 +312,8 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
     
     setFormData({
       materialId: stop.materialId,
-      startTime: ensureHhMm(stop.startTime),
-      endTime: ensureHhMm(stop.endTime || ''),
+      startTime: stop.startTime,
+      endTime: stop.endTime || '',
       hacId: hacObj?.hac || stop.hacId || (stop as any).hacName || '',
       causeId: causeObj?.id || stop.causeId || '',
       noticeText: stop.symptomText || '' 
@@ -447,7 +447,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
 
     const machineObj = masters.palletizers.find(p => p.id === palletizerId) || masters.baggers.find(b => b.id === palletizerId);
     const machineName = machineObj?.name || palletizerId || '';
-    const machineHacText = machineObj?.hacId || (machineObj as any)?.hac || (machineObj as any)?.hacText || machineName;
+    const machineHacText = machineObj?.hacId || machineName;
     const shiftName = selectedShift?.name || '';
 
     const newStops: MachineStop[] = batchStopsList.map(item => {
@@ -461,8 +461,8 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
         shiftId: shiftId || '',
         shiftName: shiftName,
         materialId: batchMaterialId,
-        startTime: ensureHhMmSs(item.startTime),
-        endTime: ensureHhMmSs(item.endTime),
+        startTime: item.startTime,
+        endTime: item.endTime,
         durationMinutes: item.durationMinutes,
         
         hacId: hacObj.id,

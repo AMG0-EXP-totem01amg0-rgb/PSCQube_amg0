@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Package, Truck, Activity, Share2 } from 'lucide-react';
 import { GlassCard, GlassButton } from '../../ui/GlassUI';
-import { cn, matchDateFlexible, isStopForMachine, isStopForShift } from '../../../lib/utils';
+import { cn } from '../../../lib/utils';
 import { Shift, MachineStop } from '../../../types';
 import DashboardShareModal from './DashboardShareModal';
 
@@ -124,7 +124,71 @@ const NozzleObservationItem = ({ observation }: { observation: string; key?: Rea
   );
 };
 
+const isStopForMachine = (stop: MachineStop | null | undefined, machine: any, mastersAvailable: any) => {
+  if (!stop || !machine) return false;
+  
+  // 1. Get the targetId helper
+  let targetId = "";
+  if (typeof machine === 'object' && machine !== null) {
+    targetId = String(machine.id || machine.hacId || machine.hac_id || machine.name || machine.nombre || "").trim().toUpperCase();
+  } else {
+    targetId = String(machine).trim().toUpperCase();
+  }
+  
+  if (!targetId) return false;
 
+  // 2. Find the selected machine object in palletizers or baggers
+  const selectedMac: any = (mastersAvailable.palletizers || []).find((p: any) => p && (
+    String(p.id).trim().toUpperCase() === targetId ||
+    String(p.hacId || p.hac_id || "").trim().toUpperCase() === targetId ||
+    String(p.name || p.nombre || "").trim().toUpperCase() === targetId
+  )) || (mastersAvailable.baggers || []).find((b: any) => b && (
+    String(b.id).trim().toUpperCase() === targetId ||
+    String(b.hacId || b.hac_id || "").trim().toUpperCase() === targetId ||
+    String(b.name || b.nombre || "").trim().toUpperCase() === targetId
+  ));
+
+  // Stop's fields
+  const stopMachineId = String(stop.machineId || "").trim().toUpperCase();
+  const stopMachineName = String(stop.machineName || "").trim().toUpperCase();
+  const stopMachineHacText = String(stop.machineHacText || "").trim().toUpperCase();
+
+  if (!selectedMac) {
+    // If we can't find reference in master tables, check if stop's fields strictly equal targetId
+    return stopMachineId === targetId || stopMachineHacText === targetId || stopMachineName === targetId;
+  }
+
+  // Machine's fields
+  const macId = String(selectedMac.id).trim().toUpperCase();
+  const macName = String(selectedMac.name || selectedMac.nombre || "").trim().toUpperCase();
+  const macHacId = String(selectedMac.hacId || selectedMac.hac_id || "").trim().toUpperCase();
+
+  // Strict match among any of the stop and mac fields
+  const stopFields = [stopMachineId, stopMachineName, stopMachineHacText].filter(Boolean);
+  const macFields = [macId, macName, macHacId].filter(Boolean);
+
+  for (const sField of stopFields) {
+    for (const mField of macFields) {
+      if (sField === mField) return true;
+    }
+  }
+
+  // Double check loose comparison (ignoring punctuation / space / special characters)
+  const cleanStr = (val: string) => val.replace(/[^A-Z0-9]/g, '');
+  const cleanStopFields = stopFields.map(cleanStr).filter(Boolean);
+  const cleanMacFields = macFields.map(cleanStr).filter(Boolean);
+
+  for (const sClean of cleanStopFields) {
+    for (const mClean of cleanMacFields) {
+      if (sClean === mClean) return true;
+    }
+  }
+
+  // Special inclusion match if they contain HAC ID (e.g. "MG.673-PZ1")
+  if (macHacId && (stopMachineHacText.includes(macHacId) || macHacId.includes(stopMachineHacText))) return true;
+
+  return false;
+};
 
 export default function DashboardView({ 
   masters, 
@@ -364,8 +428,8 @@ export default function DashboardView({
   // Palletizer Detailed Analysis
   const palletizerData = React.useMemo(() => {
     return masters.palletizers.map((p: any) => {
-      const lineStops = stops.filter(s => s && matchDateFlexible(s.date || (s as any).fecha, selectedDate) && isStopForMachine(s, p, masters) && isStopForShift(s, selectedShift?.id, masters));
-      const lineReports = productionReports.filter(r => r && isStopForMachine(r, p, masters));
+      const lineStops = stops.filter(s => s && isStopForMachine(s, p, masters));
+      const lineReports = productionReports.filter(r => r.palletizerId === p.id);
 
       // 1. Top 4 Relevant Internal Stops
       const topStops = [...lineStops]
@@ -419,23 +483,22 @@ export default function DashboardView({
       const stopMinutes = lineStops.reduce((sum, s) => sum + (Number(s.durationMinutes) || 0), 0);
       const stopHours = stopMinutes / 60;
 
-      // Hs de marcha = Horas del turno menos total de horas de paros reportados
-      const actualHsMarchaVal = Math.max(0, shiftTotalHours - stopHours);
-      const runHours = actualHsMarchaVal.toFixed(1);
+      // "las hs de marcha, por defecto deben aparecer en cero, solo si se registra algun tipo de paro.
+      // si en el turno no se han reportado paros, deberían figurar en cero."
+      const runHours = lineStops.length === 0 ? "0" : Math.max(0, shiftTotalHours - stopHours).toFixed(1);
 
       // Calculations of OEE, availability & performance
       const externalStopMinutes = lineStops
         .filter(s => {
-          const typeOnStop = String(s.stopType || '').toUpperCase();
-          if (typeOnStop === 'EXTERNO') return true;
-          const causeObj = masters.causes.find(c => String(c.id).toLowerCase() === String(s.causeId).toLowerCase() || c.text === s.causeText);
-          const type = String(s.stopType || causeObj?.stopType || (causeObj as any)?.tipo_paro || 'INTERNO').toUpperCase();
+          const causeObj = masters.causes.find(c => c.id === s.causeId || c.text === s.causeText);
+          const type = String(s.stopType || causeObj?.stopType || 'INTERNO').toUpperCase();
           return type === 'EXTERNO';
         })
         .reduce((sum, s) => sum + (Number(s.durationMinutes) || 0), 0);
       const externalStopHours = externalStopMinutes / 60;
 
-      let availVal = shiftTotalHours > 0 ? (externalStopHours + actualHsMarchaVal) / shiftTotalHours : 0;
+      const actualHsMarchaVal = shiftTotalHours - stopHours;
+      let availVal = shiftTotalHours > 0 ? (externalStopHours + Math.max(0, actualHsMarchaVal)) / shiftTotalHours : 0;
       availVal = Math.min(1, Math.max(0, availVal));
 
       let perfVal = 0;

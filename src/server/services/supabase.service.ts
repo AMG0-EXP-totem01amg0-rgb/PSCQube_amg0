@@ -53,24 +53,14 @@ export async function readFromSupabase(tableName: string): Promise<any[] | null>
     try {
       let allRows: any[] = [];
       let page = 0;
-      const PAGE_SIZE = 2000;
+      const PAGE_SIZE = 1000;
       let hasMore = true;
       let selectStr = "*";
       
       const isCausaTable = targetTable.toLowerCase().includes("causa");
-      const isProdTable = targetTable.toLowerCase().includes("produccionv2") || targetTable.toLowerCase().includes("produccion");
-      const isDetalleTable = targetTable.toLowerCase().includes("detalles_produccion");
-      const isParoTable = targetTable.toLowerCase().includes("parosv2") || targetTable.toLowerCase() === "paros";
-
       if (isCausaTable) {
-        // Optimize: select only the required columns for causas
+        // Optimize: select only the 10 required columns for causas to stay performant and avoid fat wire loads
         selectStr = "id,hac,descripcion,parte_objeto,grupo_codigo_sintoma,codigo_sintoma,causa_sap,grupo_codigo_causa,codigo_causa,tipo_paro";
-      } else if (isProdTable && !isDetalleTable) {
-        selectStr = "id,fecha,turno_id,descripcion_turno,palletizadora_id,hac_paletizadora,ensacadora_id,hac_ensacadora,bolsas_producidas,tn_producidas,boquillas_turno,rendimiento,disponibilidad,oee,disponibilidad_boquillas,hs_marcha_tis,id_maquinista,descripcion_maquinista";
-      } else if (isDetalleTable) {
-        selectStr = "id,produccion_id,material_id,descripcion_material,bolsas_producidas,tn_producidas,bdp_teorico,proveedor_bolsa,bolsas_rech_ensacadora,bolsas_sin_boquilla,bolsas_rech_ventocheck,bolsas_rech_transporte,created_at,observacion";
-      } else if (isParoTable) {
-        selectStr = 'idparo,fecha,fechafin,"máquina afectada",turno,material,inicio,fin,"duración","detalle hac",hac,equipo,"texto de causa","texto aviso","texto síntoma","causa sap","gpo.cod. causa","código causa","tipo paro","gpo.cód. objeto","parte objeto","gpo.cód. sintoma","cód. sintoma",usuario,"puesto de trabajo",centro';
       }
 
       while (hasMore) {
@@ -326,11 +316,29 @@ export async function deleteFromSupabase(tableName: string, idKey: string, idVal
   // 5. Si la eliminación afecta PRODUCCIONV2: eliminar previamente PAROS_BOQUILLASV2 y DETALLES_PRODUCCIONV2
   const upperTable = tableName.toUpperCase();
   if (upperTable === "PRODUCCIONV2") {
-    console.log(`[Supabase Delete Cascade] Executing parallel cascade deletes for production report '${cleanIdVal}'...`);
-    await Promise.all([
-      supabase.from("paros_boquillasv2").delete().eq("produccion_id", cleanIdVal).catch(err => console.error("Error cascade boquillas:", err)),
-      supabase.from("detalles_produccionv2").delete().eq("produccion_id", cleanIdVal).catch(err => console.error("Error cascade detalles:", err))
-    ]);
+    console.log(`[Supabase Delete Cascade] Executing cascade deletes for production report '${cleanIdVal}'...`);
+    
+    try {
+      const { data: bqData, error: bqError } = await supabase
+        .from("paros_boquillasv2")
+        .delete()
+        .eq("produccion_id", cleanIdVal)
+        .select();
+      console.log(`[Supabase Delete Cascade] Deleted ${bqData ? bqData.length : 0} nozzle entries from paros_boquillasv2.`);
+    } catch (bqErr) {
+      console.error(`[Supabase Delete Cascade Error] Failed removing related paros_boquillasv2:`, bqErr);
+    }
+
+    try {
+      const { data: bqDetails, error: bqDetError } = await supabase
+        .from("detalles_produccionv2")
+        .delete()
+        .eq("produccion_id", cleanIdVal)
+        .select();
+      console.log(`[Supabase Delete Cascade] Deleted ${bqDetails ? bqDetails.length : 0} production detail entries from detalles_produccionv2.`);
+    } catch (detErr) {
+      console.error(`[Supabase Delete Cascade Error] Failed removing related detalles_produccionv2:`, detErr);
+    }
   }
 
   let lastError: any = null;

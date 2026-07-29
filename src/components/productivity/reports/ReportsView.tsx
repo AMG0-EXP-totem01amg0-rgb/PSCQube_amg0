@@ -11,7 +11,7 @@ import {
 } from '../../ui/GlassUI';
 import { fetchTable } from '../../../lib/dataService';
 import { MasterData, UserContext, MachineStop, ProductionReport } from '../../../types';
-import { cn, matchDateFlexible, isStopForMachine, isStopForShift } from '../../../lib/utils';
+import { cn } from '../../../lib/utils';
 
 interface Props {
   masters: MasterData;
@@ -116,8 +116,48 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
   }, [dateFrom, dateTo]);
 
   // Robust Helpers for machine/shift checks
-  const checkStopForMachine = (stop: any, machineId: string) => isStopForMachine(stop, machineId, masters);
-  const checkStopForShift = (stop: any, shiftId: string) => isStopForShift(stop, shiftId, masters);
+  const isStopForMachine = (stop: any, machineId: string) => {
+    if (!stop || !machineId) return false;
+    const targetId = machineId.trim().toUpperCase();
+    const stopMacId = String(stop.machineId || stop.palletizerId || '').trim().toUpperCase();
+    if (stopMacId === targetId) return true;
+
+    // Check master references
+    const selectedMac = (masters.palletizers || []).find((p: any) => p && (
+      String(p.id).trim().toUpperCase() === targetId ||
+      String(p.hacId || '').trim().toUpperCase() === targetId ||
+      String(p.name || '').trim().toUpperCase() === targetId
+    ));
+
+    if (!selectedMac) return false;
+    const macId = String(selectedMac.id).trim().toUpperCase();
+    const macName = String(selectedMac.name || '').trim().toUpperCase();
+    const macHacId = String(selectedMac.hacId || '').trim().toUpperCase();
+
+    const stopMachineId = String(stop.machineId || '').trim().toUpperCase();
+    const stopMachineName = String(stop.machineName || '').trim().toUpperCase();
+    const stopMachineHacText = String(stop.machineHacText || '').trim().toUpperCase();
+
+    return [stopMachineId, stopMachineName, stopMachineHacText].some(val => 
+      val && (val === macId || val === macName || val === macHacId)
+    );
+  };
+
+  const isStopForShift = (stop: any, shiftId: string) => {
+    if (!stop || !shiftId) return false;
+    const targetId = shiftId.trim().toUpperCase();
+    const stopShiftId = String(stop.shiftId || '').trim().toUpperCase();
+    if (stopShiftId === targetId) return true;
+
+    const selectedS = (masters.shifts || []).find((s: any) => s && String(s.id).trim().toUpperCase() === targetId);
+    if (!selectedS) return false;
+
+    const sId = String(selectedS.id).trim().toUpperCase();
+    const sName = String(selectedS.name || '').trim().toUpperCase();
+    const stopShiftName = String(stop.shiftName || stop.turno || '').trim().toUpperCase();
+
+    return stopShiftId === sId || stopShiftName === sName || stopShiftId === sName;
+  };
 
   // Helper formatting dates to Spanish DD/MM/YYYY
   const formatToSpanishDate = (dateStr: string): string => {
@@ -286,32 +326,10 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
       const shiftGroup = ensureShiftGroup(dateKey, shiftId);
 
       // Find Palletizer/Line
-      const rawLineId = stop.palletizerId || stop.machineId || stop.machineHacText || (stop as any).maquina_afectada || 'L_DESCONOCIDA';
-      const lineObj = (masters.palletizers || []).find(p => 
-        p.id === stop.palletizerId || 
-        p.id === stop.machineId || 
-        p.id === rawLineId || 
-        p.hacId === stop.machineHacText || 
-        p.hacId === (stop as any).maquina_afectada || 
-        p.hacId === rawLineId ||
-        p.name === stop.machineName ||
-        p.name === stop.machineHacText ||
-        p.name === (stop as any).maquina_afectada ||
-        p.name === rawLineId
-      ) || (masters.baggers || []).find(b => 
-        b.id === stop.palletizerId || 
-        b.id === stop.machineId || 
-        b.id === rawLineId || 
-        b.hacId === stop.machineHacText || 
-        b.hacId === (stop as any).maquina_afectada || 
-        b.hacId === rawLineId ||
-        b.name === stop.machineName ||
-        b.name === stop.machineHacText ||
-        b.name === (stop as any).maquina_afectada ||
-        b.name === rawLineId
-      );
+      const rawLineId = stop.palletizerId || stop.machineId || 'L_DESCONOCIDA';
+      const lineObj = (masters.palletizers || []).find(p => p.id === rawLineId || p.hacId === rawLineId || p.name === rawLineId);
       const lineId = lineObj?.id || rawLineId;
-      const lineName = lineObj?.name || stop.machineName || stop.machineHacText || (stop as any).maquina_afectada || rawLineId;
+      const lineName = lineObj?.name || rawLineId;
 
       if (!shiftGroup.lines[lineId]) {
         const tisKey = `${dateKey}|${shiftId}|${lineId}`;
@@ -529,7 +547,7 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
 
       const dataRows = sortedStops.map(stop => {
         const causeObj = masters.causes.find(c => c.id === stop.causeId || c.text === stop.causeText);
-        const lineObj = (masters.palletizers || []).find(p => p.id === stop.palletizerId || p.id === stop.machineId || p.hacId === stop.machineHacText || p.hacId === (stop as any).maquina_afectada || p.name === stop.machineHacText || p.name === (stop as any).maquina_afectada) || (masters.baggers || []).find(b => b.id === stop.palletizerId || b.id === stop.machineId || b.hacId === stop.machineHacText || b.hacId === (stop as any).maquina_afectada || b.name === stop.machineHacText || b.name === (stop as any).maquina_afectada);
+        const lineObj = masters.palletizers.find(p => p.id === stop.palletizerId || p.id === stop.machineId);
         
         return [
           stop.causeText || causeObj?.text || '',
@@ -1103,7 +1121,7 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
         {selectedStopDetail && (() => {
           const stop = selectedStopDetail;
           const causeObj = masters.causes.find(c => c.id === stop.causeId || c.text === stop.causeText);
-          const lineObj = (masters.palletizers || []).find(p => p.id === stop.palletizerId || p.id === stop.machineId || p.hacId === stop.machineHacText || p.hacId === (stop as any).maquina_afectada || p.name === stop.machineHacText || p.name === (stop as any).maquina_afectada) || (masters.baggers || []).find(b => b.id === stop.palletizerId || b.id === stop.machineId || b.hacId === stop.machineHacText || b.hacId === (stop as any).maquina_afectada || b.name === stop.machineHacText || b.name === (stop as any).maquina_afectada);
+          const lineObj = masters.palletizers.find(p => p.id === stop.palletizerId || p.id === stop.machineId);
           const shiftObj = masters.shifts.find(s => s.id === stop.shiftId);
 
           return (

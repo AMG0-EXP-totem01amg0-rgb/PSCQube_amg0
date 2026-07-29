@@ -281,79 +281,6 @@ router.get("/api/catalogos", async (req, res) => {
   }
 });
 
-function normalizeDateStr(val: any): string {
-  if (!val) return "";
-  if (val instanceof Date) {
-    if (isNaN(val.getTime())) return "";
-    const y = val.getFullYear();
-    const m = String(val.getMonth() + 1).padStart(2, "0");
-    const d = String(val.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
-  }
-  let s = String(val).trim();
-  if (s.includes("T")) s = s.split("T")[0];
-  if (s.includes(" ")) s = s.split(" ")[0];
-
-  const sep = s.includes("/") ? "/" : (s.includes("-") ? "-" : (s.includes(".") ? "." : null));
-  if (sep) {
-    const parts = s.split(sep);
-    if (parts.length === 3) {
-      const [p1, p2, p3] = parts.map(p => p.trim());
-      // Case A: YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD
-      if (p1.length === 4) {
-        const y = p1;
-        const m = p2.padStart(2, "0");
-        const d = p3.padStart(2, "0");
-        return `${y}-${m}-${d}`;
-      }
-      // Case B: DD/MM/YYYY or MM/DD/YYYY or DD-MM-YY (Year is 3rd part)
-      let y = p3;
-      if (y.length === 2) y = `20${y}`;
-      if (y.length === 4) {
-        const m = p2.padStart(2, "0");
-        const d = p1.padStart(2, "0");
-        return `${y}-${m}-${d}`;
-      }
-    }
-  }
-
-  if (!isNaN(Number(s)) && Number(s) > 1000000000) {
-    const dt = new Date(Number(s));
-    if (!isNaN(dt.getTime())) {
-      const y = dt.getFullYear();
-      const m = String(dt.getMonth() + 1).padStart(2, "0");
-      const d = String(dt.getDate()).padStart(2, "0");
-      return `${y}-${m}-${d}`;
-    }
-  }
-
-  return s;
-}
-
-function matchDateFlexible(recordDateVal: any, targetDateVal: any): boolean {
-  if (!targetDateVal) return true;
-  const d1 = normalizeDateStr(recordDateVal);
-  const d2 = normalizeDateStr(targetDateVal);
-  if (!d1 || !d2) return false;
-  if (d1 === d2) return true;
-
-  // Swapped day/month match for ambiguous DD/MM vs MM/DD formats
-  const parts1 = d1.split('-');
-  if (parts1.length === 3) {
-    const swapped1 = `${parts1[0]}-${parts1[2]}-${parts1[1]}`;
-    if (swapped1 === d2) return true;
-  }
-  const parts2 = d2.split('-');
-  if (parts2.length === 3) {
-    const swapped2 = `${parts2[0]}-${parts2[2]}-${parts2[1]}`;
-    if (swapped2 === d1) return true;
-  }
-
-  if (d1.split('-').reverse().join('/') === d2) return true;
-  if (d2.split('-').reverse().join('/') === d1) return true;
-  return false;
-}
-
 // GET Produccion Endpoint
 router.get("/api/produccion", async (req, res) => {
   logTraceRequest(req, "GET /api/produccion", "PRODUCCIONV2");
@@ -370,19 +297,9 @@ router.get("/api/produccion", async (req, res) => {
     // Apply active filters at backend level if provided!
     const { date, dateFrom, dateTo } = req.query as Record<string, string>;
     if (dateFrom && dateTo) {
-      const normFrom = normalizeDateStr(dateFrom);
-      const normTo = normalizeDateStr(dateTo);
-      list = list.filter((r: any) => {
-        const rawDate = r.date || r.fecha;
-        if (!rawDate) return true;
-        const d = normalizeDateStr(rawDate);
-        return matchDateFlexible(rawDate, normFrom) || matchDateFlexible(rawDate, normTo) || (d >= normFrom && d <= normTo);
-      });
+      list = list.filter((r: any) => r.date && r.date >= dateFrom && r.date <= dateTo);
     } else if (date) {
-      const filtered = list.filter((r: any) => matchDateFlexible(r.date || r.fecha, date));
-      if (filtered.length > 0) {
-        list = filtered;
-      }
+      list = list.filter((r: any) => r.date === date);
     }
 
     await ProductionService.enrichProductionReportsWithNozzleNews(list);
@@ -422,19 +339,9 @@ router.get("/api/paros", async (req, res) => {
     // Apply active filters at backend level if provided!
     const { date, dateFrom, dateTo } = req.query as Record<string, string>;
     if (dateFrom && dateTo) {
-      const normFrom = normalizeDateStr(dateFrom);
-      const normTo = normalizeDateStr(dateTo);
-      list = list.filter((r: any) => {
-        const rawDate = r.date || r.fecha;
-        if (!rawDate) return true;
-        const d = normalizeDateStr(rawDate);
-        return matchDateFlexible(rawDate, normFrom) || matchDateFlexible(rawDate, normTo) || (d >= normFrom && d <= normTo);
-      });
+      list = list.filter((r: any) => r.date && r.date >= dateFrom && r.date <= dateTo);
     } else if (date) {
-      const filtered = list.filter((r: any) => matchDateFlexible(r.date || r.fecha, date));
-      if (filtered.length > 0) {
-        list = filtered;
-      }
+      list = list.filter((r: any) => r.date === date);
     }
 
     await ParosService.enrichParosOnRead(list);
@@ -483,19 +390,9 @@ router.get("/api/sheets", async (req, res) => {
     if (filterableTables.includes(upperTable)) {
       const { date, dateFrom, dateTo } = req.query as Record<string, string>;
       if (dateFrom && dateTo) {
-        const normFrom = normalizeDateStr(dateFrom);
-        const normTo = normalizeDateStr(dateTo);
-        list = list.filter((r: any) => {
-          const rawDate = r.date || r.fecha;
-          if (!rawDate) return true;
-          const d = normalizeDateStr(rawDate);
-          return matchDateFlexible(rawDate, normFrom) || matchDateFlexible(rawDate, normTo) || (d >= normFrom && d <= normTo);
-        });
+        list = list.filter((r: any) => r.date && r.date >= dateFrom && r.date <= dateTo);
       } else if (date) {
-        const filtered = list.filter((r: any) => matchDateFlexible(r.date || r.fecha, date));
-        if (filtered.length > 0) {
-          list = filtered;
-        }
+        list = list.filter((r: any) => r.date === date);
       }
     }
 

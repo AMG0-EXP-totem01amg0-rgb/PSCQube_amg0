@@ -3,7 +3,6 @@ import { getSupabaseClient } from "./supabase.service.js";
 import { safeMatch, safeHacMatch } from "../utils/helpers.js";
 import { invalidateCache } from "../cache/cache.service.js";
 import { ParosService } from "./paros.service.js";
-import { mapSupabaseRowToClient, mapItemForSupabase } from "../utils/mappings.js";
 
 function isStopForMachine(stop: any, machineId: string | any, dbPalletizers: any[], dbBaggers: any[]) {
   if (!stop || !machineId) return false;
@@ -28,8 +27,8 @@ function isStopForMachine(stop: any, machineId: string | any, dbPalletizers: any
   ));
 
   const stopMachineId = String(stop.machineId || stop.maquina_id || "").trim().toUpperCase();
-  const stopMachineName = String(stop.machineName || stop.nombre_maquina || stop.description || "").trim().toUpperCase();
-  const stopMachineHacText = String(stop.machineHacText || stop.maquina_hac || stop.maquina_afectada || stop.maquinaAfectada || stop.hacName || stop.hacId || "").trim().toUpperCase();
+  const stopMachineName = String(stop.machineName || stop.nombre_maquina || "").trim().toUpperCase();
+  const stopMachineHacText = String(stop.machineHacText || stop.maquina_hac || "").trim().toUpperCase();
 
   if (!selectedMac) {
     return stopMachineId === targetId || stopMachineHacText === targetId || stopMachineName === targetId;
@@ -63,117 +62,34 @@ function isStopForMachine(stop: any, machineId: string | any, dbPalletizers: any
   return false;
 }
 
-function cleanShiftKey(val: any): string {
-  if (!val) return "";
-  let s = String(val).trim().toLowerCase();
-  return s.replace(/^shi-/, "").replace(/^turno\s*/, "").trim();
-}
-
-function normalizeDateStr(val: any): string {
-  if (!val) return "";
-  if (val instanceof Date) {
-    if (isNaN(val.getTime())) return "";
-    const y = val.getFullYear();
-    const m = String(val.getMonth() + 1).padStart(2, "0");
-    const d = String(val.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
-  }
-  let s = String(val).trim();
-  if (s.includes("T")) s = s.split("T")[0];
-  if (s.includes(" ")) s = s.split(" ")[0];
-
-  const sep = s.includes("/") ? "/" : (s.includes("-") ? "-" : (s.includes(".") ? "." : null));
-  if (sep) {
-    const parts = s.split(sep);
-    if (parts.length === 3) {
-      const [p1, p2, p3] = parts.map(p => p.trim());
-      // Case A: YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD
-      if (p1.length === 4) {
-        const y = p1;
-        const m = p2.padStart(2, "0");
-        const d = p3.padStart(2, "0");
-        return `${y}-${m}-${d}`;
-      }
-      // Case B: DD/MM/YYYY or MM/DD/YYYY or DD-MM-YY (Year is 3rd part)
-      let y = p3;
-      if (y.length === 2) y = `20${y}`;
-      if (y.length === 4) {
-        const m = p2.padStart(2, "0");
-        const d = p1.padStart(2, "0");
-        return `${y}-${m}-${d}`;
-      }
-    }
-  }
-
-  if (!isNaN(Number(s)) && Number(s) > 1000000000) {
-    const dt = new Date(Number(s));
-    if (!isNaN(dt.getTime())) {
-      const y = dt.getFullYear();
-      const m = String(dt.getMonth() + 1).padStart(2, "0");
-      const d = String(dt.getDate()).padStart(2, "0");
-      return `${y}-${m}-${d}`;
-    }
-  }
-
-  return s;
-}
-
-function matchDateFlexible(recordDateVal: any, targetDateVal: any): boolean {
-  if (!targetDateVal) return true;
-  const d1 = normalizeDateStr(recordDateVal);
-  const d2 = normalizeDateStr(targetDateVal);
-  if (!d1 || !d2) return false;
-  if (d1 === d2) return true;
-
-  // Swapped day/month match for ambiguous DD/MM vs MM/DD formats
-  const parts1 = d1.split('-');
-  if (parts1.length === 3) {
-    const swapped1 = `${parts1[0]}-${parts1[2]}-${parts1[1]}`;
-    if (swapped1 === d2) return true;
-  }
-  const parts2 = d2.split('-');
-  if (parts2.length === 3) {
-    const swapped2 = `${parts2[0]}-${parts2[2]}-${parts2[1]}`;
-    if (swapped2 === d1) return true;
-  }
-
-  if (d1.split('-').reverse().join('/') === d2) return true;
-  if (d2.split('-').reverse().join('/') === d1) return true;
-  return false;
-}
-
 function isStopForShift(stop: any, shiftId: string | null | undefined, dbShifts: any[]) {
-  if (!stop) return false;
-  if (!shiftId) return true;
-
-  const targetId = String(shiftId).trim().toLowerCase();
-  const cleanTargetId = cleanShiftKey(shiftId);
+  if (!stop || !shiftId) return false;
+  const targetId = String(shiftId).trim().toUpperCase();
   
-  const stopShiftId = String(stop.shiftId || stop.shift_id || stop.id_turno || '').trim().toLowerCase();
-  const cleanStopShiftId = cleanShiftKey(stopShiftId);
-  const stopShiftName = String(stop.shiftName || stop.shiftDescription || stop.turno || '').trim().toLowerCase();
-  const cleanStopShiftName = cleanShiftKey(stopShiftName);
-
-  // Coincidencia directa de ID o clave limpia
-  if (stopShiftId && (stopShiftId === targetId || cleanStopShiftId === cleanTargetId)) return true;
-
-  const selectedS = dbShifts.find((s: any) => s && (
-    String(s.id || '').trim().toLowerCase() === targetId ||
-    cleanShiftKey(s.id) === cleanTargetId ||
-    String(s.code || s.shift_id || '').trim().toLowerCase() === targetId
-  ));
-
-  if (selectedS) {
-    const sId = String(selectedS.id || '').trim().toLowerCase();
-    const sCleanId = cleanShiftKey(selectedS.id);
-    const sName = String(selectedS.name || selectedS.nombre || '').trim().toLowerCase();
-    const sCleanName = cleanShiftKey(sName);
-
-    if (stopShiftId === sId || cleanStopShiftId === sCleanId) return true;
-    if (stopShiftName === sName || cleanStopShiftName === sCleanName) return true;
-    if (sName && stopShiftName && (stopShiftName.includes(sName) || sName.includes(stopShiftName))) return true;
-    if (sCleanName && cleanStopShiftName && (cleanStopShiftName.includes(sCleanName) || sCleanName.includes(cleanStopShiftName))) return true;
+  const selectedS = dbShifts.find((s: any) => s && String(s.id).trim().toUpperCase() === targetId);
+  if (!selectedS) {
+    const stopShiftId = String(stop.shiftId || '').trim().toUpperCase();
+    return stopShiftId === targetId;
   }
+  
+  const sId = String(selectedS.id).trim().toUpperCase();
+  const sName = String(selectedS.name || selectedS.nombre || "").trim().toUpperCase();
+  
+  const stopShiftId = String(stop.shiftId || "").trim().toUpperCase();
+  const stopShiftName = String(stop.shiftName || stop.turno || "").trim().toUpperCase();
+  
+  if (stopShiftId === sId) return true;
+  if (stopShiftName === sName) return true;
+  if (stopShiftId === sName) return true;
+  if (stopShiftName === sId) return true;
+  
+  // Robust substring matching (e.g. "TURNO A" matching or including "A")
+  if (sName && stopShiftName && (stopShiftName.includes(sName) || sName.includes(stopShiftName))) return true;
+  
+  // Custom normalization: strip "TURNO" prefix/suffix
+  const cleanSName = sName.replace("TURNO", "").trim();
+  const cleanStopShiftName = stopShiftName.replace("TURNO", "").trim();
+  if (cleanSName && cleanStopShiftName && cleanSName === cleanStopShiftName) return true;
 
   return false;
 }
@@ -198,40 +114,28 @@ export class ProductionService {
       await ParosService.enrichParosOnRead(dbParos);
 
       data.forEach((item: any) => {
-        const normItemDate = normalizeDateStr(item.date || item.fecha);
-        if (normItemDate) {
-          item.date = normItemDate;
-          item.fecha = normItemDate;
-        }
-
         const shiftId = item.shiftId || item.turno_id;
-        const shift = dbShifts.find((s: any) => s && (safeMatch(s.id, shiftId) || safeMatch(s.id, item.shiftId) || cleanShiftKey(s.id) === cleanShiftKey(shiftId)));
+        const shift = dbShifts.find((s: any) => s && (safeMatch(s.id, shiftId) || safeMatch(s.id, item.shiftId)));
         const shiftName = shift ? (shift.name || shift.nombre || "") : "";
-        if (shiftName) {
-          if (!item.shiftDescription) item.shiftDescription = shiftName;
-          if (!item["descripción_turno"]) item["descripción_turno"] = shiftName;
-          if (!item["descripcion_turno"]) item["descripcion_turno"] = shiftName;
-        }
+        item.shiftDescription = shiftName;
+        item["descripción_turno"] = shiftName;
+        item["descripcion_turno"] = shiftName;
 
         const palId = item.palletizerId || item.palletizadora_id;
         const pal = dbPalletizers.find((p: any) => p && safeMatch(p.id, palId));
         const palHacId = pal ? (pal.hacId || pal.hac_id) : "";
         const hacPal = dbHacs.find((h: any) => h && (safeMatch(h.id, palHacId) || safeMatch(h.hac, palHacId)));
         const palHacVal = hacPal ? (hacPal.hac || "") : (palHacId || "");
-        if (palHacVal) {
-          if (!item.palletizerHac) item.palletizerHac = palHacVal;
-          if (!item["hac_paletizadora"]) item["hac_paletizadora"] = palHacVal;
-        }
+        item.palletizerHac = palHacVal;
+        item["hac_paletizadora"] = palHacVal;
 
         const bagId = item.baggerId || item.ensacadora_id;
         const bag = dbBaggers.find((b: any) => b && safeMatch(b.id, bagId));
         const bagHacId = bag ? (bag.hacId || bag.hac_id) : "";
         const hacBag = dbHacs.find((h: any) => h && (safeMatch(h.id, bagHacId) || safeMatch(h.hac, bagHacId)));
         const bagHacVal = hacBag ? (hacBag.hac || "") : (bagHacId || "");
-        if (bagHacVal) {
-          if (!item.baggerHac) item.baggerHac = bagHacVal;
-          if (!item["hac_ensacadora"]) item["hac_ensacadora"] = bagHacVal;
-        }
+        item.baggerHac = bagHacVal;
+        item["hac_ensacadora"] = bagHacVal;
 
         // Fallback for material ID lookup search details first if missing in root PRODUCCIONV2
         const rDetailsOnItem = dbDetails.filter((d: any) => 
@@ -240,50 +144,21 @@ export class ProductionService {
         const matId = item.materialId || item.material_id || (rDetailsOnItem[0] ? (rDetailsOnItem[0].materialId || rDetailsOnItem[0].material_id) : "");
         const mat = dbMaterials.find((m: any) => m && safeMatch(m.id, matId));
         const matName = mat ? (mat.nombre || mat.name || "") : "";
-        if (matName) {
-          if (!item.materialDescription) item.materialDescription = matName;
-          if (!item["decripcion_material"]) item["decripcion_material"] = matName;
-          if (!item["descripcion_material"]) item["descripcion_material"] = matName;
-        }
+        item.materialDescription = matName;
+        item["decripcion_material"] = matName;
+        item["descripcion_material"] = matName;
 
-        const itemDateStr = item.date || item.fecha;
+        const shiftDurationHours = shift ? Number(shift.durationHours || 8) : 8;
 
-        const stops = dbParos.filter((s: any) => {
-          if (!s) return false;
-          
-          // Normalización de fechas (soporta ISO YYYY-MM-DD y DD/MM/YYYY)
-          const stopDateStr = normalizeDateStr(s.date || s.fecha);
-          const matchFecha = !itemDateStr || !stopDateStr ||
-                             stopDateStr === itemDateStr || 
-                             matchDateFlexible(stopDateStr, itemDateStr) ||
-                             (isStopForShift(s, shiftId, dbShifts) && isStopForMachine(s, palId, dbPalletizers, dbBaggers));
-
-          if (!matchFecha) return false;
-
-          // Comparación flexible de turno (por ID o por Nombre)
-          const pShift = String(s.shiftId || s.shift_id || s.id_turno || s.shiftName || s.turno || "").trim().toLowerCase();
-          const iShift = String(item.shiftId || item.shift_id || item.id_turno || item.shiftName || item.turno || "").trim().toLowerCase();
-
-          const shiftMatch = !iShift || !pShift || pShift === iShift || pShift.includes(iShift) || iShift.includes(pShift) || cleanShiftKey(pShift) === cleanShiftKey(iShift) || isStopForShift(s, shiftId, dbShifts);
-
-          const machMatch = isStopForMachine(s, palId, dbPalletizers, dbBaggers) || !palId;
-
-          return shiftMatch && machMatch;
-        });
-
-        const shiftDurationHours = Number(shift?.durationHours || shift?.duracion_horas || 8);
-        const stopMins = stops.reduce((sum: number, s: any) => sum + (Number(s.durationMinutes || s.duracion_minutos || s.duration) || 0), 0);
+        const stops = dbParos.filter((s: any) => 
+          s &&
+          String(s.date || s.fecha || "").substring(0, 10) === String(item.date || item.fecha || "").substring(0, 10) &&
+          isStopForShift(s, shiftId, dbShifts) &&
+          isStopForMachine(s, palId, dbPalletizers, dbBaggers)
+        );
+        const stopMins = stops.reduce((sum: number, s: any) => sum + (Number(s.durationMinutes || s.duracion_minutos) || 0), 0);
         const stopHours = stopMins / 60;
-
-        const actualHsMarchaVal = Math.max(0, shiftDurationHours - stopHours);
-
-        // ASIGNACIÓN EXPLÍCITA DE HORAS DE MARCHA
-        const marchaFormatted = Number(actualHsMarchaVal.toFixed(2));
-        item.hsMarcha = marchaFormatted;
-        item.hs_marcha = marchaFormatted;
-        item.horasMarcha = marchaFormatted;
-        item.marcha = `${marchaFormatted} hs`;
-        item.duracionHoras = shiftDurationHours;
+        const actualHsMarchaVal = shiftDurationHours - stopHours;
 
         const externalStopMinutes = stops
           .filter((s: any) => {
@@ -298,7 +173,7 @@ export class ProductionService {
             const stopType = String(s.stopType || c?.stopType || 'INTERNO').toUpperCase();
             return stopType === 'EXTERNO';
           })
-          .reduce((sum: number, s: any) => sum + (Number(s.durationMinutes || s.duracion_minutos || s.duration) || 0), 0);
+          .reduce((sum: number, s: any) => sum + (Number(s.durationMinutes || s.duracion_minutos) || 0), 0);
         const externalStopHours = externalStopMinutes / 60;
 
         // Disponibilidad = (hs. de paro externo + hs. de marcha) / duración de turno
@@ -307,8 +182,8 @@ export class ProductionService {
         const availabilityPercent = Math.round(availVal * 100);
 
         const availStr = `${availabilityPercent}%`;
-        item.availability = availabilityPercent;
-        item.disponibilidad = availabilityPercent;
+        item.availability = availStr;
+        item.disponibilidad = availStr;
 
         // Rendimiento
         const contextReports = data.filter((r: any) => 
@@ -381,33 +256,25 @@ export class ProductionService {
 
   static async deleteNozzlesForProduction(productionId: string): Promise<void> {
     const supabase = getSupabaseClient();
-    if (!supabase || !productionId) return;
+    if (!supabase) return;
     try {
-      const { error } = await supabase
-        .from("paros_boquillasv2")
-        .delete()
-        .eq("produccion_id", productionId);
-
-      if (error) {
-        await supabase
-          .from("PAROS_BOQUILLASV2")
-          .delete()
-          .eq("productionId", productionId);
+      const list = await GenericRepository.findAll("PAROS_BOQUILLASV2");
+      const matching = list.filter((n: any) => 
+        String(n.productionId || n.produccion_id || n.id_produccion || "").trim() === String(productionId || "").trim()
+      );
+      for (const match of matching) {
+        await GenericRepository.delete("PAROS_BOQUILLASV2", match.id);
       }
-      invalidateCache("PAROS_BOQUILLASV2");
     } catch (err) {
       console.error("Error deleting old nozzles for productionId " + productionId + ":", err);
     }
   }
 
   static async syncProductionNozzles(item: any): Promise<void> {
-    if (!item.nozzleNews || !Array.isArray(item.nozzleNews) || item.nozzleNews.length === 0) {
-      await ProductionService.deleteNozzlesForProduction(item.id);
-      return;
-    }
+    if (!item.nozzleNews || !Array.isArray(item.nozzleNews)) return;
     try {
       const nozzleNewsEntries = item.nozzleNews.map((news: any) => ({
-        id: news.id || Math.random().toString(36).substr(2, 9),
+        id: news.id,
         productionId: item.id,
         nozzleNumber: news.nozzleNumber,
         startTime: news.startTime,
@@ -418,18 +285,8 @@ export class ProductionService {
 
       await ProductionService.deleteNozzlesForProduction(item.id);
 
-      const supabase = getSupabaseClient();
-      if (supabase) {
-        const mappedEntries = nozzleNewsEntries.map((news: any) => mapItemForSupabase("PAROS_BOQUILLASV2", news));
-        const { error } = await supabase.from("paros_boquillasv2").insert(mappedEntries);
-        if (error) {
-          await supabase.from("PAROS_BOQUILLASV2").insert(mappedEntries);
-        }
-        invalidateCache("PAROS_BOQUILLASV2");
-      } else {
-        for (const entry of nozzleNewsEntries) {
-          await GenericRepository.create("PAROS_BOQUILLASV2", entry);
-        }
+      for (const entry of nozzleNewsEntries) {
+        await GenericRepository.create("PAROS_BOQUILLASV2", entry);
       }
     } catch (err) {
       console.error("Error syncing production nozzles:", err);
@@ -438,30 +295,22 @@ export class ProductionService {
 
   static async deleteDetailsForProduction(productionId: string): Promise<void> {
     const supabase = getSupabaseClient();
-    if (!supabase || !productionId) return;
+    if (!supabase) return;
     try {
-      const { error } = await supabase
-        .from("detalles_produccionv2")
-        .delete()
-        .eq("produccion_id", productionId);
-
-      if (error) {
-        await supabase
-          .from("DETALLES_PRODUCCIONV2")
-          .delete()
-          .eq("productionId", productionId);
+      const list = await GenericRepository.findAll("DETALLES_PRODUCCIONV2");
+      const matching = list.filter((d: any) => 
+        String(d.productionId || d.produccion_id || d.id_produccion || "").trim() === String(productionId || "").trim()
+      );
+      for (const match of matching) {
+        await GenericRepository.delete("DETALLES_PRODUCCIONV2", match.id);
       }
-      invalidateCache("DETALLES_PRODUCCIONV2");
     } catch (err) {
       console.error("Error deleting old details for productionId " + productionId + ":", err);
     }
   }
 
   static async syncProductionDetails(item: any): Promise<void> {
-    if (!item.materialsDetails || !Array.isArray(item.materialsDetails) || item.materialsDetails.length === 0) {
-      await ProductionService.deleteDetailsForProduction(item.id);
-      return;
-    }
+    if (!item.materialsDetails || !Array.isArray(item.materialsDetails)) return;
     try {
       const detailEntries = item.materialsDetails.map((det: any) => ({
         id: det.id || Math.random().toString(36).substr(2, 9),
@@ -482,18 +331,8 @@ export class ProductionService {
 
       await ProductionService.deleteDetailsForProduction(item.id);
 
-      const supabase = getSupabaseClient();
-      if (supabase) {
-        const mappedEntries = detailEntries.map((det: any) => mapItemForSupabase("DETALLES_PRODUCCIONV2", det));
-        const { error } = await supabase.from("detalles_produccionv2").insert(mappedEntries);
-        if (error) {
-          await supabase.from("DETALLES_PRODUCCIONV2").insert(mappedEntries);
-        }
-        invalidateCache("DETALLES_PRODUCCIONV2");
-      } else {
-        for (const entry of detailEntries) {
-          await GenericRepository.create("DETALLES_PRODUCCIONV2", entry);
-        }
+      for (const entry of detailEntries) {
+        await GenericRepository.create("DETALLES_PRODUCCIONV2", entry);
       }
     } catch (err) {
       console.error("Error syncing production details:", err);
@@ -511,32 +350,12 @@ export class ProductionService {
   }
 
   static async enrichProductionReportsWithNozzleNews(list: any[]): Promise<void> {
-    if (!list || list.length === 0) return;
     try {
-      const ids = list.map(item => String(item.id || "").trim()).filter(Boolean);
-      const supabase = getSupabaseClient();
-      if (!supabase || ids.length === 0) return;
-
-      let { data: nozzleList, error } = await supabase
-        .from("paros_boquillasv2")
-        .select("*")
-        .in("produccion_id", ids);
-
-      if (error || !nozzleList) {
-        const res = await supabase.from("PAROS_BOQUILLASV2").select("*").in("productionId", ids);
-        nozzleList = res.data || [];
-      }
-
-      const mapNozzles = new Map();
-      (nozzleList || []).forEach((raw: any) => {
-        const n = mapSupabaseRowToClient("PAROS_BOQUILLASV2", raw);
-        const pId = String(n.productionId || n.produccion_id || n.id_produccion || "").trim();
-        if (!mapNozzles.has(pId)) mapNozzles.set(pId, []);
-        mapNozzles.get(pId).push(n);
-      });
-
+      const nozzleList = await GenericRepository.findAll("PAROS_BOQUILLASV2");
       list.forEach((item: any) => {
-        item.nozzleNews = mapNozzles.get(String(item.id || "").trim()) || [];
+        item.nozzleNews = nozzleList.filter((n: any) => 
+          String(n.productionId || n.produccion_id || n.id_produccion || "").trim() === String(item.id || "").trim()
+        );
       });
     } catch (err) {
       console.error("Error fetching PAROS_BOQUILLASV2 on read:", err);
@@ -547,32 +366,12 @@ export class ProductionService {
   }
 
   static async enrichProductionReportsWithDetails(list: any[]): Promise<void> {
-    if (!list || list.length === 0) return;
     try {
-      const ids = list.map(item => String(item.id || "").trim()).filter(Boolean);
-      const supabase = getSupabaseClient();
-      if (!supabase || ids.length === 0) return;
-
-      let { data: detailsList, error } = await supabase
-        .from("detalles_produccionv2")
-        .select("*")
-        .in("produccion_id", ids);
-
-      if (error || !detailsList) {
-        const res = await supabase.from("DETALLES_PRODUCCIONV2").select("*").in("productionId", ids);
-        detailsList = res.data || [];
-      }
-
-      const mapDetails = new Map();
-      (detailsList || []).forEach((raw: any) => {
-        const d = mapSupabaseRowToClient("DETALLES_PRODUCCIONV2", raw);
-        const pId = String(d.productionId || d.produccion_id || d.id_produccion || "").trim();
-        if (!mapDetails.has(pId)) mapDetails.set(pId, []);
-        mapDetails.get(pId).push(d);
-      });
-
+      const detailsList = await GenericRepository.findAll("DETALLES_PRODUCCIONV2");
       list.forEach((item: any) => {
-        item.materialsDetails = mapDetails.get(String(item.id || "").trim()) || [];
+        item.materialsDetails = detailsList.filter((d: any) => 
+          String(d.productionId || d.produccion_id || d.id_produccion || "").trim() === String(item.id || "").trim()
+        );
       });
     } catch (err) {
       console.warn("Error fetching DETALLES_PRODUCCIONV2 on read:", err);
