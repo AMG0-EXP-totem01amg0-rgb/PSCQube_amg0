@@ -154,10 +154,7 @@ export class ProductionService {
           s &&
           String(s.date || s.fecha || "").substring(0, 10) === String(item.date || item.fecha || "").substring(0, 10) &&
           isStopForShift(s, shiftId, dbShifts) &&
-          (
-            isStopForMachine(s, palId, dbPalletizers, dbBaggers) ||
-            (bagId && isStopForMachine(s, bagId, dbPalletizers, dbBaggers))
-          )
+          isStopForMachine(s, palId, dbPalletizers, dbBaggers)
         );
         const stopMins = stops.reduce((sum: number, s: any) => sum + (Number(s.durationMinutes || s.duracion_minutos) || 0), 0);
         const stopHours = stopMins / 60;
