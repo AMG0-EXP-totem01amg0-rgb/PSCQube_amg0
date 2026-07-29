@@ -5,7 +5,7 @@ import { format, parse, differenceInMinutes, isBefore, isAfter, isEqual } from '
 import { GlassCard, GlassInput, GlassSelect, GlassButton, ConfirmModal, GlassSearchableSelect, Modal } from '../../ui/GlassUI';
 import { ShiftTimeline } from '../dashboard';
 import { MasterData, MachineStop, Shift, AppUser } from '../../../types';
-import { cn } from '../../../lib/utils';
+import { cn, ensureHhMm, ensureHhMmSs } from '../../../lib/utils';
 import { DataTable, Column, TableActions } from '../../ui/DataTable';
 import * as XLSX from 'xlsx';
 
@@ -220,8 +220,8 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
       shiftId: shiftId || '',
       shiftName: shiftName, // TURNO de la carga del paro
       materialId: formData.materialId,
-      startTime: formData.startTime,
-      endTime: formData.endTime,
+      startTime: ensureHhMmSs(formData.startTime),
+      endTime: ensureHhMmSs(formData.endTime),
       durationMinutes: duration, // duración es la resta de FIN e INICIO
       
       // Lookups
@@ -312,8 +312,8 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
     
     setFormData({
       materialId: stop.materialId,
-      startTime: stop.startTime,
-      endTime: stop.endTime || '',
+      startTime: ensureHhMm(stop.startTime),
+      endTime: ensureHhMm(stop.endTime || ''),
       hacId: hacObj?.hac || stop.hacId || (stop as any).hacName || '',
       causeId: causeObj?.id || stop.causeId || '',
       noticeText: stop.symptomText || '' 
@@ -461,8 +461,8 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
         shiftId: shiftId || '',
         shiftName: shiftName,
         materialId: batchMaterialId,
-        startTime: item.startTime,
-        endTime: item.endTime,
+        startTime: ensureHhMmSs(item.startTime),
+        endTime: ensureHhMmSs(item.endTime),
         durationMinutes: item.durationMinutes,
         
         hacId: hacObj.id,

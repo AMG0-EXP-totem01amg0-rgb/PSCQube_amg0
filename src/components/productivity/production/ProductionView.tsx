@@ -5,7 +5,7 @@ import { format, parse, differenceInMinutes } from 'date-fns';
 import { GlassCard, GlassInput, GlassSelect, GlassButton, ConfirmModal, Modal } from '../../ui/GlassUI';
 import { DataTable, Column, TableActions } from '../../ui/DataTable';
 import { MasterData, ProductionReport, NozzleNews, AppUser, MachineStop } from '../../../types';
-import { cn, matchDateFlexible, isStopForMachine, isStopForShift } from '../../../lib/utils';
+import { cn, matchDateFlexible, isStopForMachine, isStopForShift, ensureHhMmSs } from '../../../lib/utils';
 
 
 
@@ -410,8 +410,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
             ? {
                 ...n,
                 nozzleNumber: parseInt(tempNews.nozzleNumber),
-                startTime: tempNews.isAllShift ? (selectedShiftObj?.startTime || '') : tempNews.startTime,
-                endTime: tempNews.isAllShift ? (selectedShiftObj?.endTime || '') : tempNews.endTime,
+                startTime: tempNews.isAllShift ? ensureHhMmSs(selectedShiftObj?.startTime || '') : ensureHhMmSs(tempNews.startTime),
+                endTime: tempNews.isAllShift ? ensureHhMmSs(selectedShiftObj?.endTime || '') : ensureHhMmSs(tempNews.endTime),
                 isAllShift: tempNews.isAllShift,
                 observation: tempNews.observation
               }
@@ -422,8 +422,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       const news: NozzleNews = {
         id: Math.random().toString(36).substr(2, 9),
         nozzleNumber: parseInt(tempNews.nozzleNumber),
-        startTime: tempNews.isAllShift ? (selectedShiftObj?.startTime || '') : tempNews.startTime,
-        endTime: tempNews.isAllShift ? (selectedShiftObj?.endTime || '') : tempNews.endTime,
+        startTime: tempNews.isAllShift ? ensureHhMmSs(selectedShiftObj?.startTime || '') : ensureHhMmSs(tempNews.startTime),
+        endTime: tempNews.isAllShift ? ensureHhMmSs(selectedShiftObj?.endTime || '') : ensureHhMmSs(tempNews.endTime),
         isAllShift: tempNews.isAllShift,
         observation: tempNews.observation
       };

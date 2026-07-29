@@ -144,3 +144,27 @@ export function isStopForShift(stop: any, shiftId: string | null | undefined, ma
   return false;
 }
 
+export function ensureHhMm(val: any): string {
+  if (!val) return "00:00";
+  let s = String(val).trim();
+  if (s.length >= 5) {
+    return s.substring(0, 5);
+  }
+  return s;
+}
+
+export function ensureHhMmSs(val: any): string {
+  if (!val) return "00:00:00";
+  let s = String(val).trim();
+  if (s.length === 5 && s.includes(":")) {
+    return `${s}:00`;
+  }
+  if (s.length === 8) {
+    return s;
+  }
+  if (s.length > 8) {
+    return s.substring(0, 8);
+  }
+  return `${s}:00`;
+}
+

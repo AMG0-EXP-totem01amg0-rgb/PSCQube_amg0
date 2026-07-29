@@ -419,22 +419,23 @@ export default function DashboardView({
       const stopMinutes = lineStops.reduce((sum, s) => sum + (Number(s.durationMinutes) || 0), 0);
       const stopHours = stopMinutes / 60;
 
-      // "las hs de marcha, por defecto deben aparecer en cero, solo si se registra algun tipo de paro.
-      // si en el turno no se han reportado paros, deberían figurar en cero."
-      const runHours = lineStops.length === 0 ? "0" : Math.max(0, shiftTotalHours - stopHours).toFixed(1);
+      // Hs de marcha = Horas del turno menos total de horas de paros reportados
+      const actualHsMarchaVal = Math.max(0, shiftTotalHours - stopHours);
+      const runHours = actualHsMarchaVal.toFixed(1);
 
       // Calculations of OEE, availability & performance
       const externalStopMinutes = lineStops
         .filter(s => {
-          const causeObj = masters.causes.find(c => c.id === s.causeId || c.text === s.causeText);
-          const type = String(s.stopType || causeObj?.stopType || 'INTERNO').toUpperCase();
+          const typeOnStop = String(s.stopType || '').toUpperCase();
+          if (typeOnStop === 'EXTERNO') return true;
+          const causeObj = masters.causes.find(c => String(c.id).toLowerCase() === String(s.causeId).toLowerCase() || c.text === s.causeText);
+          const type = String(s.stopType || causeObj?.stopType || (causeObj as any)?.tipo_paro || 'INTERNO').toUpperCase();
           return type === 'EXTERNO';
         })
         .reduce((sum, s) => sum + (Number(s.durationMinutes) || 0), 0);
       const externalStopHours = externalStopMinutes / 60;
 
-      const actualHsMarchaVal = shiftTotalHours - stopHours;
-      let availVal = shiftTotalHours > 0 ? (externalStopHours + Math.max(0, actualHsMarchaVal)) / shiftTotalHours : 0;
+      let availVal = shiftTotalHours > 0 ? (externalStopHours + actualHsMarchaVal) / shiftTotalHours : 0;
       availVal = Math.min(1, Math.max(0, availVal));
 
       let perfVal = 0;

@@ -1550,17 +1550,24 @@ export default function App() {
       isStopForShift(r, selectedShift.id, masters)
     );
 
-    const hsShift = selectedShift.durationHours;
-    const totalStopMinutes = machineStops.reduce((sum, s) => sum + s.durationMinutes, 0);
+    const hsShift = selectedShift.durationHours || 8;
+    const totalStopMinutes = machineStops.reduce((sum, s) => sum + (Number(s.durationMinutes) || 0), 0);
     const totalStopHours = totalStopMinutes / 60;
     
     const externalStopMinutes = machineStops
-      .filter(s => masters.causes.find(c => c.id === s.causeId)?.stopType === 'EXTERNO')
-      .reduce((sum, s) => sum + s.durationMinutes, 0);
+      .filter(s => {
+        const typeOnStop = String(s.stopType || '').toUpperCase();
+        if (typeOnStop === 'EXTERNO') return true;
+        const causeObj = masters.causes.find(c => String(c.id).toLowerCase() === String(s.causeId).toLowerCase());
+        const type = String(s.stopType || causeObj?.stopType || (causeObj as any)?.tipo_paro || 'INTERNO').toUpperCase();
+        return type === 'EXTERNO';
+      })
+      .reduce((sum, s) => sum + (Number(s.durationMinutes) || 0), 0);
     const externalStopHours = externalStopMinutes / 60;
 
-    const hsMarcha = hsShift - totalStopHours;
-    const availability = hsShift > 0 ? (externalStopHours + hsMarcha) / hsShift : 0;
+    const hsMarcha = Math.max(0, hsShift - totalStopHours);
+    const availVal = hsShift > 0 ? (externalStopHours + hsMarcha) / hsShift : 0;
+    const availability = Math.min(1, Math.max(0, availVal));
 
     let performance = 0;
     let totalTons = 0;
