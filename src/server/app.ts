@@ -20,7 +20,7 @@ const ALLOWED_ORIGINS = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || ALLOWED_ORIGINS.includes(origin) || origin.endsWith(".run.app") || origin.includes(".run.app")) {
+    if (!origin || ALLOWED_ORIGINS.includes(origin) || origin.includes(".run.app")) {
       callback(null, true);
     } else {
       callback(new Error(`CORS bloqueado para origen: ${origin}`));
@@ -29,16 +29,17 @@ app.use(cors({
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-App-Caller"],
+  maxAge: 86400, // Caché para preflights CORS (24 horas)
 }));
 
 // Configure middlewares
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-// Vercel-specific optimizations: Anti-timeout and global GET Cache-Control
+// Vercel-specific optimizations
 if (process.env.VERCEL) {
-  // 1. Anti-Timeout middleware: aborts hung requests after 8 seconds with 504
-  app.use("/api", (req, res, next) => {
+  // 1. Anti-Timeout middleware: aborts hung requests after 8 seconds
+  app.use((req, res, next) => {
     const timer = setTimeout(() => {
       if (!res.headersSent) {
         res.status(504).json({
@@ -54,10 +55,13 @@ if (process.env.VERCEL) {
     next();
   });
 
-  // 2. Global Cache-Control for GET /api requests
-  app.use("/api", (req, res, next) => {
+  // 2. Global Cache-Control para cualquier GET (forzar respuesta desde CDN)
+  app.use((req, res, next) => {
     if (req.method === "GET") {
-      res.setHeader("Cache-Control", "public, max-age=60, s-maxage=120, stale-while-revalidate=600");
+      res.setHeader(
+        "Cache-Control",
+        "public, max-age=10, s-maxage=60, stale-while-revalidate=300"
+      );
     }
     next();
   });
