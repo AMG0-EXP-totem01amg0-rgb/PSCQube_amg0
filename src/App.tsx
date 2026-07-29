@@ -37,7 +37,7 @@ import { getSupabaseClient } from './lib/supabaseClient';
 import { cn } from './lib/utils';
 import { Shift, MachineStop, ProductionReport, DaterControl, ScaleControl, InventoryEntry, PalletClassification, UserContext, MasterData, AppUser, ProductChange, Company, FuelLoad, AlertNotification } from './types';
 import { SYSTEM_VIEWS } from './lib/mockData';
-import { fetchTable, createRecord as rawCreateRecord, updateRecord as rawUpdateRecord, deleteRecord as rawDeleteRecord, clearClientCache, syncTableToSheets } from './lib/dataService';
+import { fetchTable, FetchResult, createRecord as rawCreateRecord, updateRecord as rawUpdateRecord, deleteRecord as rawDeleteRecord, clearClientCache, syncTableToSheets } from './lib/dataService';
 import { safeCache } from './lib/safeCache';
 import { ToastContainer, ToastMessage } from './components/ui/Toast';
 
@@ -907,6 +907,9 @@ export default function App() {
     
     console.log(`[Immediate Restore & Refresh] Context changed to Date: ${date}, Shift: ${shiftId}, Tab: ${prodTab}. Invalidating outdated snapshots and fetching fresh API data.`);
     
+    // Clear all in-flight requests on context change to prevent stale locks
+    inFlightFetchesRef.current = {};
+
     const restoreAndRefresh = async () => {
       for (const tableName of tables) {
         const key = getCooldownKey(tableName, date, shiftId);
@@ -958,17 +961,31 @@ export default function App() {
       return inFlightFetchesRef.current[key];
     }
 
-    // 3. Perform Fetch with fetchTable
+    // 3. Timeout Guard (3 seconds max to release in-flight lock automatically)
+    let timeoutId: any = null;
+    const timeoutPromise = new Promise<FetchResult>((resolve) => {
+      timeoutId = setTimeout(() => {
+        console.warn(`[In-Flight Guard] Timeout reached (3s) for ${tableName}. Releasing in-flight lock.`);
+        delete inFlightFetchesRef.current[key];
+        resolve({ success: false, error: "In-flight request timed out after 3s" });
+      }, 3000);
+    });
+
+    // 4. Perform Fetch with fetchTable
     const filters = { date, shiftId };
     const fetchPromise = (async () => {
       try {
-        const res = await fetchTable(tableName, bypassCache, filters, source);
-        if (res.success && res.data) {
+        const res = await Promise.race([
+          fetchTable(tableName, bypassCache, filters, source),
+          timeoutPromise
+        ]);
+        if (res && res.success && res.data) {
           updateTableState(tableName, res.data, date, shiftId);
           tableCooldownsRef.current[key] = Date.now();
         }
         return res;
       } finally {
+        if (timeoutId) clearTimeout(timeoutId);
         delete inFlightFetchesRef.current[key];
       }
     })();
@@ -1012,6 +1029,7 @@ export default function App() {
 
     tabChangeTimeoutRef.current = setTimeout(() => {
       console.log(`[Navigation Sync] Debounce trigger activeSection: ${activeSection}, prodTab: ${prodTab}`);
+      inFlightFetchesRef.current = {};
       refreshOperationalDataForView(activeSection, prodTab, true, "NavigationDebounce");
     }, 400);
 
