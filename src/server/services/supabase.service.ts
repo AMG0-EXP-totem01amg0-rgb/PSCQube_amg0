@@ -10,12 +10,13 @@ export function getSupabaseClient() {
   if (!supabaseClient) {
     let supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
     if (supabaseUrl && supabaseKey) {
       // Auto-sanitize the URL to prevent /rest/v1/ invalid path errors
       supabaseUrl = supabaseUrl.trim();
       try {
         const parsed = new URL(supabaseUrl);
-        supabaseUrl = parsed.protocol + "//" + parsed.host;
+        supabaseUrl = `${parsed.protocol}//${parsed.host}`;
       } catch (e) {
         // Fallback regex sanitization
         supabaseUrl = supabaseUrl.replace(/\/rest\/v1\/?$/i, "").replace(/\/+$/, "");
@@ -51,7 +52,7 @@ export async function readFromSupabase(tableName: string): Promise<any[] | null>
 
   for (const targetTable of tablesToTry) {
     try {
-      let allRows: any[] = [];
+      const allRows: any[] = [];
       let page = 0;
       const PAGE_SIZE = 1000;
       let hasMore = true;
@@ -59,7 +60,7 @@ export async function readFromSupabase(tableName: string): Promise<any[] | null>
       
       const isCausaTable = targetTable.toLowerCase().includes("causa");
       if (isCausaTable) {
-        // Optimize: select only the 10 required columns for causas to stay performant and avoid fat wire loads
+        // Optimize: select only the required columns for causas to stay performant and avoid fat wire loads
         selectStr = "id,hac,descripcion,parte_objeto,grupo_codigo_sintoma,codigo_sintoma,causa_sap,grupo_codigo_causa,codigo_causa,tipo_paro";
       }
 
@@ -82,8 +83,8 @@ export async function readFromSupabase(tableName: string): Promise<any[] | null>
             continue; // Retry the first page with "*"
           }
 
-          let errStr = (error.message || "").toLowerCase();
-          let errCode = error.code || "";
+          const errStr = (error.message || "").toLowerCase();
+          const errCode = error.code || "";
           const isTableMissing = errCode === "42P01" || errStr.includes("does not exist") || errStr.includes("no existe") || errStr.includes("not found") || errStr.includes("invalid path");
           
           if (isTableMissing && page === 0) {
@@ -94,7 +95,7 @@ export async function readFromSupabase(tableName: string): Promise<any[] | null>
         }
 
         if (data && data.length > 0) {
-          allRows = [...allRows, ...data];
+          allRows.push(...data);
           if (data.length < PAGE_SIZE) {
             hasMore = false;
           } else {
@@ -107,11 +108,13 @@ export async function readFromSupabase(tableName: string): Promise<any[] | null>
 
       if (allRows.length > 0 || page > 0) {
         console.log(`[Supabase Read] Successfully loaded ${allRows.length} total records from table '${targetTable}' over ${page + 1} pages.`);
-        const mappedList = allRows.map((dbRow: any) => {
-          return mapSupabaseRowToClient(tableName, dbRow);
-        });
         
-        // Log diagnostics for CAUSAS
+        // Fast Array mapping
+        const mappedList = new Array(allRows.length);
+        for (let i = 0; i < allRows.length; i++) {
+          mappedList[i] = mapSupabaseRowToClient(tableName, allRows[i]);
+        }
+        
         if (tableName.toUpperCase() === "CAUSASV2") {
           console.log(`[Diagnostic] CAUSASV2 total read from database: ${allRows.length} original records.`);
         }
@@ -135,11 +138,11 @@ export async function writeToSupabase(tableName: string, action: 'insert' | 'upd
   }
 
   const table = tableName.toLowerCase();
-  let payload = mapItemForSupabase(tableName, rawData);
+  const payload = mapItemForSupabase(tableName, rawData);
 
   const { sheetCol: dbIdCol } = getIdColumnAndKey(tableName);
 
-  // If we are doing an update/upsert, ensure ID is set both raw and sanitized using the DB column name
+  // If doing update/upsert, ensure ID is set both raw and sanitized using the DB column name
   if (idVal !== undefined && idVal !== null) {
     payload[dbIdCol] = idVal;
     
@@ -162,8 +165,6 @@ export async function writeToSupabase(tableName: string, action: 'insert' | 'upd
         query = supabase.from(currentTable).insert([payload]).select();
       } else if (action === 'update') {
         const cleanIdVal = typeof idVal === 'string' ? idVal.trim() : idVal;
-        
-        // We will perform the query using the DB column name
         query = supabase.from(currentTable).update(payload).eq(dbIdCol, cleanIdVal).select();
       } else {
         query = supabase.from(currentTable).upsert([payload], { onConflict: dbIdCol }).select();
@@ -182,16 +183,16 @@ export async function writeToSupabase(tableName: string, action: 'insert' | 'upd
         return data;
       }
 
-      // If we got an error, analyze it
-      let errStr = error.message || "";
+      // Analyze Error
+      const errStr = error.message || "";
       if (errStr.includes("<!DOCTYPE") || errStr.includes("<html")) {
         console.error(`🚨 [Supabase Error] Received an HTML response page instead of JSON API response. This occurs when SUPABASE_URL is configured to the browser's Studio dashboard webpage instead of the REST API Endpoint URL.`);
-        throw error; // Stop retrying and throw immediately on HTML configuration errors
+        throw error;
       }
 
       console.warn(`[Supabase Error Attempt ${attempt}] table ${currentTable}: ${formatSupabaseError(error)}`);
 
-      // Code 42P01 is "undefined_table" (table does not exist)
+      // Code 42P01: Table missing
       if (error.code === '42P01' || errStr.toLowerCase().includes('does not exist') || errStr.toLowerCase().includes('no existe') || errStr.toLowerCase().includes('not found')) {
         const aliases = TABLE_ALIASES[table] || [];
         if (aliasIndex < aliases.length) {
@@ -199,16 +200,16 @@ export async function writeToSupabase(tableName: string, action: 'insert' | 'upd
           aliasIndex++;
           console.log(`[Supabase Table Fallback] Table '${currentTable}' does not exist. Retrying with alias '${nextTable}'...`);
           currentTable = nextTable;
-          continue; // retry writing to correct active DB table
+          continue;
         } else if (currentTable.endsWith('v2')) {
           const fallback = currentTable.slice(0, -2);
           console.log(`[Supabase Table Fallback] Last-resort table fallback. Retrying with non-v2 name '${fallback}'...`);
           currentTable = fallback;
-          continue; // retry writing to correct active DB table
+          continue;
         }
       }
 
-      // Code 42703 is "undefined_column", PGRST204 is PostgREST schema cache error
+      // Code 42703: Missing column / Schema cache error
       if (
         error.code === '42703' || 
         error.code === 'PGRST204' || 
@@ -219,10 +220,9 @@ export async function writeToSupabase(tableName: string, action: 'insert' | 'upd
         if (missingCol && payload[missingCol] !== undefined) {
           console.log(`[Supabase Self-Heal] Column '${missingCol}' does not exist in table '${currentTable}'. Removing and retrying...`);
           delete payload[missingCol];
-          continue; // retry writing without the non-existent column
+          continue;
         }
         
-        // Search if the error specifies other column names in quotes (both single and double quotes)
         const matchAnyQuote = error.message.match(/['"“]([^'"”]+)['"”]/g);
         if (matchAnyQuote) {
           let removedAny = false;
@@ -238,27 +238,29 @@ export async function writeToSupabase(tableName: string, action: 'insert' | 'upd
         }
       }
 
-      // Code 22P02 is "invalid_text_representation" (type mismatch, e.g. numeric column with "7 tn" text)
+      // Code 22P02: Invalid type representation
       if (error.code === '22P02') {
         const errStrLower = errStr.toLowerCase();
         let invalidStr: string | null = null;
         
-        // Extract any text inside quotes from the error message
         const matchVal = errStr.match(/['"“]([^"'”]+)['"”]/);
         if (matchVal) {
           invalidStr = matchVal[1];
         }
 
-        console.log(`[Supabase Self-Heal] 22P02 handling. Extracted invalidStr: '${invalidStr}'. Current payload:`, JSON.stringify(payload));
+        console.log(`[Supabase Self-Heal] 22P02 handling. Extracted invalidStr: '${invalidStr}'.`);
 
         if (invalidStr) {
           let fixedAny = false;
           const searchStr = invalidStr.toLowerCase().trim();
-          for (const key of Object.keys(payload)) {
+          const keys = Object.keys(payload);
+          
+          for (let i = 0; i < keys.length; i++) {
+            const key = keys[i];
             const valStr = String(payload[key]).toLowerCase().trim();
+            
             if (valStr === searchStr || valStr.includes(searchStr) || searchStr.includes(valStr)) {
               if (errStrLower.includes('numeric') || errStrLower.includes('integer') || errStrLower.includes('double') || errStrLower.includes('real')) {
-                // Clean non-numeric characters except digits, dots, and minus signs
                 const numericPart = String(payload[key]).replace(/[^\d.,-]/g, '').replace(/,/g, '.');
                 const parsedNum = parseFloat(numericPart);
                 if (!isNaN(parsedNum)) {
@@ -282,9 +284,10 @@ export async function writeToSupabase(tableName: string, action: 'insert' | 'upd
               }
             }
           }
+          
           if (fixedAny) {
             console.log(`[Supabase Self-Heal] Payload key(s) corrected. Retrying write...`);
-            continue; // retry writing with fixed payload!
+            continue;
           }
         }
       }
@@ -313,13 +316,13 @@ export async function deleteFromSupabase(tableName: string, idKey: string, idVal
     tablesToTry.push(table.slice(0, -2));
   }
 
-  // 5. Si la eliminación afecta PRODUCCIONV2: eliminar previamente PAROS_BOQUILLASV2 y DETALLES_PRODUCCIONV2
+  // Cascade Deletes for PRODUCCIONV2
   const upperTable = tableName.toUpperCase();
   if (upperTable === "PRODUCCIONV2") {
     console.log(`[Supabase Delete Cascade] Executing cascade deletes for production report '${cleanIdVal}'...`);
     
     try {
-      const { data: bqData, error: bqError } = await supabase
+      const { data: bqData } = await supabase
         .from("paros_boquillasv2")
         .delete()
         .eq("produccion_id", cleanIdVal)
@@ -330,7 +333,7 @@ export async function deleteFromSupabase(tableName: string, idKey: string, idVal
     }
 
     try {
-      const { data: bqDetails, error: bqDetError } = await supabase
+      const { data: bqDetails } = await supabase
         .from("detalles_produccionv2")
         .delete()
         .eq("produccion_id", cleanIdVal)
@@ -344,12 +347,11 @@ export async function deleteFromSupabase(tableName: string, idKey: string, idVal
   let lastError: any = null;
   for (const targetTable of tablesToTry) {
     try {
-      // 1. Ejecutar .delete().eq(...).select()
       let colUsed = dbIdCol;
       const { data, error } = await supabase.from(targetTable).delete().eq(dbIdCol, cleanIdVal).select();
 
       if (error) {
-        let errStr = (error.message || "").toLowerCase();
+        const errStr = (error.message || "").toLowerCase();
         const isTableMissing = error.code === "42P01" || errStr.includes("does not exist") || errStr.includes("no existe") || errStr.includes("not found");
 
         if (isTableMissing) {
@@ -389,18 +391,13 @@ export async function deleteFromSupabase(tableName: string, idKey: string, idVal
         throw error;
       }
 
-      // 2. Verificar: data !== null && data.length > 0
       const deletedCount = data ? data.length : 0;
-      
-      // 4. Registrar logs: (tabla, columna utilizada, id recibido, cantidad de filas eliminadas)
       console.log(`[Supabase Delete] Table: ${targetTable}, Columna: ${colUsed}, ID: ${cleanIdVal}, Filas eliminadas: ${deletedCount}`);
 
       if (data !== null && deletedCount > 0) {
-        // 6. Invalidar cache inmediatamente después de una eliminación exitosa
         invalidateCache(tableName);
         return true;
       } else {
-        // 3. Si no se eliminó ninguna fila: NO devolver éxito
         console.warn(`[Supabase Delete Warning] No rows deleted in table ${targetTable} matching ${colUsed}=${cleanIdVal} (returned count:0)`);
         return false;
       }
