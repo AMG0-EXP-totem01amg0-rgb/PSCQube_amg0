@@ -1,5 +1,4 @@
 import { GenericRepository } from "../repositories/generic.repository.js";
-import { safeMatch } from "../utils/helpers.js";
 import { ParosService } from "./paros.service.js";
 
 export class MaestrosService {
@@ -11,20 +10,42 @@ export class MaestrosService {
         GenericRepository.findAll("MATERIALESV2").catch(() => [])
       ]);
 
-      const shiftMap = new Map();
-      dbShifts.forEach((s: any) => { if (s && s.id) shiftMap.set(String(s.id).trim(), s.name || s.nombre || ""); });
+      const shiftMap = new Map<string, string>();
+      dbShifts.forEach((s: any) => {
+        if (!s) return;
+        const val = String(s.name || s.nombre || s.description || s.descripcion || "").trim();
+        if (!val) return;
+        [s.id, s.shift_id, s.code, s.id_turno].forEach((k) => {
+          if (k !== undefined && k !== null) {
+            const key = String(k).trim();
+            if (key) shiftMap.set(key, val);
+          }
+        });
+      });
 
-      const matMap = new Map();
-      dbMaterials.forEach((m: any) => { if (m && m.id) matMap.set(String(m.id).trim(), m.name || m.nombre || ""); });
+      const matMap = new Map<string, string>();
+      dbMaterials.forEach((m: any) => {
+        if (!m) return;
+        const val = String(m.name || m.nombre || m.description || m.descripcion || "").trim();
+        if (!val) return;
+        [m.id, m.material_id, m.code, m.id_material].forEach((k) => {
+          if (k !== undefined && k !== null) {
+            const key = String(k).trim();
+            if (key) matMap.set(key, val);
+          }
+        });
+      });
 
       data.forEach((item: any) => {
         if (item.shiftId) {
           const key = String(item.shiftId).trim();
-          item.shiftDescription = shiftMap.get(key) || "";
+          const found = shiftMap.get(key);
+          if (found) item.shiftDescription = found;
         }
         if (item.materialId) {
           const key = String(item.materialId).trim();
-          item.materialDescription = matMap.get(key) || "";
+          const found = matMap.get(key);
+          if (found) item.materialDescription = found;
         }
       });
     } catch (err) {
@@ -40,20 +61,42 @@ export class MaestrosService {
         GenericRepository.findAll("PUNTOS_CARGAV2").catch(() => [])
       ]);
 
-      const shiftMap = new Map();
-      dbShifts.forEach((s: any) => { if (s && s.id) shiftMap.set(String(s.id).trim(), s.name || s.nombre || ""); });
+      const shiftMap = new Map<string, string>();
+      dbShifts.forEach((s: any) => {
+        if (!s) return;
+        const val = String(s.name || s.nombre || s.description || s.descripcion || "").trim();
+        if (!val) return;
+        [s.id, s.shift_id, s.code, s.id_turno].forEach((k) => {
+          if (k !== undefined && k !== null) {
+            const key = String(k).trim();
+            if (key) shiftMap.set(key, val);
+          }
+        });
+      });
 
-      const laneMap = new Map();
-      dbLanes.forEach((l: any) => { if (l && l.id) laneMap.set(String(l.id).trim(), l.name || l.nombre || ""); });
+      const laneMap = new Map<string, string>();
+      dbLanes.forEach((l: any) => {
+        if (!l) return;
+        const val = String(l.name || l.nombre || l.description || l.descripcion || "").trim();
+        if (!val) return;
+        [l.id, l.lane_id, l.code, l.punto_carga_id].forEach((k) => {
+          if (k !== undefined && k !== null) {
+            const key = String(k).trim();
+            if (key) laneMap.set(key, val);
+          }
+        });
+      });
 
       data.forEach((item: any) => {
         if (item.shiftId) {
           const key = String(item.shiftId).trim();
-          item.shiftDescription = shiftMap.get(key) || "";
+          const found = shiftMap.get(key);
+          if (found) item.shiftDescription = found;
         }
         if (item.loadingPointId) {
           const key = String(item.loadingPointId).trim();
-          item.loadingPointDescription = laneMap.get(key) || "";
+          const found = laneMap.get(key);
+          if (found) item.loadingPointDescription = found;
         }
       });
     } catch (err) {
@@ -69,20 +112,42 @@ export class MaestrosService {
         GenericRepository.findAll("MATERIALESV2").catch(() => [])
       ]);
 
-      const shiftMap = new Map();
-      dbShifts.forEach((s: any) => { if (s && s.id) shiftMap.set(String(s.id).trim(), s.name || s.nombre || ""); });
+      const shiftMap = new Map<string, string>();
+      dbShifts.forEach((s: any) => {
+        if (!s) return;
+        const val = String(s.name || s.nombre || s.description || s.descripcion || "").trim();
+        if (!val) return;
+        [s.id, s.shift_id, s.code, s.id_turno].forEach((k) => {
+          if (k !== undefined && k !== null) {
+            const key = String(k).trim();
+            if (key) shiftMap.set(key, val);
+          }
+        });
+      });
 
-      const matMap = new Map();
-      dbMaterials.forEach((m: any) => { if (m && m.id) matMap.set(String(m.id).trim(), m.name || m.nombre || ""); });
+      const matMap = new Map<string, string>();
+      dbMaterials.forEach((m: any) => {
+        if (!m) return;
+        const val = String(m.name || m.nombre || m.description || m.descripcion || "").trim();
+        if (!val) return;
+        [m.id, m.material_id, m.code, m.id_material].forEach((k) => {
+          if (k !== undefined && k !== null) {
+            const key = String(k).trim();
+            if (key) matMap.set(key, val);
+          }
+        });
+      });
 
       data.forEach((item: any) => {
         if (item.shiftId) {
           const key = String(item.shiftId).trim();
-          item.shiftDescription = shiftMap.get(key) || "";
+          const found = shiftMap.get(key);
+          if (found) item.shiftDescription = found;
         }
         if (item.materialId) {
           const key = String(item.materialId).trim();
-          item.materialDescription = matMap.get(key) || "";
+          const found = matMap.get(key);
+          if (found) item.materialDescription = found;
         }
       });
     } catch (err) {
