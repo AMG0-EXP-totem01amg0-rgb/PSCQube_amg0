@@ -70,8 +70,31 @@ export class ParosService {
         GenericRepository.findAll("CAUSASV2").catch(() => []),
       ]);
 
+      // 1. Pre-indexación en Maps para búsqueda O(1)
+      const causeMap = new Map();
+      causes.forEach((c: any) => {
+        if (c.text) causeMap.set(c.text, c.id);
+        if (c.descripcion) causeMap.set(c.descripcion, c.id);
+      });
+
+      const matMap = new Map();
+      materials.forEach((m: any) => {
+        if (m.name) matMap.set(m.name, m.id);
+      });
+
+      // Pre-procesar máquinas una sola vez
+      const cleanStr = (v: any) => String(v || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+      const preparedMachines = [...palletizers, ...baggers].filter(Boolean).map((p: any) => ({
+        raw: p,
+        id: p.id,
+        name: p.name || p.nombre || "",
+        cleanId: cleanStr(p.id),
+        cleanName: cleanStr(p.name || p.nombre),
+        cleanHacId: cleanStr(p.hacId || p.hac_id)
+      }));
+
       list.forEach((item: any) => {
-        // 1. Shift Mapping
+        // Shift lookup
         const targetShiftName = String(item.shiftName || "").trim().toUpperCase();
         const shift = shifts.find((s: any) => 
           s && (
@@ -79,148 +102,47 @@ export class ParosService {
             String(s.nombre || "").trim().toUpperCase() === targetShiftName ||
             String(s.id || "").trim().toUpperCase() === targetShiftName
           )
+        ) || shifts.find((s: any) => 
+          s && (
+            String(s.name || "").trim().toUpperCase().includes(targetShiftName) ||
+            targetShiftName.includes(String(s.name || "").trim().toUpperCase())
+          )
         );
-        if (shift) {
-          item.shiftId = shift.id;
-        } else {
-          // Try loose check
-          const looseShift = shifts.find((s: any) => 
-            s && (
-              String(s.name || "").trim().toUpperCase().includes(targetShiftName) ||
-              targetShiftName.includes(String(s.name || "").trim().toUpperCase())
-            )
-          );
-          item.shiftId = looseShift ? looseShift.id : (item.shiftName || "");
-        }
+        item.shiftId = shift ? shift.id : (item.shiftName || "");
 
-        // 2. Machine Affected (Palletizer / Bagger)
-        const allMachines = [...palletizers, ...baggers];
+        // Machine lookup con lista pre-procesada
         const targetMachineText = String(item.machineHacText || "").trim().toUpperCase();
+        const cleanTarget = targetMachineText.replace(/[^A-Z0-9]/g, "");
 
-        let pal = null;
-
-        // Tier 1
-        pal = allMachines.find((p: any) => {
-          if (!p) return false;
-          const pId = String(p.id || "").trim().toUpperCase();
-          const pName = String(p.name || p.nombre || "").trim().toUpperCase();
-          const pHacId = String(p.hacId || p.hac_id || "").trim().toUpperCase();
-          return pId === targetMachineText || pName === targetMachineText || (pHacId && pHacId === targetMachineText);
-        });
-
-        // Tier 2: Alphanumeric match
-        if (!pal) {
-          const cleanTarget = targetMachineText.replace(/[^A-Z0-9]/g, "");
-          pal = allMachines.find((p: any) => {
-            if (!p) return false;
-            const cleanId = String(p.id || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-            const cleanName = String(p.name || p.nombre || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-            const cleanHacId = String(p.hacId || p.hac_id || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-            return cleanId === cleanTarget || cleanName === cleanTarget || (cleanHacId && cleanHacId === cleanTarget);
-          });
-        }
-
-        // Tier 3: HAC table
-        if (!pal) {
-          const hacForPal = hacs.find((h: any) => 
-            h && h.hac && (
-              String(h.hac).trim().toUpperCase() === targetMachineText ||
-              safeHacMatch(h.hac, targetMachineText)
-            )
+        let found = preparedMachines.find(m => m.cleanId === cleanTarget || m.cleanName === cleanTarget || (m.cleanHacId && m.cleanHacId === cleanTarget));
+        
+        if (!found && cleanTarget) {
+          found = preparedMachines.find(m => 
+            (m.cleanId && cleanTarget.includes(m.cleanId)) || 
+            (m.cleanId && m.cleanId.includes(cleanTarget)) ||
+            (m.cleanName && cleanTarget.includes(m.cleanName)) || 
+            (m.cleanName && m.cleanName.includes(cleanTarget))
           );
-          if (hacForPal) {
-            pal = allMachines.find((p: any) => {
-              if (!p) return false;
-              const pHacId = String(p.hacId || p.hac_id || "").trim().toUpperCase();
-              const hId = String(hacForPal.id || "").trim().toUpperCase();
-              const hHac = String(hacForPal.hac || "").trim().toUpperCase();
-              return (
-                pHacId === hId || 
-                pHacId === hHac || 
-                safeHacMatch(pHacId, hId) || 
-                safeHacMatch(pHacId, hHac)
-              );
-            });
-          }
         }
 
-        // Tier 4: Substring
-        if (!pal) {
-          const cleanTarget = targetMachineText.replace(/[^A-Z0-9]/g, "");
-          pal = allMachines.find((p: any) => {
-            if (!p) return false;
-            const cleanId = String(p.id || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-            const cleanName = String(p.name || p.nombre || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-            return (
-              (cleanId && cleanTarget.includes(cleanId)) || 
-              (cleanTarget && cleanId.includes(cleanTarget)) ||
-              (cleanName && cleanTarget.includes(cleanName)) || 
-              (cleanTarget && cleanName.includes(cleanTarget))
-            );
-          });
-        }
-
-        // Tier 5: Split token match
-        if (!pal) {
-          pal = allMachines.find((p: any) => {
-            if (!p) return false;
-            const pName = String(p.name || p.nombre || "").trim().toUpperCase();
-            return safeHacMatch(pName, targetMachineText);
-          });
-        }
-
-        if (pal) {
-          item.machineId = pal.id;
-          item.machineName = pal.name || pal.nombre || "";
+        if (found) {
+          item.machineId = found.id;
+          item.machineName = found.name;
         } else {
           item.machineId = item.machineHacText || "";
           item.machineName = item.machineHacText || "";
         }
 
-        // 3. Material
-        const mat = materials.find((m: any) => m && m.name === item.materialDescription);
-        if (mat) {
-          item.materialId = mat.id;
-        } else {
-          item.materialId = item.materialDescription || "";
-        }
+        // Material Fast Match
+        item.materialId = matMap.get(item.materialDescription) || item.materialDescription || "";
 
-        // 4. HAC
-        const cleanHacName = String(item.hacName || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-        let hacObj = hacs.find((h: any) => {
-          if (!h || !h.hac) return false;
-          const cleanH = String(h.hac).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-          return cleanH === cleanHacName;
-        });
+        // Cause Fast Match
+        item.causeId = causeMap.get(item.causeText) || item.causeText || "";
 
-        if (!hacObj) {
-          hacObj = hacs.find((h: any) => h && h.hac && safeHacMatch(h.hac, item.hacName));
-        }
-
-        if (hacObj) {
-          item.hacId = hacObj.id;
-        } else {
-          item.hacId = item.hacName || "";
-        }
-
-        // 5. Cause
-        const causeObj = causes.find((c: any) => c && (c.text === item.causeText || c.descripcion === item.causeText));
-        if (causeObj) {
-          item.causeId = causeObj.id;
-        } else {
-          item.causeId = item.causeText || "";
-        }
-
-        // 6. durationMinutes
+        // durationMinutes & Time Formats
         item.durationMinutes = durationMinutesFromHHMMSS(item.durationTime);
-
-        // 7. Format time for Form (HH:mm)
-        if (item.startTime && item.startTime.length === 8) {
-          item.startTime = item.startTime.slice(0, 5);
-        }
-        if (item.endTime && item.endTime.length === 8) {
-          item.endTime = item.endTime.slice(0, 5);
-        }
+        if (item.startTime && item.startTime.length === 8) item.startTime = item.startTime.slice(0, 5);
+        if (item.endTime && item.endTime.length === 8) item.endTime = item.endTime.slice(0, 5);
       });
     } catch (err) {
       console.error("Error enriching PAROSV2 on read:", err);
