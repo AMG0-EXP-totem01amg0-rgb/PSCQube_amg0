@@ -212,9 +212,26 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
     setExpandedLines(prev => ({ ...prev, [lineKey]: !prev[lineKey] }));
   };
 
-  // ----------------- PAROS DATA PROCESSING (GROUPING) -----------------
+  // ----------------- PAROS DATA PROCESSING (GROUPING & DIFFERENCE WITH TIS) -----------------
   const groupedParos = useMemo(() => {
     const rawStops = stops || [];
+    const rawProd = prodReports || [];
+
+    // Map hsMarchaTis reported in production reports
+    // Key: `${date}|${shiftId}|${palletizerId}` -> hsMarchaTis
+    const tisMap: Record<string, number> = {};
+    rawProd.forEach(rep => {
+      if (!rep || !rep.date || !rep.palletizerId) return;
+      const shiftId = rep.shiftId || 'S_DESCONOCIDO';
+      const key = `${rep.date}|${shiftId}|${rep.palletizerId}`;
+      const tisVal = Number(rep.hsMarchaTis);
+      if (tisVal > 0) {
+        if (!tisMap[key] || tisVal > tisMap[key]) {
+          tisMap[key] = tisVal;
+        }
+      }
+    });
+
     // Sort chronological: oldest date first
     const sortedStops = [...rawStops].sort((a, b) => {
       const dateA = a.date || '';
@@ -239,17 +256,15 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
           lineId: string;
           lineName: string;
           durationMinutes: number;
+          tisHours: number;
           stops: MachineStop[];
         }>;
       }>;
     }> = {};
 
-    sortedStops.forEach(stop => {
-      if (!stop || !stop.date) return;
-      const dateKey = stop.date;
-      const shiftId = stop.shiftId || 'S_DESCONOCIDO';
-      const shiftObj = (masters.shifts || []).find(s => s.id === shiftId || s.name === stop.shiftId);
-      const shiftName = shiftObj?.name || stop.shiftId || 'Shift';
+    const ensureShiftGroup = (dateKey: string, shiftId: string) => {
+      const shiftObj = (masters.shifts || []).find(s => s.id === shiftId || s.name === shiftId);
+      const shiftName = shiftObj?.name || shiftId || 'Shift';
       const shiftDurationHours = Number(shiftObj?.durationHours) || 8;
 
       if (!groups[dateKey]) {
@@ -262,14 +277,23 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
       }
 
       if (!groups[dateKey].shifts[shiftId]) {
+        const linesMap: Record<string, {
+          lineId: string;
+          lineName: string;
+          durationMinutes: number;
+          tisHours: number;
+          stops: MachineStop[];
+        }> = {};
+
         // Pre-populate with all palletizers from masters.palletizers so every palletizer is present for the shift
-        const linesMap: Record<string, { lineId: string; lineName: string; durationMinutes: number; stops: MachineStop[] }> = {};
         (masters.palletizers || []).forEach((p: any) => {
           if (p && p.id) {
+            const tisKey = `${dateKey}|${shiftId}|${p.id}`;
             linesMap[p.id] = {
               lineId: p.id,
               lineName: p.name || p.id,
               durationMinutes: 0,
+              tisHours: tisMap[tisKey] || 0,
               stops: []
             };
           }
@@ -285,33 +309,56 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
         };
       }
 
+      return groups[dateKey].shifts[shiftId];
+    };
+
+    // Ensure groups exist for production report dates & shifts
+    rawProd.forEach(rep => {
+      if (!rep || !rep.date) return;
+      const shiftId = rep.shiftId || 'S_DESCONOCIDO';
+      ensureShiftGroup(rep.date, shiftId);
+    });
+
+    sortedStops.forEach(stop => {
+      if (!stop || !stop.date) return;
+      const dateKey = stop.date;
+      const shiftId = stop.shiftId || 'S_DESCONOCIDO';
+      const shiftGroup = ensureShiftGroup(dateKey, shiftId);
+
       // Find Palletizer/Line
       const rawLineId = stop.palletizerId || stop.machineId || 'L_DESCONOCIDA';
       const lineObj = (masters.palletizers || []).find(p => p.id === rawLineId || p.hacId === rawLineId || p.name === rawLineId);
       const lineId = lineObj?.id || rawLineId;
       const lineName = lineObj?.name || rawLineId;
 
-      if (!groups[dateKey].shifts[shiftId].lines[lineId]) {
-        groups[dateKey].shifts[shiftId].lines[lineId] = {
+      if (!shiftGroup.lines[lineId]) {
+        const tisKey = `${dateKey}|${shiftId}|${lineId}`;
+        shiftGroup.lines[lineId] = {
           lineId,
           lineName,
           durationMinutes: 0,
+          tisHours: tisMap[tisKey] || 0,
           stops: []
         };
       }
 
-      groups[dateKey].shifts[shiftId].lines[lineId].stops.push(stop);
+      const tisKey = `${dateKey}|${shiftId}|${lineId}`;
+      if (tisMap[tisKey] !== undefined) {
+        shiftGroup.lines[lineId].tisHours = tisMap[tisKey];
+      }
+
+      shiftGroup.lines[lineId].stops.push(stop);
       const dur = Number(stop.durationMinutes) || 0;
-      groups[dateKey].shifts[shiftId].lines[lineId].durationMinutes += dur;
+      shiftGroup.lines[lineId].durationMinutes += dur;
 
       groups[dateKey].totalStopsCount += 1;
       groups[dateKey].totalDurationMinutes += dur;
-      groups[dateKey].shifts[shiftId].stopsCount += 1;
-      groups[dateKey].shifts[shiftId].durationMinutes += dur;
+      shiftGroup.stopsCount += 1;
+      shiftGroup.durationMinutes += dur;
     });
 
     return Object.values(groups);
-  }, [stops, masters.shifts, masters.palletizers]);
+  }, [stops, prodReports, masters.shifts, masters.palletizers]);
 
   // ----------------- PRODUCCION DATA PROCESSING (GROUPING & METRICS) -----------------
   const groupedProduccion = useMemo(() => {
@@ -783,9 +830,17 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
                           const shiftKey = `${item.date}|${shift.shiftId}`;
                           const isShiftExpanded = !!expandedShifts[shiftKey];
                           const shiftDurationHs = shift.shiftDurationHours || 8;
-                          const shiftStopHs = (shift.durationMinutes || 0) / 60;
-                          const shiftDiffHs = shiftStopHs - shiftDurationHs;
-                          const shiftDiffStr = (shiftDiffHs >= 0 ? '+' : '') + shiftDiffHs.toFixed(1) + ' hs';
+
+                          let shiftTargetStopHs = 0;
+                          let shiftReportedStopHs = 0;
+                          Object.values(shift.lines).forEach((l: any) => {
+                            const lineTis = Number(l.tisHours) || 0;
+                            shiftTargetStopHs += Math.max(0, shiftDurationHs - lineTis);
+                            shiftReportedStopHs += (l.durationMinutes || 0) / 60;
+                          });
+
+                          const shiftDiffHs = shiftReportedStopHs - shiftTargetStopHs;
+                          const shiftDiffStr = (shiftDiffHs > 0 ? '+' : '') + shiftDiffHs.toFixed(1) + ' hs';
 
                           return (
                             <div key={shiftKey} className="px-4 py-2">
@@ -799,9 +854,18 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
                                     <Clock size={12} />
                                   </div>
                                   <span className="text-[11px] font-bold text-text-main">Turno: {shift.shiftName}</span>
-                                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/10">
+                                  <span className={cn(
+                                    "text-[10px] font-extrabold px-2 py-0.5 rounded-full border",
+                                    activeTab === 'PAROS' 
+                                      ? (Math.abs(shiftDiffHs) < 0.05 
+                                          ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" 
+                                          : shiftDiffHs < 0 
+                                            ? "bg-amber-500/10 text-amber-500 border-amber-500/20" 
+                                            : "bg-blue-500/10 text-blue-500 border-blue-500/20")
+                                      : "bg-primary/10 text-primary border-primary/10"
+                                  )}>
                                     {activeTab === 'PAROS' 
-                                      ? `Diferencia: ${shiftDiffStr} (${shiftStopHs.toFixed(1)} hs paros / ${shiftDurationHs} hs turno)` 
+                                      ? `Diferencia Turno: ${shiftDiffStr} (${shiftReportedStopHs.toFixed(1)} hs paros reg. / ${shiftTargetStopHs.toFixed(1)} hs esperadas)` 
                                       : `${shift.totalTons.toFixed(1)} Tn`}
                                   </span>
                                 </div>
@@ -825,8 +889,10 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
 
                                       if (activeTab === 'PAROS') {
                                         const lineStopHs = (line.durationMinutes || 0) / 60;
-                                        const lineDiffHs = lineStopHs - shiftDurationHs;
-                                        const lineDiffStr = (lineDiffHs >= 0 ? '+' : '') + lineDiffHs.toFixed(1) + ' hs';
+                                        const lineTisHs = Number(line.tisHours) || 0;
+                                        const expectedStopHs = Math.max(0, shiftDurationHs - lineTisHs);
+                                        const lineDiffHs = lineStopHs - expectedStopHs;
+                                        const lineDiffStr = (lineDiffHs > 0 ? '+' : '') + lineDiffHs.toFixed(1) + ' hs';
                                         const stopsLen = line.stops ? line.stops.length : 0;
 
                                         return (
@@ -843,11 +909,13 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
                                                 <span className="text-[11px] font-bold text-text-main">{line.lineName}</span>
                                                 <span className={cn(
                                                   "text-[10px] font-extrabold px-2 py-0.5 rounded-full border",
-                                                  stopsLen === 0 
+                                                  Math.abs(lineDiffHs) < 0.05
                                                     ? "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
-                                                    : "text-amber-500 bg-amber-500/10 border-amber-500/20"
+                                                    : lineDiffHs < 0 
+                                                      ? "text-amber-500 bg-amber-500/10 border-amber-500/20"
+                                                      : "text-blue-500 bg-blue-500/10 border-blue-500/20"
                                                 )}>
-                                                  Diferencia: {lineDiffStr} ({stopsLen} {stopsLen === 1 ? 'paro' : 'paros'} - {lineStopHs.toFixed(1)} hs)
+                                                  Diferencia: {lineDiffStr} ({lineStopHs.toFixed(1)} hs paros reg. | TIS: {lineTisHs.toFixed(1)} hs | Esperado: {expectedStopHs.toFixed(1)} hs)
                                                 </span>
                                               </div>
                                               <div>
