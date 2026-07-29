@@ -207,7 +207,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
 
     const machineObj = masters.palletizers.find(p => p.id === palletizerId) || masters.baggers.find(b => b.id === palletizerId);
     const machineName = machineObj?.name || palletizerId || '';
-    const machineHacText = machineObj?.hacId || machineName; // 'máquina afectada' column stores the machine's hac_id
+    const machineHacText = machineObj?.hacId || (machineObj as any)?.hac || (machineObj as any)?.hacText || machineName; // 'máquina afectada' stores the machine's HAC
     const shiftName = selectedShift?.name || '';
 
     onSave({
@@ -447,7 +447,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
 
     const machineObj = masters.palletizers.find(p => p.id === palletizerId) || masters.baggers.find(b => b.id === palletizerId);
     const machineName = machineObj?.name || palletizerId || '';
-    const machineHacText = machineObj?.hacId || machineName;
+    const machineHacText = machineObj?.hacId || (machineObj as any)?.hac || (machineObj as any)?.hacText || machineName;
     const shiftName = selectedShift?.name || '';
 
     const newStops: MachineStop[] = batchStopsList.map(item => {

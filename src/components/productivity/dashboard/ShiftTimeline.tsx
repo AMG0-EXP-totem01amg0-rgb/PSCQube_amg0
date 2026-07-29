@@ -87,18 +87,29 @@ export default function ShiftTimeline({ shift, stops, masters, onEdit, readOnly 
     const startTime = extractTime(rawStart);
     const endTime = extractTime(rawEnd);
 
-    let durationMinutes = Number(
-      stop.durationMinutes || 
-      stop.duracionMinutos || 
-      stop.duracion_minutos || 
-      stop.duracion_minutos_paro || 
-      stop.durationTime ||
-      stop['duración'] ||
-      stop.duracion ||
-      0
-    );
+    let durationMinutes = 0;
+    const rawDur = stop.durationMinutes ?? stop.duracionMinutos ?? stop.duracion_minutos ?? stop.duracion_minutos_paro ?? stop['duración'] ?? stop.duracion;
+    
+    if (typeof rawDur === 'number' && !isNaN(rawDur)) {
+      durationMinutes = rawDur;
+    } else if (typeof rawDur === 'string' && rawDur.trim() && !isNaN(Number(rawDur))) {
+      durationMinutes = Number(rawDur);
+    } else if (stop.durationTime && typeof stop.durationTime === 'string') {
+      const parts = stop.durationTime.split(':').map((p: string) => Number(p) || 0);
+      if (parts.length >= 2) {
+        durationMinutes = parts[0] * 60 + parts[1] + (parts[2] ? Math.round(parts[2] / 60) : 0);
+      }
+    }
 
-    return { startTime, endTime, durationMinutes };
+    if ((!durationMinutes || isNaN(durationMinutes)) && startTime && endTime) {
+      const sM = getMinutesFromStart(startTime, validShiftStart);
+      const eM = getMinutesFromStart(endTime, validShiftStart);
+      let diff = eM - sM;
+      if (diff < 0) diff += 1440;
+      durationMinutes = diff;
+    }
+
+    return { startTime, endTime, durationMinutes: isNaN(durationMinutes) ? 0 : durationMinutes };
   };
 
   const segments = useMemo(() => {

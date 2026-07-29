@@ -286,10 +286,32 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
       const shiftGroup = ensureShiftGroup(dateKey, shiftId);
 
       // Find Palletizer/Line
-      const rawLineId = stop.palletizerId || stop.machineId || 'L_DESCONOCIDA';
-      const lineObj = (masters.palletizers || []).find(p => p.id === rawLineId || p.hacId === rawLineId || p.name === rawLineId);
+      const rawLineId = stop.palletizerId || stop.machineId || stop.machineHacText || (stop as any).maquina_afectada || 'L_DESCONOCIDA';
+      const lineObj = (masters.palletizers || []).find(p => 
+        p.id === stop.palletizerId || 
+        p.id === stop.machineId || 
+        p.id === rawLineId || 
+        p.hacId === stop.machineHacText || 
+        p.hacId === (stop as any).maquina_afectada || 
+        p.hacId === rawLineId ||
+        p.name === stop.machineName ||
+        p.name === stop.machineHacText ||
+        p.name === (stop as any).maquina_afectada ||
+        p.name === rawLineId
+      ) || (masters.baggers || []).find(b => 
+        b.id === stop.palletizerId || 
+        b.id === stop.machineId || 
+        b.id === rawLineId || 
+        b.hacId === stop.machineHacText || 
+        b.hacId === (stop as any).maquina_afectada || 
+        b.hacId === rawLineId ||
+        b.name === stop.machineName ||
+        b.name === stop.machineHacText ||
+        b.name === (stop as any).maquina_afectada ||
+        b.name === rawLineId
+      );
       const lineId = lineObj?.id || rawLineId;
-      const lineName = lineObj?.name || rawLineId;
+      const lineName = lineObj?.name || stop.machineName || stop.machineHacText || (stop as any).maquina_afectada || rawLineId;
 
       if (!shiftGroup.lines[lineId]) {
         const tisKey = `${dateKey}|${shiftId}|${lineId}`;
@@ -507,7 +529,7 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
 
       const dataRows = sortedStops.map(stop => {
         const causeObj = masters.causes.find(c => c.id === stop.causeId || c.text === stop.causeText);
-        const lineObj = masters.palletizers.find(p => p.id === stop.palletizerId || p.id === stop.machineId);
+        const lineObj = (masters.palletizers || []).find(p => p.id === stop.palletizerId || p.id === stop.machineId || p.hacId === stop.machineHacText || p.hacId === (stop as any).maquina_afectada || p.name === stop.machineHacText || p.name === (stop as any).maquina_afectada) || (masters.baggers || []).find(b => b.id === stop.palletizerId || b.id === stop.machineId || b.hacId === stop.machineHacText || b.hacId === (stop as any).maquina_afectada || b.name === stop.machineHacText || b.name === (stop as any).maquina_afectada);
         
         return [
           stop.causeText || causeObj?.text || '',
@@ -1081,7 +1103,7 @@ export default function ReportsView({ masters, currentUser, userContext }: Props
         {selectedStopDetail && (() => {
           const stop = selectedStopDetail;
           const causeObj = masters.causes.find(c => c.id === stop.causeId || c.text === stop.causeText);
-          const lineObj = masters.palletizers.find(p => p.id === stop.palletizerId || p.id === stop.machineId);
+          const lineObj = (masters.palletizers || []).find(p => p.id === stop.palletizerId || p.id === stop.machineId || p.hacId === stop.machineHacText || p.hacId === (stop as any).maquina_afectada || p.name === stop.machineHacText || p.name === (stop as any).maquina_afectada) || (masters.baggers || []).find(b => b.id === stop.palletizerId || b.id === stop.machineId || b.hacId === stop.machineHacText || b.hacId === (stop as any).maquina_afectada || b.name === stop.machineHacText || b.name === (stop as any).maquina_afectada);
           const shiftObj = masters.shifts.find(s => s.id === stop.shiftId);
 
           return (
