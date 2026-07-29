@@ -10,7 +10,7 @@ import {
   AlertTriangle, Package, ClipboardList, Fuel, Wrench,
   Activity, PlusCircle, ShieldCheck, Settings, Bot,
   ChevronLeft, ChevronRight, Truck, Droplet, Layers, MapPin,
-  RefreshCw, FileSpreadsheet
+  RefreshCw, FileSpreadsheet, ChevronDown, LayoutGrid, X, Check
 } from 'lucide-react';
 
 // Modules
@@ -349,6 +349,7 @@ export default function App() {
 
   const [activeSection, setActiveSection] = useState<AppSection>('PRODUCTIVITY');
   const [prodTab, setProdTab] = useState<ProductivityTab>('DASHBOARD');
+  const [isProdMenuOpen, setIsProdMenuOpen] = useState(false);
   const [adminTab, setAdminTab] = useState('SHIFTS');
   const [hasEnteredApp, setHasEnteredApp] = useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
@@ -1820,90 +1821,147 @@ export default function App() {
                   exit={{ opacity: 0, x: 20 }}
                   className="space-y-4 md:space-y-6"
                 >
-                  {/* Sub-nav Productivity - Adaptativo */}
-                  <div className="sticky top-16 z-30 bg-bg/80 backdrop-blur-md pt-4 pb-1 mb-8">
+                  {/* Sub-nav Productivity - Menú Desplegable desde Header */}
+                  <div className="sticky top-16 z-30 bg-bg/80 backdrop-blur-md pt-2 pb-2 mb-6 border-b border-border/40">
                     {(() => {
                       const visibleTabs = productivityTabs.filter(t => canView(t.id));
+                      const currentTabObj = visibleTabs.find(t => t.id === prodTab) || visibleTabs[0];
 
-                      // Una sola opción — mostrar como label sin contenedor
-                      if (visibleTabs.length === 1) {
-                        return (
-                          <div className="flex items-center gap-2.5 px-2 py-2">
-                            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                            <span className="text-[11px] font-black uppercase tracking-[0.15em] text-primary">
-                              {visibleTabs[0].label}
-                            </span>
-                          </div>
-                        );
-                      }
-
-                      // 2 a 4 opciones — contenedor centrado que se achica al contenido
-                      if (visibleTabs.length <= 4) {
-                        return (
-                          <div className="flex justify-center">
-                            <div className="bg-surface p-1.5 rounded-2xl border border-border shadow-md inline-flex gap-2">
-                              {visibleTabs.map(tab => (
-                                <ProductivitySubTab
-                                  key={tab.id}
-                                  active={prodTab === tab.id}
-                                  onClick={() => setProdTab(tab.id as ProductivityTab)}
-                                  icon={tab.icon}
-                                  label={tab.label}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      // 5 o más opciones — carrusel completo con scroll y flechas
                       return (
-                        <div className="bg-surface p-1.5 rounded-2xl border border-border shadow-md relative group">
-                          {/* Carousel Arrows - Only visible on desktop hover */}
-                          <div className="absolute inset-y-0 left-0 items-center pl-1 z-20 hidden md:flex opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="relative max-w-7xl mx-auto px-1">
+                          {/* Selector Bar Header */}
+                          <div className="flex items-center justify-between gap-3 bg-surface border border-border/80 p-2 px-3 rounded-2xl shadow-sm">
                             <button
-                              onClick={() => {
-                                if (subNavRef.current) {
-                                  subNavRef.current.scrollBy({ left: -200, behavior: 'smooth' });
-                                }
-                              }}
-                              className="w-6 h-6 rounded-full bg-surface shadow-md border border-border flex items-center justify-center text-text-muted hover:text-primary transition-colors"
+                              type="button"
+                              onClick={() => setIsProdMenuOpen(!isProdMenuOpen)}
+                              className="flex items-center gap-3 text-left flex-1 min-w-0 hover:opacity-90 transition-opacity focus:outline-none group"
                             >
-                              <ChevronLeft size={14} />
+                              <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 group-hover:bg-primary group-hover:text-white transition-colors">
+                                {currentTabObj?.icon}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">
+                                    Funcionalidad Activa
+                                  </span>
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-extrabold">
+                                    {visibleTabs.length} disponibles
+                                  </span>
+                                </div>
+                                <p className="text-sm font-extrabold text-text-main truncate flex items-center gap-1.5">
+                                  {currentTabObj?.label}
+                                </p>
+                              </div>
                             </button>
-                          </div>
 
-                          <div className="absolute inset-y-0 right-0 items-center pr-1 z-20 hidden md:flex opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
-                              onClick={() => {
-                                if (subNavRef.current) {
-                                  subNavRef.current.scrollBy({ left: 200, behavior: 'smooth' });
-                                }
-                              }}
-                              className="w-6 h-6 rounded-full bg-surface shadow-md border border-border flex items-center justify-center text-text-muted hover:text-primary transition-colors"
+                              type="button"
+                              onClick={() => setIsProdMenuOpen(!isProdMenuOpen)}
+                              className={cn(
+                                "flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all border shadow-xs shrink-0",
+                                isProdMenuOpen
+                                  ? "bg-primary text-white border-primary shadow-primary/20"
+                                  : "bg-surface hover:bg-surface-hover text-text-main border-border hover:border-primary/40"
+                              )}
                             >
-                              <ChevronRight size={14} />
-                            </button>
-                          </div>
-
-                          {/* Carousel edge masks */}
-                          <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-surface to-transparent z-10 pointer-events-none" />
-                          <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-surface to-transparent z-10 pointer-events-none" />
-
-                          <div
-                            ref={subNavRef}
-                            className="flex items-center gap-2 no-scrollbar py-1 scroll-smooth px-4 touch-horizontal touch-pan-x overscroll-x-contain overflow-x-auto"
-                          >
-                            {visibleTabs.map(tab => (
-                              <ProductivitySubTab
-                                key={tab.id}
-                                active={prodTab === tab.id}
-                                onClick={() => setProdTab(tab.id as ProductivityTab)}
-                                icon={tab.icon}
-                                label={tab.label}
+                              <LayoutGrid size={15} />
+                              <span className="hidden sm:inline">Ver Menú</span>
+                              <ChevronDown
+                                size={15}
+                                className={cn("transition-transform duration-200", isProdMenuOpen && "rotate-180")}
                               />
-                            ))}
+                            </button>
                           </div>
+
+                          {/* Dropdown Menu Panel */}
+                          <AnimatePresence>
+                            {isProdMenuOpen && (
+                              <>
+                                {/* Overlay backdrop for closing on outside click */}
+                                <div
+                                  className="fixed inset-0 z-30"
+                                  onClick={() => setIsProdMenuOpen(false)}
+                                />
+
+                                <motion.div
+                                  initial={{ opacity: 0, y: -10, scale: 0.98 }}
+                                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                                  exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                                  transition={{ duration: 0.15 }}
+                                  className="absolute top-full left-0 right-0 mt-2 z-40 bg-surface/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl overflow-hidden p-3 md:p-4 max-h-[75vh] overflow-y-auto"
+                                >
+                                  <div className="flex items-center justify-between pb-3 mb-3 border-b border-border/60 px-1">
+                                    <div className="flex items-center gap-2">
+                                      <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                                        <LayoutGrid size={16} />
+                                      </div>
+                                      <div>
+                                        <h4 className="text-xs font-extrabold text-text-main uppercase tracking-wider">
+                                          Funcionalidades de Productividad
+                                        </h4>
+                                        <p className="text-[11px] text-text-muted">
+                                          Selecciona el módulo al que deseas ingresar
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => setIsProdMenuOpen(false)}
+                                      className="p-1.5 rounded-lg hover:bg-bg text-text-muted hover:text-text-main transition-colors"
+                                    >
+                                      <X size={16} />
+                                    </button>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                                    {visibleTabs.map(tab => {
+                                      const isActive = prodTab === tab.id;
+                                      return (
+                                        <button
+                                          key={tab.id}
+                                          type="button"
+                                          onClick={() => {
+                                            setProdTab(tab.id as ProductivityTab);
+                                            setIsProdMenuOpen(false);
+                                          }}
+                                          className={cn(
+                                            "flex items-center gap-3 p-3 rounded-xl border text-left transition-all relative group cursor-pointer",
+                                            isActive
+                                              ? "bg-primary text-white border-primary shadow-md shadow-primary/20"
+                                              : "bg-surface hover:bg-surface-hover text-text-main border-border/80 hover:border-primary/40 hover:shadow-sm"
+                                          )}
+                                        >
+                                          <div
+                                            className={cn(
+                                              "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors",
+                                              isActive
+                                                ? "bg-white/20 text-white"
+                                                : "bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white"
+                                            )}
+                                          >
+                                            {tab.icon}
+                                          </div>
+                                          <div className="min-w-0 flex-1 pr-4">
+                                            <span className={cn(
+                                              "text-xs font-bold block truncate",
+                                              isActive ? "text-white" : "text-text-main"
+                                            )}>
+                                              {tab.label}
+                                            </span>
+                                          </div>
+                                          {isActive && (
+                                            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white text-primary flex items-center justify-center">
+                                              <Check size={11} strokeWidth={3} />
+                                            </div>
+                                          )}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </motion.div>
+                              </>
+                            )}
+                          </AnimatePresence>
                         </div>
                       );
                     })()}
