@@ -143,17 +143,36 @@ export class ProductionService {
         item["decripcion_material"] = matName;
         item["descripcion_material"] = matName;
 
-        const shiftDurationHours = shift ? Number(shift.durationHours || shift.duracion_horas || 8) : 8;
+        const itemDateStr = String(item.date || item.fecha || "").substring(0, 10);
 
-        const stops = dbParos.filter((s: any) => 
-          s &&
-          String(s.date || s.fecha || "").substring(0, 10) === String(item.date || item.fecha || "").substring(0, 10) &&
-          isStopForShift(s, shiftId, dbShifts) &&
-          isStopForMachine(s, palId, dbPalletizers, dbBaggers)
-        );
+        const stops = dbParos.filter((s: any) => {
+          if (!s) return false;
+          
+          // Normalización de fechas (soporta ISO YYYY-MM-DD y DD/MM/YYYY)
+          const stopDateStr = String(s.date || s.fecha || "").substring(0, 10);
+          const matchFecha = !itemDateStr || !stopDateStr ||
+                             stopDateStr === itemDateStr || 
+                             stopDateStr.split('-').reverse().join('/') === itemDateStr ||
+                             itemDateStr.split('-').reverse().join('/') === stopDateStr ||
+                             (isStopForShift(s, shiftId, dbShifts) && isStopForMachine(s, palId, dbPalletizers, dbBaggers));
 
+          if (!matchFecha) return false;
+
+          // Comparación flexible de turno (por ID o por Nombre)
+          const pShift = String(s.shiftId || s.shift_id || s.id_turno || s.shiftName || s.turno || "").trim().toLowerCase();
+          const iShift = String(item.shiftId || item.shift_id || item.id_turno || item.shiftName || item.turno || "").trim().toLowerCase();
+
+          const shiftMatch = !iShift || !pShift || pShift === iShift || pShift.includes(iShift) || iShift.includes(pShift) || isStopForShift(s, shiftId, dbShifts);
+
+          const machMatch = isStopForMachine(s, palId, dbPalletizers, dbBaggers) || !palId;
+
+          return shiftMatch && machMatch;
+        });
+
+        const shiftDurationHours = Number(shift?.durationHours || shift?.duracion_horas || 8);
         const stopMins = stops.reduce((sum: number, s: any) => sum + (Number(s.durationMinutes || s.duracion_minutos || s.duration) || 0), 0);
         const stopHours = stopMins / 60;
+
         const actualHsMarchaVal = Math.max(0, shiftDurationHours - stopHours);
 
         // ASIGNACIÓN EXPLÍCITA DE HORAS DE MARCHA
@@ -162,6 +181,7 @@ export class ProductionService {
         item.hs_marcha = marchaFormatted;
         item.horasMarcha = marchaFormatted;
         item.marcha = `${marchaFormatted} hs`;
+        item.duracionHoras = shiftDurationHours;
 
         const externalStopMinutes = stops
           .filter((s: any) => {

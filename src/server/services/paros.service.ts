@@ -166,21 +166,24 @@ export class ParosService {
       });
 
       list.forEach((p: any) => {
-        p.durationMinutes = Number(p.durationMinutes || p.duracion_minutos || p.duration || (p.durationTime ? durationMinutesFromHHMMSS(p.durationTime) : 0));
+        const durMins = Number(p.durationMinutes || p.duracion_minutos || p.duration || (p.durationTime ? durationMinutesFromHHMMSS(p.durationTime) : 0));
+        p.durationMinutes = durMins;
+        p.duracion_minutos = durMins;
+        p.duration = durMins;
 
         const shiftKey = String(p.shiftId || p.shift_id || p.id_turno || "").trim().toLowerCase();
         const resolvedShiftName = shiftMap.get(shiftKey);
         if (resolvedShiftName) {
-          p.shiftDescription = resolvedShiftName;
-          p.shiftName = resolvedShiftName;
-          p.turno = resolvedShiftName;
+          if (!p.shiftDescription) p.shiftDescription = resolvedShiftName;
+          if (!p.shiftName) p.shiftName = resolvedShiftName;
+          if (!p.turno) p.turno = resolvedShiftName;
         }
 
         const macKey = String(p.machineId || p.maquina_id || p.palletizerId || p.palletizadora_id || "").trim().toLowerCase();
         const resolvedMacName = machineMap.get(macKey);
         if (resolvedMacName) {
-          p.machineName = resolvedMacName;
-          p.equipoDescription = resolvedMacName;
+          if (!p.machineName) p.machineName = resolvedMacName;
+          if (!p.equipoDescription) p.equipoDescription = resolvedMacName;
         }
 
         // Shift ID lookup if missing
