@@ -254,7 +254,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
     // Reset Form
     setFormData({ 
       materialId: formData.materialId, 
-      startTime: formData.endTime,      
+      startTime: formData.startTime,      
       endTime: '', 
       hacId: '', 
       causeId: '',
