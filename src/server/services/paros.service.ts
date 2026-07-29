@@ -111,6 +111,44 @@ export class ParosService {
         GenericRepository.findAll("CAUSASV2").catch(() => []),
       ]);
 
+      const shiftMap = new Map<string, string>();
+      shifts.forEach((s: any) => {
+        if (!s) return;
+        const name = String(s.name || s.nombre || s.description || s.descripcion || "").trim();
+        [s.id, s.shift_id, s.code].forEach(k => {
+          if (k !== undefined && k !== null) shiftMap.set(String(k).trim().toLowerCase(), name);
+        });
+      });
+
+      const machineMap = new Map<string, string>();
+      [...palletizers, ...baggers].forEach((m: any) => {
+        if (!m) return;
+        const name = String(m.name || m.nombre || m.description || m.descripcion || "").trim();
+        [m.id, m.machine_id, m.hacId, m.hac_id].forEach(k => {
+          if (k !== undefined && k !== null) machineMap.set(String(k).trim().toLowerCase(), name);
+        });
+      });
+
+      // Reverse shift map for shiftId lookup from shiftName
+      const shiftIdMap = new Map<string, any>();
+      shifts.forEach((s: any) => {
+        if (!s) return;
+        const nameVal = String(s.name || s.nombre || "").trim().toLowerCase();
+        if (nameVal) shiftIdMap.set(nameVal, s.id);
+        if (s.id) shiftIdMap.set(String(s.id).trim().toLowerCase(), s.id);
+      });
+
+      // Prepared machines for fuzzy machineId matching
+      const cleanStr = (v: any) => String(v || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+      const preparedMachines = [...palletizers, ...baggers].filter(Boolean).map((p: any) => ({
+        raw: p,
+        id: p.id,
+        name: p.name || p.nombre || "",
+        cleanId: cleanStr(p.id),
+        cleanName: cleanStr(p.name || p.nombre),
+        cleanHacId: cleanStr(p.hacId || p.hac_id)
+      }));
+
       // Cause map
       const causeMap = new Map<string, any>();
       causes.forEach((c: any) => {
@@ -127,77 +165,73 @@ export class ParosService {
         if (nameKey) matMap.set(nameKey, m.id);
       });
 
-      // Shift map
-      const shiftMap = new Map<string, any>();
-      shifts.forEach((s: any) => {
-        if (!s) return;
-        const nameVal = String(s.name || s.nombre || "").trim().toUpperCase();
-        if (nameVal) shiftMap.set(nameVal, s.id);
-        if (s.id) shiftMap.set(String(s.id).trim().toUpperCase(), s.id);
-      });
+      list.forEach((p: any) => {
+        p.durationMinutes = Number(p.durationMinutes || p.duracion_minutos || p.duration || (p.durationTime ? durationMinutesFromHHMMSS(p.durationTime) : 0));
 
-      // Prepared machines
-      const cleanStr = (v: any) => String(v || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-      const preparedMachines = [...palletizers, ...baggers].filter(Boolean).map((p: any) => ({
-        raw: p,
-        id: p.id,
-        name: p.name || p.nombre || "",
-        cleanId: cleanStr(p.id),
-        cleanName: cleanStr(p.name || p.nombre),
-        cleanHacId: cleanStr(p.hacId || p.hac_id)
-      }));
+        const shiftKey = String(p.shiftId || p.shift_id || p.id_turno || "").trim().toLowerCase();
+        const resolvedShiftName = shiftMap.get(shiftKey);
+        if (resolvedShiftName) {
+          p.shiftDescription = resolvedShiftName;
+          p.shiftName = resolvedShiftName;
+          p.turno = resolvedShiftName;
+        }
 
-      list.forEach((item: any) => {
-        // Shift lookup
-        const targetShiftName = String(item.shiftName || item.turno || "").trim().toUpperCase();
-        if (targetShiftName) {
-          const foundShiftId = shiftMap.get(targetShiftName);
-          if (foundShiftId) {
-            item.shiftId = foundShiftId;
+        const macKey = String(p.machineId || p.maquina_id || p.palletizerId || p.palletizadora_id || "").trim().toLowerCase();
+        const resolvedMacName = machineMap.get(macKey);
+        if (resolvedMacName) {
+          p.machineName = resolvedMacName;
+          p.equipoDescription = resolvedMacName;
+        }
+
+        // Shift ID lookup if missing
+        if (!p.shiftId) {
+          const targetShiftName = String(p.shiftName || p.shiftDescription || p.turno || "").trim().toLowerCase();
+          if (targetShiftName) {
+            const foundShiftId = shiftIdMap.get(targetShiftName);
+            if (foundShiftId) p.shiftId = foundShiftId;
           }
         }
 
-        // Machine lookup
-        const targetMachineText = String(item.machineHacText || item["máquina afectada"] || "").trim().toUpperCase();
-        const cleanTarget = targetMachineText.replace(/[^A-Z0-9]/g, "");
+        // Machine ID lookup if missing
+        if (!p.machineId) {
+          const targetMachineText = String(p.machineHacText || p["máquina afectada"] || p.machineName || p.equipoDescription || "").trim().toUpperCase();
+          const cleanTarget = targetMachineText.replace(/[^A-Z0-9]/g, "");
 
-        if (cleanTarget) {
-          let found = preparedMachines.find(m => m.cleanId === cleanTarget || m.cleanName === cleanTarget || (m.cleanHacId && m.cleanHacId === cleanTarget));
-          if (!found) {
-            found = preparedMachines.find(m => 
-              (m.cleanId && cleanTarget.includes(m.cleanId)) || 
-              (m.cleanId && m.cleanId.includes(cleanTarget)) ||
-              (m.cleanName && cleanTarget.includes(m.cleanName)) || 
-              (m.cleanName && m.cleanName.includes(cleanTarget))
-            );
-          }
+          if (cleanTarget) {
+            let found = preparedMachines.find(m => m.cleanId === cleanTarget || m.cleanName === cleanTarget || (m.cleanHacId && m.cleanHacId === cleanTarget));
+            if (!found) {
+              found = preparedMachines.find(m => 
+                (m.cleanId && cleanTarget.includes(m.cleanId)) || 
+                (m.cleanId && m.cleanId.includes(cleanTarget)) ||
+                (m.cleanName && cleanTarget.includes(m.cleanName)) || 
+                (m.cleanName && m.cleanName.includes(cleanTarget))
+              );
+            }
 
-          if (found) {
-            item.machineId = found.id;
-            item.machineName = found.name;
+            if (found) {
+              p.machineId = found.id;
+              if (!p.machineName) p.machineName = found.name;
+              if (!p.equipoDescription) p.equipoDescription = found.name;
+            }
           }
         }
 
         // Material Fast Match
-        const matDesc = String(item.materialDescription || item.material || "").trim().toUpperCase();
+        const matDesc = String(p.materialDescription || p.material || "").trim().toUpperCase();
         if (matDesc) {
           const foundMatId = matMap.get(matDesc);
-          if (foundMatId) item.materialId = foundMatId;
+          if (foundMatId) p.materialId = foundMatId;
         }
 
         // Cause Fast Match
-        const causeTxt = String(item.causeText || item["texto de causa"] || "").trim().toUpperCase();
+        const causeTxt = String(p.causeText || p["texto de causa"] || "").trim().toUpperCase();
         if (causeTxt) {
           const foundCauseId = causeMap.get(causeTxt);
-          if (foundCauseId) item.causeId = foundCauseId;
+          if (foundCauseId) p.causeId = foundCauseId;
         }
 
-        // durationMinutes & Time Formats
-        if (item.durationTime) {
-          item.durationMinutes = durationMinutesFromHHMMSS(item.durationTime);
-        }
-        if (item.startTime && item.startTime.length === 8) item.startTime = item.startTime.slice(0, 5);
-        if (item.endTime && item.endTime.length === 8) item.endTime = item.endTime.slice(0, 5);
+        if (p.startTime && p.startTime.length === 8) p.startTime = p.startTime.slice(0, 5);
+        if (p.endTime && p.endTime.length === 8) p.endTime = p.endTime.slice(0, 5);
       });
     } catch (err) {
       console.error("Error enriching PAROSV2 on read:", err);

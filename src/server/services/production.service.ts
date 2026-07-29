@@ -67,30 +67,24 @@ function isStopForShift(stop: any, shiftId: string | null | undefined, dbShifts:
   if (!stop || !shiftId) return false;
   const targetId = String(shiftId).trim().toUpperCase();
   
-  const selectedS = dbShifts.find((s: any) => s && String(s.id).trim().toUpperCase() === targetId);
-  if (!selectedS) {
-    const stopShiftId = String(stop.shiftId || '').trim().toUpperCase();
-    return stopShiftId === targetId;
+  const stopShiftId = String(stop.shiftId || stop.shift_id || stop.id_turno || '').trim().toUpperCase();
+  const stopShiftName = String(stop.shiftName || stop.shiftDescription || stop.turno || '').trim().toUpperCase();
+
+  // Coincidencia directa de ID
+  if (stopShiftId && stopShiftId === targetId) return true;
+
+  const selectedS = dbShifts.find((s: any) => s && (
+    String(s.id || '').trim().toUpperCase() === targetId ||
+    String(s.code || s.shift_id || '').trim().toUpperCase() === targetId
+  ));
+
+  if (selectedS) {
+    const sId = String(selectedS.id || '').trim().toUpperCase();
+    const sName = String(selectedS.name || selectedS.nombre || '').trim().toUpperCase();
+    
+    if (stopShiftId === sId || stopShiftName === sName) return true;
+    if (sName && stopShiftName && (stopShiftName.includes(sName) || sName.includes(stopShiftName))) return true;
   }
-  
-  const sId = String(selectedS.id).trim().toUpperCase();
-  const sName = String(selectedS.name || selectedS.nombre || "").trim().toUpperCase();
-  
-  const stopShiftId = String(stop.shiftId || "").trim().toUpperCase();
-  const stopShiftName = String(stop.shiftName || stop.turno || "").trim().toUpperCase();
-  
-  if (stopShiftId === sId) return true;
-  if (stopShiftName === sName) return true;
-  if (stopShiftId === sName) return true;
-  if (stopShiftName === sId) return true;
-  
-  // Robust substring matching (e.g. "TURNO A" matching or including "A")
-  if (sName && stopShiftName && (stopShiftName.includes(sName) || sName.includes(stopShiftName))) return true;
-  
-  // Custom normalization: strip "TURNO" prefix/suffix
-  const cleanSName = sName.replace("TURNO", "").trim();
-  const cleanStopShiftName = stopShiftName.replace("TURNO", "").trim();
-  if (cleanSName && cleanStopShiftName && cleanSName === cleanStopShiftName) return true;
 
   return false;
 }
@@ -149,7 +143,7 @@ export class ProductionService {
         item["decripcion_material"] = matName;
         item["descripcion_material"] = matName;
 
-        const shiftDurationHours = shift ? Number(shift.durationHours || 8) : 8;
+        const shiftDurationHours = shift ? Number(shift.durationHours || shift.duracion_horas || 8) : 8;
 
         const stops = dbParos.filter((s: any) => 
           s &&
@@ -157,9 +151,17 @@ export class ProductionService {
           isStopForShift(s, shiftId, dbShifts) &&
           isStopForMachine(s, palId, dbPalletizers, dbBaggers)
         );
-        const stopMins = stops.reduce((sum: number, s: any) => sum + (Number(s.durationMinutes || s.duracion_minutos) || 0), 0);
+
+        const stopMins = stops.reduce((sum: number, s: any) => sum + (Number(s.durationMinutes || s.duracion_minutos || s.duration) || 0), 0);
         const stopHours = stopMins / 60;
-        const actualHsMarchaVal = shiftDurationHours - stopHours;
+        const actualHsMarchaVal = Math.max(0, shiftDurationHours - stopHours);
+
+        // ASIGNACIÓN EXPLÍCITA DE HORAS DE MARCHA
+        const marchaFormatted = Number(actualHsMarchaVal.toFixed(2));
+        item.hsMarcha = marchaFormatted;
+        item.hs_marcha = marchaFormatted;
+        item.horasMarcha = marchaFormatted;
+        item.marcha = `${marchaFormatted} hs`;
 
         const externalStopMinutes = stops
           .filter((s: any) => {
