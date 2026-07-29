@@ -11,14 +11,20 @@ export class MaestrosService {
         GenericRepository.findAll("MATERIALESV2").catch(() => [])
       ]);
 
+      const shiftMap = new Map();
+      dbShifts.forEach((s: any) => { if (s && s.id) shiftMap.set(String(s.id).trim(), s.name || s.nombre || ""); });
+
+      const matMap = new Map();
+      dbMaterials.forEach((m: any) => { if (m && m.id) matMap.set(String(m.id).trim(), m.name || m.nombre || ""); });
+
       data.forEach((item: any) => {
         if (item.shiftId) {
-          const shift = dbShifts.find((s: any) => s && safeMatch(s.id, item.shiftId));
-          item.shiftDescription = shift ? shift.name : "";
+          const key = String(item.shiftId).trim();
+          item.shiftDescription = shiftMap.get(key) || "";
         }
         if (item.materialId) {
-          const mat = dbMaterials.find((m: any) => m && safeMatch(m.id, item.materialId));
-          item.materialDescription = mat ? mat.name : "";
+          const key = String(item.materialId).trim();
+          item.materialDescription = matMap.get(key) || "";
         }
       });
     } catch (err) {
@@ -34,14 +40,20 @@ export class MaestrosService {
         GenericRepository.findAll("PUNTOS_CARGAV2").catch(() => [])
       ]);
 
+      const shiftMap = new Map();
+      dbShifts.forEach((s: any) => { if (s && s.id) shiftMap.set(String(s.id).trim(), s.name || s.nombre || ""); });
+
+      const laneMap = new Map();
+      dbLanes.forEach((l: any) => { if (l && l.id) laneMap.set(String(l.id).trim(), l.name || l.nombre || ""); });
+
       data.forEach((item: any) => {
         if (item.shiftId) {
-          const shift = dbShifts.find((s: any) => s && safeMatch(s.id, item.shiftId));
-          item.shiftDescription = shift ? shift.name : "";
+          const key = String(item.shiftId).trim();
+          item.shiftDescription = shiftMap.get(key) || "";
         }
         if (item.loadingPointId) {
-          const lane = dbLanes.find((l: any) => l && safeMatch(l.id, item.loadingPointId));
-          item.loadingPointDescription = lane ? lane.name : "";
+          const key = String(item.loadingPointId).trim();
+          item.loadingPointDescription = laneMap.get(key) || "";
         }
       });
     } catch (err) {
@@ -57,14 +69,20 @@ export class MaestrosService {
         GenericRepository.findAll("MATERIALESV2").catch(() => [])
       ]);
 
+      const shiftMap = new Map();
+      dbShifts.forEach((s: any) => { if (s && s.id) shiftMap.set(String(s.id).trim(), s.name || s.nombre || ""); });
+
+      const matMap = new Map();
+      dbMaterials.forEach((m: any) => { if (m && m.id) matMap.set(String(m.id).trim(), m.name || m.nombre || ""); });
+
       data.forEach((item: any) => {
         if (item.shiftId) {
-          const shift = dbShifts.find((s: any) => s && safeMatch(s.id, item.shiftId));
-          item.shiftDescription = shift ? shift.name : "";
+          const key = String(item.shiftId).trim();
+          item.shiftDescription = shiftMap.get(key) || "";
         }
         if (item.materialId) {
-          const mat = dbMaterials.find((m: any) => m && safeMatch(m.id, item.materialId));
-          item.materialDescription = mat ? mat.name : "";
+          const key = String(item.materialId).trim();
+          item.materialDescription = matMap.get(key) || "";
         }
       });
     } catch (err) {
