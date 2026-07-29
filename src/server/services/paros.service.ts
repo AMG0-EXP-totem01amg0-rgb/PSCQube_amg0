@@ -111,13 +111,55 @@ export class ParosService {
         GenericRepository.findAll("CAUSASV2").catch(() => []),
       ]);
 
+      const cleanShiftKey = (val: any) => {
+        if (!val) return "";
+        let s = String(val).trim().toLowerCase();
+        return s.replace(/^shi-/, "").replace(/^turno\s*/, "").trim();
+      };
+
+      const normalizeDateStr = (val: any) => {
+        if (!val) return "";
+        let s = String(val).trim();
+        if (s.includes("T")) s = s.split("T")[0];
+        if (s.includes(" ")) s = s.split(" ")[0];
+        if (s.includes("/")) {
+          const parts = s.split("/");
+          if (parts.length === 3 && parts[2].length === 4) {
+            return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+          }
+        }
+        if (s.includes("-")) {
+          const parts = s.split("-");
+          if (parts.length === 3 && parts[0].length === 2 && parts[2].length === 4) {
+            return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+          }
+        }
+        return s;
+      };
+
       const shiftMap = new Map<string, string>();
+      const shiftIdMap = new Map<string, any>();
       shifts.forEach((s: any) => {
         if (!s) return;
         const name = String(s.name || s.nombre || s.description || s.descripcion || "").trim();
         [s.id, s.shift_id, s.code].forEach(k => {
-          if (k !== undefined && k !== null) shiftMap.set(String(k).trim().toLowerCase(), name);
+          if (k !== undefined && k !== null) {
+            const rawKey = String(k).trim().toLowerCase();
+            const cleanKey = cleanShiftKey(k);
+            if (name) {
+              if (rawKey) shiftMap.set(rawKey, name);
+              if (cleanKey) shiftMap.set(cleanKey, name);
+            }
+            if (s.id) {
+              if (rawKey) shiftIdMap.set(rawKey, s.id);
+              if (cleanKey) shiftIdMap.set(cleanKey, s.id);
+            }
+          }
         });
+        if (name && s.id) {
+          shiftIdMap.set(name.toLowerCase(), s.id);
+          shiftIdMap.set(cleanShiftKey(name), s.id);
+        }
       });
 
       const machineMap = new Map<string, string>();
@@ -125,17 +167,11 @@ export class ParosService {
         if (!m) return;
         const name = String(m.name || m.nombre || m.description || m.descripcion || "").trim();
         [m.id, m.machine_id, m.hacId, m.hac_id].forEach(k => {
-          if (k !== undefined && k !== null) machineMap.set(String(k).trim().toLowerCase(), name);
+          if (k !== undefined && k !== null) {
+            const rawKey = String(k).trim().toLowerCase();
+            if (name && rawKey) machineMap.set(rawKey, name);
+          }
         });
-      });
-
-      // Reverse shift map for shiftId lookup from shiftName
-      const shiftIdMap = new Map<string, any>();
-      shifts.forEach((s: any) => {
-        if (!s) return;
-        const nameVal = String(s.name || s.nombre || "").trim().toLowerCase();
-        if (nameVal) shiftIdMap.set(nameVal, s.id);
-        if (s.id) shiftIdMap.set(String(s.id).trim().toLowerCase(), s.id);
       });
 
       // Prepared machines for fuzzy machineId matching
@@ -166,14 +202,21 @@ export class ParosService {
       });
 
       list.forEach((p: any) => {
+        const normD = normalizeDateStr(p.date || p.fecha || p.finishDate);
+        if (normD) {
+          p.date = normD;
+          p.fecha = normD;
+        }
+
         const durMins = Number(p.durationMinutes || p.duracion_minutos || p.duration || (p.durationTime ? durationMinutesFromHHMMSS(p.durationTime) : 0));
         p.durationMinutes = durMins;
         p.duracion_minutos = durMins;
         p.duration = durMins;
 
-        const shiftKey = String(p.shiftId || p.shift_id || p.id_turno || "").trim().toLowerCase();
-        const resolvedShiftName = shiftMap.get(shiftKey);
-        if (resolvedShiftName) {
+        const shiftRawKey = String(p.shiftId || p.shift_id || p.id_turno || "").trim().toLowerCase();
+        const shiftCleanKey = cleanShiftKey(p.shiftId || p.shift_id || p.id_turno || p.shiftName || p.turno);
+        const resolvedShiftName = shiftMap.get(shiftRawKey) || shiftMap.get(shiftCleanKey);
+        if (resolvedShiftName && resolvedShiftName.trim() !== "") {
           if (!p.shiftDescription) p.shiftDescription = resolvedShiftName;
           if (!p.shiftName) p.shiftName = resolvedShiftName;
           if (!p.turno) p.turno = resolvedShiftName;
@@ -181,22 +224,21 @@ export class ParosService {
 
         const macKey = String(p.machineId || p.maquina_id || p.palletizerId || p.palletizadora_id || "").trim().toLowerCase();
         const resolvedMacName = machineMap.get(macKey);
-        if (resolvedMacName) {
+        if (resolvedMacName && resolvedMacName.trim() !== "") {
           if (!p.machineName) p.machineName = resolvedMacName;
           if (!p.equipoDescription) p.equipoDescription = resolvedMacName;
         }
 
-        // Shift ID lookup if missing
-        if (!p.shiftId) {
+        // Shift ID lookup if missing or unmapped
+        if (!p.shiftId || String(p.shiftId).trim() === "") {
           const targetShiftName = String(p.shiftName || p.shiftDescription || p.turno || "").trim().toLowerCase();
-          if (targetShiftName) {
-            const foundShiftId = shiftIdMap.get(targetShiftName);
-            if (foundShiftId) p.shiftId = foundShiftId;
-          }
+          const cleanTarget = cleanShiftKey(targetShiftName);
+          const foundShiftId = shiftIdMap.get(targetShiftName) || shiftIdMap.get(cleanTarget);
+          if (foundShiftId) p.shiftId = foundShiftId;
         }
 
         // Machine ID lookup if missing
-        if (!p.machineId) {
+        if (!p.machineId || String(p.machineId).trim() === "") {
           const targetMachineText = String(p.machineHacText || p["máquina afectada"] || p.machineName || p.equipoDescription || "").trim().toUpperCase();
           const cleanTarget = targetMachineText.replace(/[^A-Z0-9]/g, "");
 

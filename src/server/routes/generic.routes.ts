@@ -281,6 +281,37 @@ router.get("/api/catalogos", async (req, res) => {
   }
 });
 
+function normalizeDateStr(val: any): string {
+  if (!val) return "";
+  let s = String(val).trim();
+  if (s.includes("T")) s = s.split("T")[0];
+  if (s.includes(" ")) s = s.split(" ")[0];
+  if (s.includes("/")) {
+    const parts = s.split("/");
+    if (parts.length === 3 && parts[2].length === 4) {
+      return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+    }
+  }
+  if (s.includes("-")) {
+    const parts = s.split("-");
+    if (parts.length === 3 && parts[0].length === 2 && parts[2].length === 4) {
+      return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+    }
+  }
+  return s;
+}
+
+function matchDateFlexible(recordDateVal: any, targetDateVal: any): boolean {
+  if (!targetDateVal) return true;
+  const d1 = normalizeDateStr(recordDateVal);
+  const d2 = normalizeDateStr(targetDateVal);
+  if (!d1 || !d2) return false;
+  if (d1 === d2) return true;
+  if (d1.split('-').reverse().join('/') === d2) return true;
+  if (d2.split('-').reverse().join('/') === d1) return true;
+  return false;
+}
+
 // GET Produccion Endpoint
 router.get("/api/produccion", async (req, res) => {
   logTraceRequest(req, "GET /api/produccion", "PRODUCCIONV2");
@@ -297,9 +328,17 @@ router.get("/api/produccion", async (req, res) => {
     // Apply active filters at backend level if provided!
     const { date, dateFrom, dateTo } = req.query as Record<string, string>;
     if (dateFrom && dateTo) {
-      list = list.filter((r: any) => r.date && r.date >= dateFrom && r.date <= dateTo);
+      const normFrom = normalizeDateStr(dateFrom);
+      const normTo = normalizeDateStr(dateTo);
+      list = list.filter((r: any) => {
+        const d = normalizeDateStr(r.date || r.fecha);
+        return !d || (d >= normFrom && d <= normTo);
+      });
     } else if (date) {
-      list = list.filter((r: any) => r.date === date);
+      const filtered = list.filter((r: any) => matchDateFlexible(r.date || r.fecha, date));
+      if (filtered.length > 0) {
+        list = filtered;
+      }
     }
 
     await ProductionService.enrichProductionReportsWithNozzleNews(list);
@@ -339,9 +378,17 @@ router.get("/api/paros", async (req, res) => {
     // Apply active filters at backend level if provided!
     const { date, dateFrom, dateTo } = req.query as Record<string, string>;
     if (dateFrom && dateTo) {
-      list = list.filter((r: any) => r.date && r.date >= dateFrom && r.date <= dateTo);
+      const normFrom = normalizeDateStr(dateFrom);
+      const normTo = normalizeDateStr(dateTo);
+      list = list.filter((r: any) => {
+        const d = normalizeDateStr(r.date || r.fecha);
+        return !d || (d >= normFrom && d <= normTo);
+      });
     } else if (date) {
-      list = list.filter((r: any) => r.date === date);
+      const filtered = list.filter((r: any) => matchDateFlexible(r.date || r.fecha, date));
+      if (filtered.length > 0) {
+        list = filtered;
+      }
     }
 
     await ParosService.enrichParosOnRead(list);
@@ -390,9 +437,17 @@ router.get("/api/sheets", async (req, res) => {
     if (filterableTables.includes(upperTable)) {
       const { date, dateFrom, dateTo } = req.query as Record<string, string>;
       if (dateFrom && dateTo) {
-        list = list.filter((r: any) => r.date && r.date >= dateFrom && r.date <= dateTo);
+        const normFrom = normalizeDateStr(dateFrom);
+        const normTo = normalizeDateStr(dateTo);
+        list = list.filter((r: any) => {
+          const d = normalizeDateStr(r.date || r.fecha);
+          return !d || (d >= normFrom && d <= normTo);
+        });
       } else if (date) {
-        list = list.filter((r: any) => r.date === date);
+        const filtered = list.filter((r: any) => matchDateFlexible(r.date || r.fecha, date));
+        if (filtered.length > 0) {
+          list = filtered;
+        }
       }
     }
 

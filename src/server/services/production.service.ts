@@ -63,27 +63,74 @@ function isStopForMachine(stop: any, machineId: string | any, dbPalletizers: any
   return false;
 }
 
-function isStopForShift(stop: any, shiftId: string | null | undefined, dbShifts: any[]) {
-  if (!stop || !shiftId) return false;
-  const targetId = String(shiftId).trim().toUpperCase();
-  
-  const stopShiftId = String(stop.shiftId || stop.shift_id || stop.id_turno || '').trim().toUpperCase();
-  const stopShiftName = String(stop.shiftName || stop.shiftDescription || stop.turno || '').trim().toUpperCase();
+function cleanShiftKey(val: any): string {
+  if (!val) return "";
+  let s = String(val).trim().toLowerCase();
+  return s.replace(/^shi-/, "").replace(/^turno\s*/, "").trim();
+}
 
-  // Coincidencia directa de ID
-  if (stopShiftId && stopShiftId === targetId) return true;
+function normalizeDateStr(val: any): string {
+  if (!val) return "";
+  let s = String(val).trim();
+  if (s.includes("T")) s = s.split("T")[0];
+  if (s.includes(" ")) s = s.split(" ")[0];
+  if (s.includes("/")) {
+    const parts = s.split("/");
+    if (parts.length === 3 && parts[2].length === 4) {
+      return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+    }
+  }
+  if (s.includes("-")) {
+    const parts = s.split("-");
+    if (parts.length === 3 && parts[0].length === 2 && parts[2].length === 4) {
+      return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+    }
+  }
+  return s;
+}
+
+function matchDateFlexible(recordDateVal: any, targetDateVal: any): boolean {
+  if (!targetDateVal) return true;
+  const d1 = normalizeDateStr(recordDateVal);
+  const d2 = normalizeDateStr(targetDateVal);
+  if (!d1 || !d2) return false;
+  if (d1 === d2) return true;
+  if (d1.split('-').reverse().join('/') === d2) return true;
+  if (d2.split('-').reverse().join('/') === d1) return true;
+  return false;
+}
+
+function isStopForShift(stop: any, shiftId: string | null | undefined, dbShifts: any[]) {
+  if (!stop) return false;
+  if (!shiftId) return true;
+
+  const targetId = String(shiftId).trim().toLowerCase();
+  const cleanTargetId = cleanShiftKey(shiftId);
+  
+  const stopShiftId = String(stop.shiftId || stop.shift_id || stop.id_turno || '').trim().toLowerCase();
+  const cleanStopShiftId = cleanShiftKey(stopShiftId);
+  const stopShiftName = String(stop.shiftName || stop.shiftDescription || stop.turno || '').trim().toLowerCase();
+  const cleanStopShiftName = cleanShiftKey(stopShiftName);
+
+  // Coincidencia directa de ID o clave limpia
+  if (stopShiftId && (stopShiftId === targetId || cleanStopShiftId === cleanTargetId)) return true;
 
   const selectedS = dbShifts.find((s: any) => s && (
-    String(s.id || '').trim().toUpperCase() === targetId ||
-    String(s.code || s.shift_id || '').trim().toUpperCase() === targetId
+    String(s.id || '').trim().toLowerCase() === targetId ||
+    cleanShiftKey(s.id) === cleanTargetId ||
+    String(s.code || s.shift_id || '').trim().toLowerCase() === targetId
   ));
 
   if (selectedS) {
-    const sId = String(selectedS.id || '').trim().toUpperCase();
-    const sName = String(selectedS.name || selectedS.nombre || '').trim().toUpperCase();
-    
-    if (stopShiftId === sId || stopShiftName === sName) return true;
+    const sId = String(selectedS.id || '').trim().toLowerCase();
+    const sCleanId = cleanShiftKey(selectedS.id);
+    const sName = String(selectedS.name || selectedS.nombre || '').trim().toLowerCase();
+    const sCleanName = cleanShiftKey(sName);
+
+    if (stopShiftId === sId || cleanStopShiftId === sCleanId) return true;
+    if (stopShiftName === sName || cleanStopShiftName === sCleanName) return true;
     if (sName && stopShiftName && (stopShiftName.includes(sName) || sName.includes(stopShiftName))) return true;
+    if (sCleanName && cleanStopShiftName && (cleanStopShiftName.includes(sCleanName) || sCleanName.includes(cleanStopShiftName))) return true;
   }
 
   return false;
@@ -109,28 +156,40 @@ export class ProductionService {
       await ParosService.enrichParosOnRead(dbParos);
 
       data.forEach((item: any) => {
+        const normItemDate = normalizeDateStr(item.date || item.fecha);
+        if (normItemDate) {
+          item.date = normItemDate;
+          item.fecha = normItemDate;
+        }
+
         const shiftId = item.shiftId || item.turno_id;
-        const shift = dbShifts.find((s: any) => s && (safeMatch(s.id, shiftId) || safeMatch(s.id, item.shiftId)));
+        const shift = dbShifts.find((s: any) => s && (safeMatch(s.id, shiftId) || safeMatch(s.id, item.shiftId) || cleanShiftKey(s.id) === cleanShiftKey(shiftId)));
         const shiftName = shift ? (shift.name || shift.nombre || "") : "";
-        item.shiftDescription = shiftName;
-        item["descripción_turno"] = shiftName;
-        item["descripcion_turno"] = shiftName;
+        if (shiftName) {
+          if (!item.shiftDescription) item.shiftDescription = shiftName;
+          if (!item["descripción_turno"]) item["descripción_turno"] = shiftName;
+          if (!item["descripcion_turno"]) item["descripcion_turno"] = shiftName;
+        }
 
         const palId = item.palletizerId || item.palletizadora_id;
         const pal = dbPalletizers.find((p: any) => p && safeMatch(p.id, palId));
         const palHacId = pal ? (pal.hacId || pal.hac_id) : "";
         const hacPal = dbHacs.find((h: any) => h && (safeMatch(h.id, palHacId) || safeMatch(h.hac, palHacId)));
         const palHacVal = hacPal ? (hacPal.hac || "") : (palHacId || "");
-        item.palletizerHac = palHacVal;
-        item["hac_paletizadora"] = palHacVal;
+        if (palHacVal) {
+          if (!item.palletizerHac) item.palletizerHac = palHacVal;
+          if (!item["hac_paletizadora"]) item["hac_paletizadora"] = palHacVal;
+        }
 
         const bagId = item.baggerId || item.ensacadora_id;
         const bag = dbBaggers.find((b: any) => b && safeMatch(b.id, bagId));
         const bagHacId = bag ? (bag.hacId || bag.hac_id) : "";
         const hacBag = dbHacs.find((h: any) => h && (safeMatch(h.id, bagHacId) || safeMatch(h.hac, bagHacId)));
         const bagHacVal = hacBag ? (hacBag.hac || "") : (bagHacId || "");
-        item.baggerHac = bagHacVal;
-        item["hac_ensacadora"] = bagHacVal;
+        if (bagHacVal) {
+          if (!item.baggerHac) item.baggerHac = bagHacVal;
+          if (!item["hac_ensacadora"]) item["hac_ensacadora"] = bagHacVal;
+        }
 
         // Fallback for material ID lookup search details first if missing in root PRODUCCIONV2
         const rDetailsOnItem = dbDetails.filter((d: any) => 
@@ -139,21 +198,22 @@ export class ProductionService {
         const matId = item.materialId || item.material_id || (rDetailsOnItem[0] ? (rDetailsOnItem[0].materialId || rDetailsOnItem[0].material_id) : "");
         const mat = dbMaterials.find((m: any) => m && safeMatch(m.id, matId));
         const matName = mat ? (mat.nombre || mat.name || "") : "";
-        item.materialDescription = matName;
-        item["decripcion_material"] = matName;
-        item["descripcion_material"] = matName;
+        if (matName) {
+          if (!item.materialDescription) item.materialDescription = matName;
+          if (!item["decripcion_material"]) item["decripcion_material"] = matName;
+          if (!item["descripcion_material"]) item["descripcion_material"] = matName;
+        }
 
-        const itemDateStr = String(item.date || item.fecha || "").substring(0, 10);
+        const itemDateStr = item.date || item.fecha;
 
         const stops = dbParos.filter((s: any) => {
           if (!s) return false;
           
           // Normalización de fechas (soporta ISO YYYY-MM-DD y DD/MM/YYYY)
-          const stopDateStr = String(s.date || s.fecha || "").substring(0, 10);
+          const stopDateStr = normalizeDateStr(s.date || s.fecha);
           const matchFecha = !itemDateStr || !stopDateStr ||
                              stopDateStr === itemDateStr || 
-                             stopDateStr.split('-').reverse().join('/') === itemDateStr ||
-                             itemDateStr.split('-').reverse().join('/') === stopDateStr ||
+                             matchDateFlexible(stopDateStr, itemDateStr) ||
                              (isStopForShift(s, shiftId, dbShifts) && isStopForMachine(s, palId, dbPalletizers, dbBaggers));
 
           if (!matchFecha) return false;
@@ -162,7 +222,7 @@ export class ProductionService {
           const pShift = String(s.shiftId || s.shift_id || s.id_turno || s.shiftName || s.turno || "").trim().toLowerCase();
           const iShift = String(item.shiftId || item.shift_id || item.id_turno || item.shiftName || item.turno || "").trim().toLowerCase();
 
-          const shiftMatch = !iShift || !pShift || pShift === iShift || pShift.includes(iShift) || iShift.includes(pShift) || isStopForShift(s, shiftId, dbShifts);
+          const shiftMatch = !iShift || !pShift || pShift === iShift || pShift.includes(iShift) || iShift.includes(pShift) || cleanShiftKey(pShift) === cleanShiftKey(iShift) || isStopForShift(s, shiftId, dbShifts);
 
           const machMatch = isStopForMachine(s, palId, dbPalletizers, dbBaggers) || !palId;
 
@@ -196,7 +256,7 @@ export class ProductionService {
             const stopType = String(s.stopType || c?.stopType || 'INTERNO').toUpperCase();
             return stopType === 'EXTERNO';
           })
-          .reduce((sum: number, s: any) => sum + (Number(s.durationMinutes || s.duracion_minutos) || 0), 0);
+          .reduce((sum: number, s: any) => sum + (Number(s.durationMinutes || s.duracion_minutos || s.duration) || 0), 0);
         const externalStopHours = externalStopMinutes / 60;
 
         // Disponibilidad = (hs. de paro externo + hs. de marcha) / duración de turno
@@ -205,8 +265,8 @@ export class ProductionService {
         const availabilityPercent = Math.round(availVal * 100);
 
         const availStr = `${availabilityPercent}%`;
-        item.availability = availStr;
-        item.disponibilidad = availStr;
+        item.availability = availabilityPercent;
+        item.disponibilidad = availabilityPercent;
 
         // Rendimiento
         const contextReports = data.filter((r: any) => 
