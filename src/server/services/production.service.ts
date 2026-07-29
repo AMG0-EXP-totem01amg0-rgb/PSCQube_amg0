@@ -3,6 +3,7 @@ import { getSupabaseClient } from "./supabase.service.js";
 import { safeMatch, safeHacMatch } from "../utils/helpers.js";
 import { invalidateCache } from "../cache/cache.service.js";
 import { ParosService } from "./paros.service.js";
+import { mapSupabaseRowToClient, mapItemForSupabase } from "../utils/mappings.js";
 
 function isStopForMachine(stop: any, machineId: string | any, dbPalletizers: any[], dbBaggers: any[]) {
   if (!stop || !machineId) return false;
@@ -256,25 +257,33 @@ export class ProductionService {
 
   static async deleteNozzlesForProduction(productionId: string): Promise<void> {
     const supabase = getSupabaseClient();
-    if (!supabase) return;
+    if (!supabase || !productionId) return;
     try {
-      const list = await GenericRepository.findAll("PAROS_BOQUILLASV2");
-      const matching = list.filter((n: any) => 
-        String(n.productionId || n.produccion_id || n.id_produccion || "").trim() === String(productionId || "").trim()
-      );
-      for (const match of matching) {
-        await GenericRepository.delete("PAROS_BOQUILLASV2", match.id);
+      const { error } = await supabase
+        .from("paros_boquillasv2")
+        .delete()
+        .eq("produccion_id", productionId);
+
+      if (error) {
+        await supabase
+          .from("PAROS_BOQUILLASV2")
+          .delete()
+          .eq("productionId", productionId);
       }
+      invalidateCache("PAROS_BOQUILLASV2");
     } catch (err) {
       console.error("Error deleting old nozzles for productionId " + productionId + ":", err);
     }
   }
 
   static async syncProductionNozzles(item: any): Promise<void> {
-    if (!item.nozzleNews || !Array.isArray(item.nozzleNews)) return;
+    if (!item.nozzleNews || !Array.isArray(item.nozzleNews) || item.nozzleNews.length === 0) {
+      await ProductionService.deleteNozzlesForProduction(item.id);
+      return;
+    }
     try {
       const nozzleNewsEntries = item.nozzleNews.map((news: any) => ({
-        id: news.id,
+        id: news.id || Math.random().toString(36).substr(2, 9),
         productionId: item.id,
         nozzleNumber: news.nozzleNumber,
         startTime: news.startTime,
@@ -285,8 +294,18 @@ export class ProductionService {
 
       await ProductionService.deleteNozzlesForProduction(item.id);
 
-      for (const entry of nozzleNewsEntries) {
-        await GenericRepository.create("PAROS_BOQUILLASV2", entry);
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        const mappedEntries = nozzleNewsEntries.map((news: any) => mapItemForSupabase("PAROS_BOQUILLASV2", news));
+        const { error } = await supabase.from("paros_boquillasv2").insert(mappedEntries);
+        if (error) {
+          await supabase.from("PAROS_BOQUILLASV2").insert(mappedEntries);
+        }
+        invalidateCache("PAROS_BOQUILLASV2");
+      } else {
+        for (const entry of nozzleNewsEntries) {
+          await GenericRepository.create("PAROS_BOQUILLASV2", entry);
+        }
       }
     } catch (err) {
       console.error("Error syncing production nozzles:", err);
@@ -295,22 +314,30 @@ export class ProductionService {
 
   static async deleteDetailsForProduction(productionId: string): Promise<void> {
     const supabase = getSupabaseClient();
-    if (!supabase) return;
+    if (!supabase || !productionId) return;
     try {
-      const list = await GenericRepository.findAll("DETALLES_PRODUCCIONV2");
-      const matching = list.filter((d: any) => 
-        String(d.productionId || d.produccion_id || d.id_produccion || "").trim() === String(productionId || "").trim()
-      );
-      for (const match of matching) {
-        await GenericRepository.delete("DETALLES_PRODUCCIONV2", match.id);
+      const { error } = await supabase
+        .from("detalles_produccionv2")
+        .delete()
+        .eq("produccion_id", productionId);
+
+      if (error) {
+        await supabase
+          .from("DETALLES_PRODUCCIONV2")
+          .delete()
+          .eq("productionId", productionId);
       }
+      invalidateCache("DETALLES_PRODUCCIONV2");
     } catch (err) {
       console.error("Error deleting old details for productionId " + productionId + ":", err);
     }
   }
 
   static async syncProductionDetails(item: any): Promise<void> {
-    if (!item.materialsDetails || !Array.isArray(item.materialsDetails)) return;
+    if (!item.materialsDetails || !Array.isArray(item.materialsDetails) || item.materialsDetails.length === 0) {
+      await ProductionService.deleteDetailsForProduction(item.id);
+      return;
+    }
     try {
       const detailEntries = item.materialsDetails.map((det: any) => ({
         id: det.id || Math.random().toString(36).substr(2, 9),
@@ -331,8 +358,18 @@ export class ProductionService {
 
       await ProductionService.deleteDetailsForProduction(item.id);
 
-      for (const entry of detailEntries) {
-        await GenericRepository.create("DETALLES_PRODUCCIONV2", entry);
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        const mappedEntries = detailEntries.map((det: any) => mapItemForSupabase("DETALLES_PRODUCCIONV2", det));
+        const { error } = await supabase.from("detalles_produccionv2").insert(mappedEntries);
+        if (error) {
+          await supabase.from("DETALLES_PRODUCCIONV2").insert(mappedEntries);
+        }
+        invalidateCache("DETALLES_PRODUCCIONV2");
+      } else {
+        for (const entry of detailEntries) {
+          await GenericRepository.create("DETALLES_PRODUCCIONV2", entry);
+        }
       }
     } catch (err) {
       console.error("Error syncing production details:", err);
@@ -350,12 +387,32 @@ export class ProductionService {
   }
 
   static async enrichProductionReportsWithNozzleNews(list: any[]): Promise<void> {
+    if (!list || list.length === 0) return;
     try {
-      const nozzleList = await GenericRepository.findAll("PAROS_BOQUILLASV2");
+      const ids = list.map(item => String(item.id || "").trim()).filter(Boolean);
+      const supabase = getSupabaseClient();
+      if (!supabase || ids.length === 0) return;
+
+      let { data: nozzleList, error } = await supabase
+        .from("paros_boquillasv2")
+        .select("*")
+        .in("produccion_id", ids);
+
+      if (error || !nozzleList) {
+        const res = await supabase.from("PAROS_BOQUILLASV2").select("*").in("productionId", ids);
+        nozzleList = res.data || [];
+      }
+
+      const mapNozzles = new Map();
+      (nozzleList || []).forEach((raw: any) => {
+        const n = mapSupabaseRowToClient("PAROS_BOQUILLASV2", raw);
+        const pId = String(n.productionId || n.produccion_id || n.id_produccion || "").trim();
+        if (!mapNozzles.has(pId)) mapNozzles.set(pId, []);
+        mapNozzles.get(pId).push(n);
+      });
+
       list.forEach((item: any) => {
-        item.nozzleNews = nozzleList.filter((n: any) => 
-          String(n.productionId || n.produccion_id || n.id_produccion || "").trim() === String(item.id || "").trim()
-        );
+        item.nozzleNews = mapNozzles.get(String(item.id || "").trim()) || [];
       });
     } catch (err) {
       console.error("Error fetching PAROS_BOQUILLASV2 on read:", err);
@@ -366,12 +423,32 @@ export class ProductionService {
   }
 
   static async enrichProductionReportsWithDetails(list: any[]): Promise<void> {
+    if (!list || list.length === 0) return;
     try {
-      const detailsList = await GenericRepository.findAll("DETALLES_PRODUCCIONV2");
+      const ids = list.map(item => String(item.id || "").trim()).filter(Boolean);
+      const supabase = getSupabaseClient();
+      if (!supabase || ids.length === 0) return;
+
+      let { data: detailsList, error } = await supabase
+        .from("detalles_produccionv2")
+        .select("*")
+        .in("produccion_id", ids);
+
+      if (error || !detailsList) {
+        const res = await supabase.from("DETALLES_PRODUCCIONV2").select("*").in("productionId", ids);
+        detailsList = res.data || [];
+      }
+
+      const mapDetails = new Map();
+      (detailsList || []).forEach((raw: any) => {
+        const d = mapSupabaseRowToClient("DETALLES_PRODUCCIONV2", raw);
+        const pId = String(d.productionId || d.produccion_id || d.id_produccion || "").trim();
+        if (!mapDetails.has(pId)) mapDetails.set(pId, []);
+        mapDetails.get(pId).push(d);
+      });
+
       list.forEach((item: any) => {
-        item.materialsDetails = detailsList.filter((d: any) => 
-          String(d.productionId || d.produccion_id || d.id_produccion || "").trim() === String(item.id || "").trim()
-        );
+        item.materialsDetails = mapDetails.get(String(item.id || "").trim()) || [];
       });
     } catch (err) {
       console.warn("Error fetching DETALLES_PRODUCCIONV2 on read:", err);
