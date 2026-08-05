@@ -1888,7 +1888,7 @@ export default function App() {
                                   animate={{ opacity: 1, y: 0, scale: 1 }}
                                   exit={{ opacity: 0, y: -10, scale: 0.98 }}
                                   transition={{ duration: 0.15 }}
-                                  className="absolute top-full left-0 right-0 mt-2 z-40 bg-surface/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl overflow-hidden p-3 md:p-4 max-h-[75vh] overflow-y-auto"
+                                  className="absolute top-full left-0 right-0 mt-2 z-40 bg-surface/95 dark:bg-slate-900/95 backdrop-blur-xl border border-border dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden p-3 md:p-4 max-h-[75vh] overflow-y-auto"
                                 >
                                   <div className="flex items-center justify-between pb-3 mb-3 border-b border-border/60 px-1">
                                     <div className="flex items-center gap-2">
@@ -1928,7 +1928,7 @@ export default function App() {
                                             "flex items-center gap-3 p-3 rounded-xl border text-left transition-all relative group cursor-pointer",
                                             isActive
                                               ? "bg-primary text-white border-primary shadow-md shadow-primary/20"
-                                              : "bg-surface hover:bg-surface-hover text-text-main border-border/80 hover:border-primary/40 hover:shadow-sm"
+                                              : "bg-slate-100/90 hover:bg-slate-200/90 border-slate-200/90 text-slate-900 dark:bg-slate-800/90 dark:hover:bg-slate-700/90 dark:border-slate-700/90 dark:text-slate-100 hover:border-primary/50 dark:hover:border-primary/50 hover:shadow-md"
                                           )}
                                         >
                                           <div
@@ -1936,7 +1936,7 @@ export default function App() {
                                               "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors",
                                               isActive
                                                 ? "bg-white/20 text-white"
-                                                : "bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white"
+                                                : "bg-primary/10 dark:bg-primary/25 text-primary group-hover:bg-primary group-hover:text-white"
                                             )}
                                           >
                                             {tab.icon}
@@ -1944,7 +1944,7 @@ export default function App() {
                                           <div className="min-w-0 flex-1 pr-4">
                                             <span className={cn(
                                               "text-xs font-bold block truncate",
-                                              isActive ? "text-white" : "text-text-main"
+                                              isActive ? "text-white" : "text-slate-900 dark:text-slate-100"
                                             )}>
                                               {tab.label}
                                             </span>
