@@ -418,6 +418,15 @@ export default function DashboardView({
     return groups;
   }, [inventoryEntries, productionReports, dispatchEntries, allProductionReports, allDispatchEntries, masters.materials, masters.shifts, selectedShift]);
 
+  const productiveTotals = React.useMemo(() => {
+    const items = inventorySummary.productive || [];
+    const stock = items.reduce((acc, item) => acc + (Number(item.stock) || 0), 0);
+    const production = items.reduce((acc, item) => acc + (Number(item.production) || 0), 0);
+    const dispatch = items.reduce((acc, item) => acc + (Number(item.dispatch) || 0), 0);
+    const total = items.reduce((acc, item) => acc + (Number(item.total) || 0), 0);
+    return { stock, production, dispatch, total };
+  }, [inventorySummary.productive]);
+
   const hasAnyInventory = 
     inventorySummary.productive.length > 0 || 
     inventorySummary.bigbags.length > 0 ||
@@ -614,10 +623,57 @@ export default function DashboardView({
 
           {/* Tarjetas de Materiales Productivos */}
           {inventorySummary.productive.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {inventorySummary.productive.map((item, idx) => (
-                <MaterialStatCard key={item.id || idx} item={item} />
-              ))}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {inventorySummary.productive.map((item, idx) => (
+                  <MaterialStatCard key={item.id || idx} item={item} />
+                ))}
+              </div>
+
+              {/* Contenedor Totalizador Horizontal */}
+              <div className="ui-card p-5 border-2 border-primary/30 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent relative overflow-hidden group shadow-lg">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 shrink-0 border-b lg:border-b-0 lg:border-r border-primary/20 pb-3 lg:pb-0 lg:pr-6">
+                    <div className="p-2.5 bg-primary/20 rounded-xl">
+                      <Activity className="text-primary" size={22} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-text-main uppercase tracking-widest">Totales Generales</h4>
+                      <p className="text-[10px] text-text-muted font-extrabold uppercase tracking-wider">Consolidado Materiales Productivos</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 flex-1">
+                    <div className="bg-white/[0.02] border border-white/5 p-3.5 rounded-xl flex flex-col justify-center">
+                      <span className="text-[10px] text-text-muted font-bold uppercase tracking-wider mb-1">Total Stock Contado</span>
+                      <span className="font-mono text-base sm:text-xl font-black text-text-main">
+                        {Math.round(productiveTotals.stock).toFixed(0)} TN
+                      </span>
+                    </div>
+
+                    <div className="bg-emerald-500/[0.03] border border-emerald-500/20 p-3.5 rounded-xl flex flex-col justify-center">
+                      <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1">Total Producido (+)</span>
+                      <span className="font-mono text-base sm:text-xl font-black text-emerald-400">
+                        +{Math.round(productiveTotals.production).toFixed(0)} TN
+                      </span>
+                    </div>
+
+                    <div className="bg-red-500/[0.03] border border-red-500/20 p-3.5 rounded-xl flex flex-col justify-center">
+                      <span className="text-[10px] text-red-500 font-bold uppercase tracking-wider mb-1">Total Despachado (-)</span>
+                      <span className="font-mono text-base sm:text-xl font-black text-red-500">
+                        -{Math.round(productiveTotals.dispatch).toFixed(0)} TN
+                      </span>
+                    </div>
+
+                    <div className="bg-primary/10 border border-primary/30 p-3.5 rounded-xl flex flex-col justify-center">
+                      <span className="text-[10px] text-primary font-black uppercase tracking-wider mb-1">Total Disponible</span>
+                      <span className="font-mono text-lg sm:text-2xl font-black text-primary">
+                        {Math.round(productiveTotals.total).toFixed(0)} TN
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
