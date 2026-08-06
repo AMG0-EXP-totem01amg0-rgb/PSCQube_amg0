@@ -360,14 +360,11 @@ export default function App() {
   useEffect(() => {
     const theme = isDark ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', theme);
-<<<<<<< HEAD
     if (isDark) {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-=======
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
   }, [isDark]);
 
   useEffect(() => {
@@ -1838,36 +1835,27 @@ export default function App() {
                       return (
                         <div className="relative max-w-7xl mx-auto px-1">
                           {/* Selector Bar Header */}
-<<<<<<< HEAD
                           <div className={cn(
                             "flex items-center justify-between gap-3 p-3 px-4 rounded-2xl transition-all border shadow-lg ring-1",
                             isDark 
                               ? "bg-[#1E293B] border-slate-600/80 ring-white/10 shadow-black/50" 
                               : "bg-white border-slate-200/90 ring-black/5 shadow-slate-200/50"
                           )}>
-=======
-                          <div className="flex items-center justify-between gap-3 bg-surface border border-border/80 p-2 px-3 rounded-2xl shadow-sm">
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
                             <button
                               type="button"
                               onClick={() => setIsProdMenuOpen(!isProdMenuOpen)}
                               className="flex items-center gap-3 text-left flex-1 min-w-0 hover:opacity-90 transition-opacity focus:outline-none group"
                             >
-<<<<<<< HEAD
                               <div className={cn(
                                 "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border transition-colors shadow-xs",
                                 isDark 
                                   ? "bg-primary/30 text-blue-300 border-primary/40 group-hover:bg-primary group-hover:text-white" 
                                   : "bg-primary/10 text-primary border-primary/20 group-hover:bg-primary group-hover:text-white"
                               )}>
-=======
-                              <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 group-hover:bg-primary group-hover:text-white transition-colors">
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
                                 {currentTabObj?.icon}
                               </div>
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2">
-<<<<<<< HEAD
                                   <span className={cn(
                                     "text-[10px] font-black uppercase tracking-widest",
                                     isDark ? "text-slate-300" : "text-slate-500"
@@ -1885,16 +1873,6 @@ export default function App() {
                                   "text-sm font-black truncate flex items-center gap-1.5",
                                   isDark ? "text-white" : "text-slate-900"
                                 )}>
-=======
-                                  <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">
-                                    Funcionalidad Activa
-                                  </span>
-                                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-extrabold">
-                                    {visibleTabs.length} disponibles
-                                  </span>
-                                </div>
-                                <p className="text-sm font-extrabold text-text-main truncate flex items-center gap-1.5">
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
                                   {currentTabObj?.label}
                                 </p>
                               </div>
@@ -1904,19 +1882,12 @@ export default function App() {
                               type="button"
                               onClick={() => setIsProdMenuOpen(!isProdMenuOpen)}
                               className={cn(
-<<<<<<< HEAD
                                 "flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all border shadow-sm shrink-0",
                                 isProdMenuOpen
                                   ? "bg-primary text-white border-primary shadow-primary/30 ring-2 ring-primary/40"
                                   : isDark
                                     ? "bg-slate-700/90 hover:bg-slate-600 text-white border-slate-500/80 hover:border-blue-400"
                                     : "bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300 hover:border-primary/50"
-=======
-                                "flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all border shadow-xs shrink-0",
-                                isProdMenuOpen
-                                  ? "bg-primary text-white border-primary shadow-primary/20"
-                                  : "bg-surface hover:bg-surface-hover text-text-main border-border hover:border-primary/40"
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
                               )}
                             >
                               <LayoutGrid size={15} />
@@ -1943,7 +1914,6 @@ export default function App() {
                                   animate={{ opacity: 1, y: 0, scale: 1 }}
                                   exit={{ opacity: 0, y: -10, scale: 0.98 }}
                                   transition={{ duration: 0.15 }}
-<<<<<<< HEAD
                                   className={cn(
                                     "absolute top-full left-0 right-0 mt-2.5 z-40 rounded-2xl shadow-2xl overflow-hidden p-3.5 md:p-5 max-h-[75vh] overflow-y-auto border backdrop-blur-xl transition-all",
                                     isDark
@@ -1973,20 +1943,6 @@ export default function App() {
                                           "text-[11px]",
                                           isDark ? "text-slate-400" : "text-slate-500"
                                         )}>
-=======
-                                  className="absolute top-full left-0 right-0 mt-2 z-40 bg-surface/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl overflow-hidden p-3 md:p-4 max-h-[75vh] overflow-y-auto"
-                                >
-                                  <div className="flex items-center justify-between pb-3 mb-3 border-b border-border/60 px-1">
-                                    <div className="flex items-center gap-2">
-                                      <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-                                        <LayoutGrid size={16} />
-                                      </div>
-                                      <div>
-                                        <h4 className="text-xs font-extrabold text-text-main uppercase tracking-wider">
-                                          Funcionalidades de Productividad
-                                        </h4>
-                                        <p className="text-[11px] text-text-muted">
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
                                           Selecciona el módulo al que deseas ingresar
                                         </p>
                                       </div>
@@ -1994,16 +1950,12 @@ export default function App() {
                                     <button
                                       type="button"
                                       onClick={() => setIsProdMenuOpen(false)}
-<<<<<<< HEAD
                                       className={cn(
                                         "p-1.5 rounded-lg transition-colors border",
                                         isDark 
                                           ? "hover:bg-slate-800 text-slate-400 hover:text-white border-transparent hover:border-slate-700" 
                                           : "hover:bg-slate-100 text-slate-500 hover:text-slate-900 border-transparent hover:border-slate-200"
                                       )}
-=======
-                                      className="p-1.5 rounded-lg hover:bg-bg text-text-muted hover:text-text-main transition-colors"
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
                                     >
                                       <X size={16} />
                                     </button>
@@ -2023,32 +1975,20 @@ export default function App() {
                                           className={cn(
                                             "flex items-center gap-3 p-3 rounded-xl border text-left transition-all relative group cursor-pointer",
                                             isActive
-<<<<<<< HEAD
                                               ? "bg-primary text-white border-primary shadow-md shadow-primary/20 font-bold"
                                               : isDark
                                                 ? "bg-slate-800/60 hover:bg-slate-800/90 border-slate-700/60 text-slate-100 hover:border-primary/60 hover:shadow-md hover:shadow-black/20"
                                                 : "bg-slate-50 hover:bg-white border-slate-200/80 text-slate-800 hover:border-primary/60 hover:shadow-md hover:shadow-slate-200/80"
-=======
-                                              ? "bg-primary text-white border-primary shadow-md shadow-primary/20"
-                                              : "bg-slate-100/90 hover:bg-slate-200/90 border-slate-200/90 text-slate-900 dark:bg-slate-800/90 dark:hover:bg-slate-700/90 dark:border-slate-700/90 dark:text-slate-100 hover:border-primary/50 dark:hover:border-primary/50 hover:shadow-md"
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
                                           )}
                                         >
                                           <div
                                             className={cn(
-<<<<<<< HEAD
                                               "w-8.5 h-8.5 rounded-lg flex items-center justify-center shrink-0 transition-colors border",
                                               isActive
                                                 ? "bg-white/20 text-white border-white/20"
                                                 : isDark
                                                   ? "bg-primary/20 text-blue-400 border-primary/30 group-hover:bg-primary group-hover:text-white group-hover:border-primary"
                                                   : "bg-primary/10 text-primary border-primary/20 group-hover:bg-primary group-hover:text-white group-hover:border-primary"
-=======
-                                              "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors",
-                                              isActive
-                                                ? "bg-white/20 text-white"
-                                                : "bg-primary/10 dark:bg-primary/25 text-primary group-hover:bg-primary group-hover:text-white"
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
                                             )}
                                           >
                                             {tab.icon}
@@ -2056,15 +1996,11 @@ export default function App() {
                                           <div className="min-w-0 flex-1 pr-4">
                                             <span className={cn(
                                               "text-xs font-bold block truncate",
-<<<<<<< HEAD
                                               isActive
                                                 ? "text-white"
                                                 : isDark
                                                   ? "text-slate-100 group-hover:text-white"
                                                   : "text-slate-800 group-hover:text-primary"
-=======
-                                              isActive ? "text-white" : "text-slate-900 dark:text-slate-100"
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
                                             )}>
                                               {tab.label}
                                             </span>
@@ -2345,10 +2281,7 @@ export default function App() {
             onSectionChange={setActiveSection} 
             currentUser={currentUser}
             onLogout={() => setIsLogoutConfirmOpen(true)}
-<<<<<<< HEAD
             isDark={isDark}
-=======
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
           />
           
           {/* Toast Notification Container */}
