@@ -504,21 +504,14 @@ export function BottomNav({
   activeSection, 
   onSectionChange,
   currentUser,
-<<<<<<< HEAD
   onLogout,
   isDark = false
-=======
-  onLogout
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
 }: { 
   activeSection: string; 
   onSectionChange: (s: any) => void;
   currentUser: AppUser;
   onLogout: () => void;
-<<<<<<< HEAD
   isDark?: boolean;
-=======
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -571,11 +564,7 @@ export function BottomNav({
                 "rounded-[2.5rem] p-6 w-[320px] sm:w-[420px] z-[160] overflow-hidden flex flex-col"
               )}
             >
-<<<<<<< HEAD
               <h4 className={cn("text-[10px] font-black uppercase tracking-[0.3em] mb-6 text-center", isDark ? "text-slate-400" : "text-slate-900 font-extrabold")}>Menú Principal</h4>
-=======
-              <h4 className="text-[10px] font-black text-text-muted uppercase tracking-[0.3em] mb-6 text-center opacity-50">Menú Principal</h4>
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
               
               <div className="grid grid-cols-3 gap-y-7 gap-x-3 mb-6">
                 {allSections.map((section, idx) => (
@@ -588,7 +577,6 @@ export function BottomNav({
                     className="flex flex-col items-center gap-2.5 group relative"
                   >
                     <div className={cn(
-<<<<<<< HEAD
                       "w-12 h-12 rounded-[1.25rem] flex items-center justify-center transition-all duration-300 border shadow-xs",
                       activeSection === section.id 
                         ? "bg-primary text-white shadow-[0_5px_20px_rgba(0,85,150,0.4)] border-primary/50 ring-2 ring-blue-400/30 scale-110" 
@@ -603,18 +591,6 @@ export function BottomNav({
                       activeSection === section.id 
                         ? (isDark ? "text-sky-400 font-extrabold" : "text-primary font-black") 
                         : (isDark ? "text-slate-200 font-bold group-hover:text-white" : "text-slate-900 font-black group-hover:text-primary")
-=======
-                      "w-12 h-12 rounded-[1.25rem] flex items-center justify-center transition-all duration-300 ring-2 ring-transparent",
-                      activeSection === section.id 
-                        ? "bg-primary text-white shadow-[0_5px_15px_rgba(0,85,150,0.4)] ring-primary/20 scale-110" 
-                        : "bg-primary/15 text-primary/70 border border-primary/20 group-hover:bg-primary/25 group-hover:text-primary group-hover:scale-105 active:scale-95"
-                    )}>
-                      {React.cloneElement(section.icon as React.ReactElement, { size: 18 })}
-                    </div>
-                    <span className={cn(
-                      "text-[8px] font-black uppercase tracking-wider text-center transition-colors px-1",
-                      activeSection === section.id ? "text-primary" : "text-text-main/60 group-hover:text-text-main"
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
                     )}>
                       {section.label}
                     </span>
@@ -635,13 +611,8 @@ export function BottomNav({
                         onClick={() => setIsUserMenuOpen(true)}
                         className="w-full flex items-center gap-3 p-2.5 rounded-2xl bg-bg/50 hover:bg-bg transition-colors group border border-border/50"
                       >
-<<<<<<< HEAD
                         <div className={cn("w-9 h-9 rounded-full border flex items-center justify-center shadow-xs overflow-hidden shrink-0", isDark ? "bg-slate-800 text-white border-slate-700" : "bg-slate-100 text-slate-900 border-slate-300")}>
                           <UserIcon size={18} className={isDark ? "text-white" : "text-slate-900"} />
-=======
-                        <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-sm overflow-hidden shrink-0">
-                          <UserIcon size={18} />
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
                         </div>
                         <div className="flex flex-col items-start min-w-0 flex-1">
                           <span className="text-[10px] font-bold text-text-main truncate w-full text-left uppercase tracking-tight leading-none mb-0.5">{userName}</span>

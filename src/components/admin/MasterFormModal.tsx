@@ -1090,15 +1090,9 @@ export function MasterFormModal({ type, item, onClose, onSave, masters }: any) {
                   <div className="md:col-span-2">
                     <GlassInput
                       label="Identificación"
-<<<<<<< HEAD
                       value={formData.identificación || formData.identificacion || ""}
                       onChange={(e: any) =>
                         setFormData({ ...formData, identificación: e.target.value, identificacion: e.target.value })
-=======
-                      value={formData.identificación || ""}
-                      onChange={(e: any) =>
-                        setFormData({ ...formData, identificación: e.target.value })
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
                       }
                       required
                     />

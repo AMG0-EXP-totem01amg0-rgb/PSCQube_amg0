@@ -14,15 +14,11 @@ export const TABLE_ALIASES: Record<string, string[]> = {
   "proveedores_bolsav2": ["proveedores_bolsa", "proveedor_bolsa"],
   "vehiculosv2": ["vehiculos", "vehiculo"],
   "capacidadesv2": ["capacidades", "capacidad"],
-<<<<<<< HEAD
   "detalles_produccionv2": ["detalles_produccion", "detalle_produccionv2", "detalle_produccion"],
   "clasisficacion_palletsv2": ["clasisficacion_pallets", "clasificacion_pallets", "clasificacion_palletsv2", "clasisficacion_pallet"],
   "clasificacion_palletsv2": ["clasisficacion_pallets", "clasificacion_pallets", "clasisficacion_palletsv2"],
   "estado_callesv2": ["estado_calles", "estados_calles", "estado_calle"],
   "inventario_fisicov2": ["inventario_fisico", "inventarios_fisicos"]
-=======
-  "detalles_produccionv2": ["detalles_produccion", "detalle_produccionv2", "detalle_produccion"]
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
 };
 
 export function getIdColumnAndKey(tableName: string): { sheetCol: string; clientKey: string } {
@@ -153,7 +149,6 @@ export function mapItemForSupabase(tableName: string, item: any): Record<string,
       }
     }
 
-<<<<<<< HEAD
     if (upperTable === "PUNTOS_CARGAV2") {
       const matIds = item.materialIds !== undefined ? item.materialIds : (item.material_ids !== undefined ? item.material_ids : tempPayload["material_ids"]);
       if (Array.isArray(matIds)) {
@@ -185,8 +180,6 @@ export function mapItemForSupabase(tableName: string, item: any): Record<string,
       }
     }
 
-=======
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
     return strictMapped;
   }
 
@@ -331,7 +324,6 @@ export function mapSupabaseRowToClient(tableName: string, dbRow: any): any {
       const val = clientObj.isEnabled;
       clientObj.isEnabled = (val === true || val === "true" || val === "SI" || val === "SÍ" || val === "Habilitada" || val === "Habilitado" || val === "TRUE" || val === 1);
     }
-<<<<<<< HEAD
     const rawMatIds = clientObj.materialIds !== undefined ? clientObj.materialIds : dbRow.materiales_permitidos;
     if (typeof rawMatIds === "string") {
       const trimmed = rawMatIds.trim();
@@ -374,8 +366,6 @@ export function mapSupabaseRowToClient(tableName: string, dbRow: any): any {
     } else if (Array.isArray(rawPerms)) {
       clientObj.permissions = rawPerms;
     }
-=======
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
   }
 
   return clientObj;

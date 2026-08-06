@@ -6,7 +6,6 @@ export interface TableSchema {
 
 export const TABLE_SCHEMAS: Record<string, TableSchema> = {
   TURNOSV2: {
-<<<<<<< HEAD
     sheetHeaders: ["id", "name", "start_time", "end_time", "duration_hours"],
     clientToSheet: {
       id: "id",
@@ -14,29 +13,15 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
       startTime: "start_time",
       endTime: "end_time",
       durationHours: "duration_hours"
-=======
-    sheetHeaders: ["id", "name", "startTime", "endTime", "durationHours"],
-    clientToSheet: {
-      id: "id",
-      name: "name",
-      startTime: "startTime",
-      endTime: "endTime",
-      durationHours: "durationHours"
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
     },
     sheetToClient: {
       id: "id",
       name: "name",
-<<<<<<< HEAD
       start_time: "startTime",
       startTime: "startTime",
       end_time: "endTime",
       endTime: "endTime",
       duration_hours: "durationHours",
-=======
-      startTime: "startTime",
-      endTime: "endTime",
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
       durationHours: "durationHours"
     }
   },
@@ -111,11 +96,7 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
       "hac",
       "descripcion",
       "parte_objeto",
-<<<<<<< HEAD
       "grupo_codigo_sintoma",
-=======
-      "grupo_código_sintoma",
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
       "codigo_sintoma",
       "causa_sap",
       "grupo_codigo_causa",
@@ -127,11 +108,7 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
       hac: "hac",
       text: "descripcion",
       partObject: "parte_objeto",
-<<<<<<< HEAD
       symptomGroup: "grupo_codigo_sintoma",
-=======
-      symptomGroup: "grupo_código_sintoma",
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
       symptomCode: "codigo_sintoma",
       sapCause: "causa_sap",
       causeGroup: "grupo_codigo_causa",
@@ -247,19 +224,11 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
     }
   },
   EMPRESASV2: {
-<<<<<<< HEAD
     sheetHeaders: ["id", "nombre", "direccion", "cuit", "telefono", "email"],
     clientToSheet: {
       id: "id",
       name: "nombre",
       address: "direccion",
-=======
-    sheetHeaders: ["id", "nombre", "dirección", "cuit", "telefono", "email"],
-    clientToSheet: {
-      id: "id",
-      name: "nombre",
-      address: "dirección",
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
       taxId: "cuit",
       phone: "telefono",
       email: "email"
@@ -267,10 +236,7 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
     sheetToClient: {
       id: "id",
       nombre: "name",
-<<<<<<< HEAD
       direccion: "address",
-=======
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
       "dirección": "address",
       cuit: "taxId",
       telefono: "phone",
@@ -288,45 +254,27 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
     },
     sheetToClient: {
       id: "id",
-<<<<<<< HEAD
       nombre: "name",
       direccion: "address",
       telefono: "phone",
-=======
-      nombre: "nombre",
-      direccion: "direccion",
-      telefono: "telefono",
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
       email: "email"
     }
   },
   VEHICULOSV2: {
-<<<<<<< HEAD
     sheetHeaders: ["id", "marca", "identificacion", "tipo", "carga_maxima"],
     clientToSheet: {
       id: "id",
       marca: "marca",
       identificación: "identificacion",
       identificacion: "identificacion",
-=======
-    sheetHeaders: ["id", "marca", "identificación", "tipo", "carga_maxima"],
-    clientToSheet: {
-      id: "id",
-      marca: "marca",
-      identificación: "identificación",
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
       tipo: "tipo",
       carga_maxima: "carga_maxima"
     },
     sheetToClient: {
       id: "id",
       marca: "marca",
-<<<<<<< HEAD
       identificacion: "identificacion",
       "identificación": "identificacion",
-=======
-      identificación: "identificación",
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
       tipo: "tipo",
       carga_maxima: "carga_maxima"
     }
@@ -378,11 +326,7 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
       "id",
       "fecha",
       "turno_id",
-<<<<<<< HEAD
       "descripcion_turno",
-=======
-      "descripción_turno",
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
       "palletizadora_id",
       "hac_paletizadora",
       "ensacadora_id",
@@ -402,11 +346,7 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
       id: "id",
       date: "fecha",
       shiftId: "turno_id",
-<<<<<<< HEAD
       shiftDescription: "descripcion_turno",
-=======
-      shiftDescription: "descripción_turno",
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
       palletizerId: "palletizadora_id",
       palletizerHac: "hac_paletizadora",
       baggerId: "ensacadora_id",
@@ -426,12 +366,8 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
       id: "id",
       fecha: "date",
       turno_id: "shiftId",
-<<<<<<< HEAD
       descripcion_turno: "shiftDescription",
       "descripción_turno": "shiftDescription",
-=======
-      descripción_turno: "shiftDescription",
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
       palletizadora_id: "palletizerId",
       hac_paletizadora: "palletizerHac",
       ensacadora_id: "baggerId",

@@ -7,12 +7,7 @@ import { TABLE_SCHEMAS } from "../schemas/tableSchemas.js";
 import { getIdColumnAndKey } from "../utils/mappings.js";
 import { areRecordsEqual, areNozzleNewsListsEqual, areDetailsListsEqual } from "../utils/helpers.js";
 import { getSupabaseClient } from "../services/supabase.service.js";
-<<<<<<< HEAD
 import { invalidateCache, MASTER_TABLES } from "../cache/cache.service.js";
-=======
-import { invalidateCache } from "../cache/cache.service.js";
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
-
 const router = Router();
 
 // Helper to trace and log incoming calls with comprehensive diagnostics
@@ -115,13 +110,9 @@ async function reconcileTableData(tableName: string, incomingData: any[], allowD
   for (const item of incomingData) {
     if (!item) continue;
 
-<<<<<<< HEAD
     const rawId = item[clientKey] !== undefined && item[clientKey] !== null ? item[clientKey] : (item.id || item.ID);
     if (!rawId) continue;
     const itemId = String(rawId);
-=======
-    const itemId = String(item[clientKey]);
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
     if (dbMap.has(itemId)) {
       const dbItem = dbMap.get(itemId);
       const schema = TABLE_SCHEMAS[upperTable];
@@ -375,16 +366,12 @@ router.get("/api/sheets", async (req, res) => {
     setNoCacheHeader(res);
     invalidateCache(table);
   } else {
-<<<<<<< HEAD
     const isMaster = MASTER_TABLES.includes(table.toUpperCase());
     if (isMaster) {
       setCdnCacheHeader(res, 60, 300);
     } else {
       setCdnCacheHeader(res, 30, 120);
     }
-=======
-    setCdnCacheHeader(res, 30, 120);
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
   }
 
   try {

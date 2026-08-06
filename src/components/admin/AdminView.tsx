@@ -400,16 +400,12 @@ export default function AdminView({
     let newList;
     if (activeTab === "CAPACITIES") {
       newList = list.filter(
-<<<<<<< HEAD
         (i) => {
           const combo = `${i.palletizerId}-${i.baggerId}-${i.materialId}`.trim().toLowerCase();
           const target = String(deletingId).trim().toLowerCase();
           const itemId = String(i.id || i.ID || "").trim().toLowerCase();
           return combo !== target && itemId !== target;
         }
-=======
-        (i) => String(`${i.palletizerId}-${i.baggerId}-${i.materialId}`).trim().toLowerCase() !== String(deletingId).trim().toLowerCase(),
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
       );
     } else if (activeTab === "USERS") {
       newList = list.filter((i) => String(i.dni).trim() !== String(deletingId).trim());
@@ -427,10 +423,7 @@ export default function AdminView({
       activeTab === "CAPACITIES"
         ? list.some(
             (i) =>
-<<<<<<< HEAD
               (i.id && item.id && String(i.id).trim().toUpperCase() === String(item.id).trim().toUpperCase()) ||
-=======
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
               `${i.palletizerId}-${i.baggerId}-${i.materialId}`.trim().toLowerCase() ===
               `${item.palletizerId}-${item.baggerId}-${item.materialId}`.trim().toLowerCase(),
           )
@@ -446,7 +439,6 @@ export default function AdminView({
 
     if (isEdit) {
       if (activeTab === "CAPACITIES") {
-<<<<<<< HEAD
         newList = list.map((i) => {
           const isSameId = i.id && item.id && String(i.id).trim().toUpperCase() === String(item.id).trim().toUpperCase();
           const isSameCombo = `${i.palletizerId}-${i.baggerId}-${i.materialId}`.trim().toLowerCase() === `${item.palletizerId}-${item.baggerId}-${item.materialId}`.trim().toLowerCase();
@@ -455,14 +447,6 @@ export default function AdminView({
           }
           return i;
         });
-=======
-        newList = list.map((i) =>
-          `${i.palletizerId}-${i.baggerId}-${i.materialId}`.trim().toLowerCase() ===
-          `${item.palletizerId}-${item.baggerId}-${item.materialId}`.trim().toLowerCase()
-            ? item
-            : i,
-        );
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
       } else if (activeTab === "USERS") {
         newList = list.map((i) => (String(i.dni).trim() === String(item.dni).trim() ? item : i));
       } else {
@@ -491,13 +475,7 @@ export default function AdminView({
             setIsFormOpen(true);
           }}
           onDelete={() => {
-<<<<<<< HEAD
             let id = r.id || `${r.palletizerId}-${r.baggerId}-${r.materialId}`;
-=======
-            let id = r.id;
-            if (activeTab === "CAPACITIES")
-              id = `${r.palletizerId}-${r.baggerId}-${r.materialId}`;
->>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
             if (activeTab === "USERS") id = r.dni;
             setDeletingId(id);
           }}
