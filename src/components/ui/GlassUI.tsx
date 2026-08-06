@@ -1,0 +1,430 @@
+import React from 'react';
+import { createPortal } from 'react-dom';
+import { cn } from '../../lib/utils';
+
+export function GlassCard({ children, className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div className={cn("ui-card p-6 md:p-8", className)} {...props}>
+      {children}
+    </div>
+  );
+}
+
+export function GlassInput({ label, className, ...props }: any) {
+  if (className && className.includes("hidden")) return null;
+  return (
+    <div className="flex flex-col gap-2 w-full">
+<<<<<<< HEAD
+      {label && <label className="text-xs font-semibold text-text-muted ml-0.5">{label}</label>}
+      <input 
+        onWheel={(e) => {
+          if (props.type === 'number') {
+            e.currentTarget.blur();
+          }
+          if (props.onWheel) props.onWheel(e);
+        }}
+=======
+      <label className="text-xs font-semibold text-text-muted ml-0.5">{label}</label>
+      <input 
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
+        className={cn(
+          "h-11 bg-bg-input text-sm border-border text-text-main placeholder:text-text-muted/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/5 transition-all rounded-lg px-3.5 border outline-none",
+          className
+        )} 
+        style={{ color: 'var(--text-primary)', caretColor: 'var(--text-primary)', backgroundColor: 'var(--bg-input)' }}
+        {...props} 
+      />
+    </div>
+  );
+}
+
+export function GlassSelect({ label, options, className, ...props }: any) {
+  return (
+    <div className="flex flex-col gap-2 w-full">
+      <label className="text-xs font-semibold text-text-muted ml-0.5">{label}</label>
+      <select 
+        className={cn(
+          "h-11 bg-bg-input text-sm border-border text-text-main focus:border-primary/50 focus:ring-2 focus:ring-primary/5 transition-all rounded-lg px-3.5 border appearance-none outline-none disabled:opacity-50 disabled:cursor-not-allowed [color:var(--text-primary)]",
+          className
+        )} 
+        style={{ color: 'var(--text-primary)', caretColor: 'var(--text-primary)', backgroundColor: 'var(--bg-input)' }}
+        {...props}
+      >
+        <option value="" style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-elevated)' }}>Seleccionar...</option>
+        {options.map((o: any, idx: number) => <option key={`${o.value}-${idx}`} value={o.value} style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-elevated)' }}>{o.label}</option>)}
+      </select>
+    </div>
+  );
+}
+
+export function GlassButton({ children, className, variant = 'primary', ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'danger' }) {
+  const variants = {
+    primary: "bg-primary text-white hover:bg-primary-hover shadow-sm transition-colors",
+    secondary: "bg-surface text-text-main hover:bg-bg border border-border",
+    danger: "bg-red-600 text-white hover:bg-red-500"
+  };
+
+  return (
+    <button 
+      className={cn(
+        "h-11 px-6 rounded-lg font-semibold text-sm transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-2",
+        variants[variant],
+        className
+      )} 
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function KPICircle({ label, value, color }: { label: string; value: number; color: string }) {
+  const colors: Record<string, string> = {
+    emerald: 'text-emerald-500',
+    indigo: 'text-primary',
+    orange: 'text-orange-500'
+  };
+
+  return (
+    <div className={cn("kpi-card-gradient p-5 rounded-2xl flex flex-col items-center justify-center text-center min-w-[124px]", colors[color] || 'text-text-main')}>
+       <div className="text-3xl font-black tracking-tighter tabular-nums">
+         {value.toFixed(1)}%
+       </div>
+       <div className="text-[10px] font-bold uppercase tracking-widest mt-1 opacity-60 text-text-muted">{label}</div>
+    </div>
+  );
+}
+
+import { motion, AnimatePresence } from 'motion/react';
+import { AlertCircle, X, Search, ChevronDown, Check } from 'lucide-react';
+
+interface ConfirmModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+}
+
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+  isSubModal?: boolean;
+}
+
+export function Modal({ isOpen, onClose, title, children, className, isSubModal = false }: ModalProps) {
+  const overlayZ = isSubModal ? "z-[300]" : "z-[200]";
+  const contentZ = isSubModal ? "z-[301]" : "z-[201]";
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className={cn("fixed inset-0 bg-black/60 backdrop-blur-sm", overlayZ)}
+            onClick={onClose}
+          />
+          <div className={cn("fixed inset-0 flex items-center justify-center p-4 pointer-events-none", contentZ)}>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className={cn(
+                "w-full max-w-lg bg-surface-elevated border border-border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] overflow-hidden pointer-events-auto",
+                className
+              )}
+            >
+              <div className="p-6 flex flex-col max-h-[90vh]">
+                <div className="flex items-center justify-between mb-6 border-b border-border pb-4 flex-shrink-0">
+                  <h3 className="text-xl font-bold text-text-main">{title}</h3>
+                  <button onClick={onClose} className="p-2 text-text-muted hover:text-text-main transition-colors bg-bg/50 rounded-lg">
+                    <X size={20} />
+                  </button>
+                </div>
+                <div className="overflow-y-auto flex-1 -mr-2 pr-2 custom-scrollbar">
+                  {children}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+export function ConfirmModal({ 
+  isOpen, 
+  onClose, 
+  onConfirm, 
+  title, 
+  message, 
+  confirmLabel = "Eliminar", 
+  cancelLabel = "Cancelar" 
+}: ConfirmModalProps) {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]"
+            onClick={onClose}
+          />
+          <div className="fixed inset-0 flex items-center justify-center z-[201] p-4 pointer-events-none">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="w-full max-w-md bg-surface-elevated border border-border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] overflow-hidden pointer-events-auto"
+            >
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500">
+                    <AlertCircle size={24} />
+                  </div>
+                  <button onClick={onClose} className="p-2 text-text-muted hover:text-text-main transition-colors">
+                    <X size={20} />
+                  </button>
+                </div>
+                
+                <h3 className="text-xl font-bold text-text-main mb-2">{title}</h3>
+                <p className="text-sm text-text-muted leading-relaxed mb-8">{message}</p>
+                
+                <div className="flex gap-3">
+                  <GlassButton 
+                    variant="secondary" 
+                    className="flex-1" 
+                    onClick={onClose}
+                  >
+                    {cancelLabel}
+                  </GlassButton>
+                  <GlassButton 
+                    variant="danger" 
+                    className="flex-1" 
+                    onClick={() => {
+                      onConfirm();
+                      onClose();
+                    }}
+                  >
+                    {confirmLabel}
+                  </GlassButton>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+export function GlassSearchableSelect({ label, options, value, onChange, placeholder = "Seleccionar...", disabled }: any) {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [search, setSearch] = React.useState('');
+  const [coords, setCoords] = React.useState<{ top?: number; bottom?: number; left: number; width: number; openUpward: boolean }>({
+    left: 0,
+    width: 0,
+    openUpward: false
+  });
+
+  const triggerRef = React.useRef<HTMLDivElement>(null);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  const isTouchDevice = React.useMemo(() => {
+    return typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+  }, []);
+
+  const updatePosition = React.useCallback(() => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const openUpward = spaceBelow < 280 && spaceAbove > spaceBelow;
+
+      setCoords({
+        left: rect.left,
+        width: rect.width,
+        openUpward,
+        top: openUpward ? undefined : rect.bottom + 6,
+        bottom: openUpward ? window.innerHeight - rect.top + 6 : undefined
+      });
+    }
+  }, []);
+
+  const toggleDropdown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (disabled) return;
+    if (!isOpen) {
+      updatePosition();
+    }
+    setIsOpen((prev) => !prev);
+  };
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+
+    function handleClickOutside(event: Event) {
+      const target = event.target as Node;
+      if (
+        triggerRef.current && !triggerRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
+        setIsOpen(false);
+      }
+    }
+
+    function handleScrollOrResize() {
+      updatePosition();
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    window.addEventListener("scroll", handleScrollOrResize, true);
+    window.addEventListener("resize", handleScrollOrResize);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+      window.removeEventListener("scroll", handleScrollOrResize, true);
+      window.removeEventListener("resize", handleScrollOrResize);
+    };
+  }, [isOpen, updatePosition]);
+
+  const selectedOption = options.find((o: any) => o && String(o.value) === String(value));
+
+  const filtered = options.filter((o: any) => {
+    if (!o) return false;
+    const searchStr = String(search || '').toLowerCase();
+    const words = searchStr.split(/\s+/).filter(Boolean);
+    if (words.length === 0) return true;
+
+    if (o.searchTags && Array.isArray(o.searchTags)) {
+      return words.every(word => o.searchTags.some((tag: string) => String(tag || '').toLowerCase().includes(word)));
+    }
+
+    const labelStr = String(o.label || '').toLowerCase();
+    const valStr = String(o.value || '').toLowerCase();
+    return words.every(word => labelStr.includes(word) || valStr.includes(word));
+  });
+
+  return (
+    <div className="flex flex-col gap-2 w-full">
+      {label && <label className="text-xs font-semibold text-text-muted ml-0.5">{label}</label>}
+      
+      <div 
+        ref={triggerRef}
+        onClick={toggleDropdown}
+        className={cn(
+          "h-11 bg-bg-input text-sm border-border text-text-main focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/5 transition-all rounded-lg px-3.5 border flex items-center justify-between cursor-pointer select-none",
+          disabled && "opacity-50 cursor-not-allowed"
+        )}
+      >
+        <span className={cn("truncate pr-2", !selectedOption && "text-text-muted/50")}>
+          {selectedOption ? selectedOption.label : placeholder}
+        </span>
+        <ChevronDown size={16} className={cn("text-text-muted/50 transition-transform shrink-0", isOpen && "rotate-180")} />
+      </div>
+
+      {isOpen && typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          <motion.div 
+            ref={dropdownRef}
+            initial={{ opacity: 0, scale: 0.98, y: coords.openUpward ? -4 : 4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.98, y: coords.openUpward ? -4 : 4 }}
+            style={{
+              position: 'fixed',
+              left: `${coords.left}px`,
+              width: `${coords.width}px`,
+              top: coords.top !== undefined ? `${coords.top}px` : undefined,
+              bottom: coords.bottom !== undefined ? `${coords.bottom}px` : undefined,
+              zIndex: 99999,
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-surface-elevated border border-border shadow-[0_15px_45px_rgba(0,0,0,0.35)] rounded-xl overflow-hidden flex flex-col max-h-72"
+          >
+            {/* Search Input Bar */}
+            <div 
+              className="p-2 border-b border-border bg-bg/50 flex items-center gap-2 shrink-0" 
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Search size={14} className="text-text-muted/60 ml-2 shrink-0" />
+              <input 
+                type="text"
+                autoFocus={!isTouchDevice}
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                  if (e.key === ' ') {
+                    e.stopPropagation();
+                  }
+                }}
+                placeholder="Buscar..."
+                className="w-full bg-transparent border-none text-xs text-text-main focus:outline-none placeholder:text-text-muted/50 py-1"
+                style={{ color: 'var(--text-primary)', caretColor: 'var(--text-primary)' }}
+              />
+              {search && (
+                <button 
+                  type="button" 
+                  onClick={() => setSearch('')} 
+                  className="text-[10px] text-text-muted hover:text-text-main bg-bg px-1.5 py-0.5 rounded shrink-0"
+                >
+                  Limpiar
+                </button>
+              )}
+            </div>
+
+            {/* List */}
+            <div className="overflow-y-auto max-h-60 divide-y divide-border/20 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              {filtered.length === 0 ? (
+                <div className="p-3 text-xs text-text-muted/50 text-center uppercase tracking-wider font-semibold">
+                  Sin resultados
+                </div>
+              ) : (
+                filtered.map((o: any, idx: number) => {
+                  const isSelected = o.value === value;
+                  return (
+                    <div 
+                      key={`${o.value}-${idx}`}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onChange({ target: { value: o.value } });
+                        setIsOpen(false);
+                        setSearch('');
+                      }}
+                      className={cn(
+                        "p-2.5 text-xs text-text-main hover:bg-primary/10 transition-colors cursor-pointer flex items-center justify-between",
+                        isSelected && "bg-primary/5 text-primary font-bold"
+                      )}
+                    >
+                      <span className="truncate pr-2">{o.label}</span>
+                      {isSelected && <Check size={14} className="text-primary shrink-0" />}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </motion.div>
+        </AnimatePresence>,
+        document.body
+      )}
+    </div>
+  );
+}
