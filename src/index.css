@@ -1,0 +1,275 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.25rem;
+  
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-bg: var(--bg-main);
+  --color-surface: var(--bg-surface);
+  --color-surface-elevated: var(--bg-elevated);
+  --color-border: var(--border-soft);
+  --color-bg-input: var(--bg-input);
+  --color-text-main: var(--text-primary);
+  --color-text-muted: var(--text-secondary);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-neutral: var(--neutral);
+  --color-chart-axis: var(--chart-axis);
+  --color-chart-grid: var(--chart-grid);
+  --color-chart-primary: var(--chart-primary);
+  --color-chart-target: var(--chart-target);
+}
+
+:root {
+  color-scheme: light;
+  --primary: #005596;
+  --primary-hover: #00447a;
+  
+  /* LIGHT MODE (Default) */
+  --bg-main: #F4F6F8;
+  --bg-surface: #FFFFFF;
+  --bg-elevated: #FFFFFF;
+  --bg-header: #EAF0F6;
+  --bg-input: #F9FAFB;
+  --text-primary: #1F2A37;
+  --caret-color: #1F2A37;
+  --text-secondary: #6B7280;
+  --border-soft: rgba(0, 0, 0, 0.08);
+  
+  --success: #10b981;
+  --danger: #ef4444;
+  --neutral: #6B7280;
+  
+  --chart-axis: #6B7280;
+  --chart-grid: rgba(0, 0, 0, 0.08);
+  --chart-primary: #1D4ED8;
+  --chart-target: #94A3B8;
+  
+  --btn-active-bg: rgba(59, 130, 246, 0.1);
+  --btn-active-text: var(--primary);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  /* DARK MODE - Tiered Surface Hierarchy */
+  --bg-main: #0F172A;          /* Base background */
+  --bg-surface: #141B26;       /* Header and secondary surfaces */
+  --bg-elevated: #1D2635;      /* Primary cards and forms */
+  --bg-header: linear-gradient(180deg, #182333 0%, #121821 100%);
+  --bg-input: #0F1621;         /* Inputs (sunken effect) */
+  
+  --text-primary: #F9FAFB;     /* High contrast titles */
+  --caret-color: #F9FAFB;
+  --text-secondary: #9CA3AF;   /* Readable body text */
+  --border-soft: rgba(255, 255, 255, 0.08);
+  --neutral: #8fa1b3;
+
+  --chart-axis: #9CA3AF;
+  --chart-grid: rgba(255, 255, 255, 0.08);
+  --chart-primary: #3B82F6;
+  --chart-target: #64748B;
+
+  --btn-active-bg: rgba(59, 130, 246, 0.2);
+  --btn-active-text: #60A5FA;
+}
+
+/* Explicitly removed body.light/html.light selectors in favor of :root + [data-theme="dark"] 
+   to ensure CSS variables are the only source of truth */
+
+@layer base {
+  * {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+    @apply transition-colors duration-200;
+  }
+  *::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
+  }
+  body {
+    @apply bg-bg text-text-main antialiased min-h-screen overflow-x-hidden;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    color: var(--text-primary);
+    caret-color: var(--text-primary) !important;
+    background-color: var(--bg-input);
+    /* Disable transition specifically for caret-color to make theme switching instantaneous */
+    transition-property: color, background-color, border-color, outline-color, box-shadow, transform !important;
+  }
+
+  option {
+    color: var(--text-primary);
+    background-color: var(--bg-elevated);
+  }
+}
+
+/* SaaS Professional UI Components - Solid & Aligned */
+.ui-card {
+  @apply bg-surface-elevated border border-border shadow-[0_10px_30px_rgba(0,0,0,0.4)];
+  border-radius: 0.75rem;
+}
+
+.ui-card-hover:hover {
+  @apply scale-[1.01] shadow-[0_15px_40px_rgba(0,0,0,0.5)];
+}
+
+/* Reusing legacy class names for compatibility but with SaaS stylings */
+.glass {
+  @apply bg-surface border border-border;
+}
+
+.glass-card {
+  @apply bg-surface-elevated border border-border shadow-[0_10px_30px_rgba(0,0,0,0.4)] p-6 md:p-8;
+  border-radius: 0.75rem;
+}
+
+/* Refined Logo & Header Visibility in Dark Mode */
+.logo-glow {
+  @apply drop-shadow-[0_0_8px_rgba(59,130,246,0.3)] transition-all;
+}
+
+[data-theme="dark"] .logo-glow {
+  @apply drop-shadow-[0_0_12px_rgba(96,165,250,0.4)];
+}
+
+.header-gradient {
+  background: var(--bg-header);
+}
+
+[data-theme="dark"] .header-gradient {
+  background: linear-gradient(180deg, #182333 0%, #0E131A 100%);
+  @apply border-b border-white/5;
+}
+
+.kpi-card-gradient {
+  @apply bg-surface-elevated border border-border transition-all duration-300;
+}
+
+[data-theme="dark"] .kpi-card-gradient {
+  background: linear-gradient(145deg, #121821, #0F141A);
+  @apply shadow-[0_10px_30px_rgba(0,0,0,0.4)];
+}
+
+.btn-active-highlight {
+  background: var(--btn-active-bg);
+  color: var(--btn-active-text);
+  @apply shadow-sm scale-[1.02];
+}
+
+/* Custom Checkpoint for Active Tabs - Minimalist Linear style */
+.tab-active-indicator {
+  @apply absolute bottom-0 left-0 w-full h-0.5 bg-primary;
+}
+
+/* Specific SaaS Spacing Utility */
+.layout-container {
+  @apply max-w-7xl mx-auto px-4 md:px-8;
+}
+
+/* Horizontal Scroll Utilities for Mobile */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.touch-horizontal {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+
+.touch-horizontal > * {
+  scroll-snap-align: center;
+}
+
+/* Scroll Mask Fade Effect */
+.scroll-mask-fade {
+  mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+}
+
+/* Carousel Functional Menu Specific style for Dark Mode readability */
+[data-theme="dark"] .carousel-tab:not(.btn-active-highlight) {
+  color: #FFFFFF !important;
+}
+[data-theme="dark"] .carousel-tab:not(.btn-active-highlight):hover {
+  color: #FFFFFF !important;
+}
+
+input,
+textarea,
+select {
+  caret-color: var(--text-primary) !important;
+  /* Prevent caret-color from transitioning when theme changes */
+  transition-property: color, background-color, border-color, outline-color, box-shadow, transform !important;
+}
+
+/* Cybercore Welcome Screen */
+.cybercore-scene {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.cybercore-floor {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200%;
+  height: 2px;
+  background: linear-gradient(to right, transparent, var(--primary), transparent);
+  box-shadow: 0 0 40px 8px rgba(0, 85, 150, 0.4);
+}
+
+.cybercore-column {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 100%;
+  background: linear-gradient(to top, var(--primary), transparent);
+  opacity: 0.15;
+}
+
+.cybercore-beam {
+  position: absolute;
+  bottom: 0;
+  border-radius: 2px;
+  animation: cybercoreRise linear infinite, cyberCoreFade linear infinite;
+  will-change: transform, opacity;
+}
+
+.cybercore-beam.primary {
+  background: linear-gradient(to top, transparent, var(--primary), transparent);
+  opacity: 0;
+}
+
+.cybercore-beam.secondary {
+  background: linear-gradient(to top, transparent, #60a5fa, transparent);
+  opacity: 0;
+}
+
+@keyframes cybercoreRise {
+  0% { transform: translateY(0%); }
+  100% { transform: translateY(-105vh); }
+}
+
+@keyframes cyberCoreFade {
+  0%, 100% { opacity: 0; }
+  10%, 80% { opacity: 0.6; }
+}
