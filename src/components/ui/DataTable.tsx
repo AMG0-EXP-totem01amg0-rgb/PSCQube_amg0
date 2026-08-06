@@ -12,6 +12,7 @@ export interface Column<T> {
 
 export function TableActions({ onEdit, onDelete }: { onEdit?: () => void; onDelete?: () => void }) {
   return (
+<<<<<<< HEAD
     <div className="flex items-center justify-end gap-2">
       {onEdit && (
         <button 
@@ -20,15 +21,32 @@ export function TableActions({ onEdit, onDelete }: { onEdit?: () => void; onDele
           title="Editar"
         >
           <Pencil size={13} className="group-hover:scale-110 transition-transform" />
+=======
+    <div className="flex items-center justify-end gap-1.5">
+      {onEdit && (
+        <button 
+          onClick={(e) => { e.stopPropagation(); onEdit(); }}
+          className="p-2 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all active:scale-90 border border-primary/20"
+          title="Editar"
+        >
+          <Pencil size={12} />
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
         </button>
       )}
       {onDelete && (
         <button 
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
+<<<<<<< HEAD
           className="p-2 rounded-xl bg-red-500/20 text-red-400 dark:text-red-300 hover:bg-red-600 hover:text-white transition-all active:scale-95 border border-red-500/40 shadow-xs group"
           title="Eliminar"
         >
           <Trash2 size={13} className="group-hover:scale-110 transition-transform" />
+=======
+          className="p-2 rounded-lg bg-danger/10 text-danger hover:bg-danger hover:text-white transition-all active:scale-90 border border-danger/20"
+          title="Eliminar"
+        >
+          <Trash2 size={12} />
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
         </button>
       )}
     </div>

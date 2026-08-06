@@ -1,10 +1,13 @@
 {
   "version": 2,
+<<<<<<< HEAD
   "functions": {
     "api/index.ts": {
       "maxDuration": 15
     }
   },
+=======
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
   "rewrites": [
     {
       "source": "/api/(.*)",

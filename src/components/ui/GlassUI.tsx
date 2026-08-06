@@ -14,6 +14,7 @@ export function GlassInput({ label, className, ...props }: any) {
   if (className && className.includes("hidden")) return null;
   return (
     <div className="flex flex-col gap-2 w-full">
+<<<<<<< HEAD
       {label && <label className="text-xs font-semibold text-text-muted ml-0.5">{label}</label>}
       <input 
         onWheel={(e) => {
@@ -22,6 +23,10 @@ export function GlassInput({ label, className, ...props }: any) {
           }
           if (props.onWheel) props.onWheel(e);
         }}
+=======
+      <label className="text-xs font-semibold text-text-muted ml-0.5">{label}</label>
+      <input 
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
         className={cn(
           "h-11 bg-bg-input text-sm border-border text-text-main placeholder:text-text-muted/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/5 transition-all rounded-lg px-3.5 border outline-none",
           className

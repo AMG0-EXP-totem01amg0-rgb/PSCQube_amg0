@@ -1,6 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+<<<<<<< HEAD
 import { Package, Plus, Trash2, History, Pencil, TrendingUp, Filter, BarChart3, Clock, AlertCircle, ShieldCheck, Check, X, CheckCircle2, AlertTriangle, XCircle, Calendar, User, ChevronDown, MessageSquare } from 'lucide-react';
+=======
+import { Package, Plus, Trash2, History, Pencil, TrendingUp, Filter, BarChart3, Clock, AlertCircle, ShieldCheck, Check, X } from 'lucide-react';
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
 import { format, parse, differenceInMinutes } from 'date-fns';
 import { GlassCard, GlassInput, GlassSelect, GlassButton, ConfirmModal, Modal } from '../../ui/GlassUI';
 import { DataTable, Column, TableActions } from '../../ui/DataTable';
@@ -113,11 +117,14 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
   const [editingItem, setEditingItem] = useState<ProductionReport | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isNozzleModalOpen, setIsNozzleModalOpen] = useState(false);
+<<<<<<< HEAD
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({ main: true });
 
   const toggleCard = (id: string) => {
     setExpandedCards(prev => ({ ...prev, [id]: !(prev[id] ?? true) }));
   };
+=======
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
 
   const canEdit = useMemo(() => {
     if (currentUser?.profile === 'Administrador') return true;
@@ -389,6 +396,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
     return { totalTons, totalBags, count };
   }, [history]);
 
+<<<<<<< HEAD
   // Calculate Line KPIs (Rendimiento, Disponibilidad, OEE, Hs Marcha)
   const lineKpis = useMemo(() => {
     const selectedShift = masters.shifts.find(s => s.id === shiftId);
@@ -418,6 +426,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
     };
   }, [hsCalculatedByApp, shiftId, masters.shifts, history, totals.totalTons]);
 
+=======
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
   const handleOpenAdd = () => {
     setEditingItem(null);
     setEditingDetailId(null);
@@ -741,6 +751,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
         
         return (
           <div className="py-1 space-y-1">
+<<<<<<< HEAD
             <div className="text-[11px] font-black text-text-main uppercase tracking-tight">
               {baggerName}
             </div>
@@ -753,13 +764,28 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                       key={d.id || idx} 
                       className="inline-block px-2 py-0.5 text-[9px] font-black tracking-wider uppercase rounded-md bg-slate-800/90 text-white border border-slate-700 shadow-xs"
                     >
+=======
+            <div className="text-[11px] font-bold text-text-main uppercase">
+              {baggerName}
+            </div>
+            {details.length > 0 ? (
+              <div className="flex flex-wrap gap-1 max-w-[200px]">
+                {details.map((d: any, idx: number) => {
+                  const matName = masters.materials.find(m => m.id === d.materialId)?.name || 'Desconocido';
+                  return (
+                    <span key={d.id || idx} className="inline-block px-1.5 py-0.5 text-[8px] font-black tracking-wider uppercase bg-primary/10 text-primary rounded border border-primary/20">
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
                       {matName} ({d.bagsProduced} bol.)
                     </span>
                   );
                 })}
               </div>
             ) : (
+<<<<<<< HEAD
               <div className="text-[9px] font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 inline-block uppercase tracking-wider">
+=======
+              <div className="text-[9px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 inline-block uppercase tracking-wider">
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
                 SIN PRODUCCIÓN
               </div>
             )}
@@ -771,11 +797,19 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       header: 'Maquinista',
       accessor: (row) => (
         <div className="py-1">
+<<<<<<< HEAD
           <div className="text-[11px] font-black text-text-main">
             {row.machinistName || <span className="text-text-muted/80 italic font-normal">Sin registrar</span>}
           </div>
           {row.machinistId && (
             <div className="text-[9px] font-mono text-text-muted font-bold">
+=======
+          <div className="text-[11px] font-bold text-text-main">
+            {row.machinistName || <span className="text-text-muted/80 italic">Sin registrar</span>}
+          </div>
+          {row.machinistId && (
+            <div className="text-[9px] font-mono text-text-muted">
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
               DNI: {row.machinistId}
             </div>
           )}
@@ -786,11 +820,19 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       header: 'Producción',
       align: 'right',
       accessor: (row) => (
+<<<<<<< HEAD
         <div className="text-right py-0.5">
           <div className="text-[12px] font-black text-text-main tabular-nums">
             {row.bagsProduced} BOLSAS
           </div>
           <div className="text-[10px] font-black text-text-main tabular-nums mt-0.5">
+=======
+        <div className="text-right">
+          <div className="text-[11px] font-black text-text-main tabular-nums">
+            {row.bagsProduced} BOLSAS
+          </div>
+          <div className="text-[9px] text-primary font-bold tabular-nums">
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
             {row.tonsProduced.toFixed(2)} TN
           </div>
         </div>
@@ -799,6 +841,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
     {
       header: 'Novedades',
       accessor: (row) => (
+<<<<<<< HEAD
         <div className="flex items-center gap-1.5">
           {row.nozzleNews?.length > 0 ? (
             <div className="flex items-center gap-1 text-amber-400 font-extrabold text-[10px]">
@@ -810,6 +853,17 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
               <CheckCircle2 size={15} className="shrink-0 text-emerald-400" />
               <span className="text-text-main">OK</span>
             </div>
+=======
+        <div className="flex items-center gap-1">
+          {row.nozzleNews?.length > 0 ? (
+            <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-[9px] font-bold uppercase">
+              {row.nozzleNews.length} Nov.
+            </span>
+          ) : (
+            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[9px] font-bold uppercase">
+              OK
+            </span>
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
           )}
         </div>
       )
@@ -820,6 +874,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       accessor: (row) => {
         const value = row.nozzleAvailability || '100.0%';
         const num = parseFloat(value);
+<<<<<<< HEAD
         
         if (num >= 100) {
           return (
@@ -843,6 +898,17 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
             </div>
           );
         }
+=======
+        let colorClass = 'text-emerald-500 bg-emerald-500/10';
+        if (num < 85) colorClass = 'text-red-500 bg-red-500/10';
+        else if (num < 100) colorClass = 'text-amber-500 bg-amber-500/10';
+        
+        return (
+          <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-black font-mono", colorClass)}>
+            {value}
+          </span>
+        );
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
       }
     },
     {
@@ -857,6 +923,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
         const diff = hsCalculatedByApp - rowTisValue;
         const absoluteDiff = Math.abs(diff);
         
+<<<<<<< HEAD
         return (
           <div className="flex flex-col items-center py-0.5">
             <span className="text-[11px] font-black text-text-main font-mono">
@@ -878,6 +945,29 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                 <span>{diff.toFixed(2)}h paros</span>
               </div>
             )}
+=======
+        let colorClass = 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20';
+        let displayText = 'OK (0.00h)';
+        
+        if (absoluteDiff >= 0.01) {
+          if (diff > 0) {
+            colorClass = 'text-amber-400 bg-amber-500/10 border border-amber-500/20';
+            displayText = `Faltan paros (+${diff.toFixed(2)}h)`;
+          } else {
+            colorClass = 'text-red-400 bg-red-500/10 border border-red-500/20';
+            displayText = `Sobran paros (${diff.toFixed(2)}h)`;
+          }
+        }
+        
+        return (
+          <div className="flex flex-col items-center py-0.5">
+            <span className="text-[10px] font-bold text-text-main font-mono">
+              TIS: {rowTisValue.toFixed(2)}h
+            </span>
+            <span className={cn("px-2 py-0.5 rounded-lg text-[8px] font-black tracking-wider uppercase mt-1", colorClass)}>
+              {displayText}
+            </span>
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
           </div>
         );
       }
@@ -940,27 +1030,44 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       className="layout-container py-6 space-y-8"
     >
       {/* Automate Summary Header */}
+<<<<<<< HEAD
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Contenedor 1: Producción Total */}
         <GlassCard className="lg:col-span-4 bg-surface-elevated p-5 border-l-4 border-l-primary flex items-center justify-between shadow-md">
+=======
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <GlassCard className="bg-surface-elevated p-6 border-l-4 border-l-primary flex items-center justify-between">
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
           <div>
             <h4 className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-1">PRODUCCIÓN TOTAL</h4>
             <div className="flex flex-col">
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-black text-text-main tracking-tighter tabular-nums">{totals.totalTons.toFixed(1)}</span>
+<<<<<<< HEAD
                 <span className="text-xs font-black text-primary dark:text-sky-400 uppercase">TN</span>
               </div>
               <div className="flex items-baseline gap-1 mt-1">
                 <span className="text-sm font-extrabold text-text-main tabular-nums">{totals.totalBags.toLocaleString()}</span>
+=======
+                <span className="text-xs font-bold text-primary uppercase">tn</span>
+              </div>
+              <div className="flex items-baseline gap-1 mt-1">
+                <span className="text-sm font-bold text-text-muted tabular-nums">{totals.totalBags}</span>
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
                 <span className="text-[10px] font-bold text-text-muted uppercase">bolsas</span>
               </div>
             </div>
           </div>
+<<<<<<< HEAD
           <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary dark:text-sky-300 flex items-center justify-center border border-primary/20 shrink-0">
+=======
+          <div className="w-12 h-12 rounded-2xl bg-primary/5 flex items-center justify-center text-primary">
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
             <TrendingUp size={24} />
           </div>
         </GlassCard>
 
+<<<<<<< HEAD
         {/* Contenedor 2: Panel Unificado de Eficiencia (Rend, Disp, OEE, Hs. Marcha) */}
         <GlassCard className="lg:col-span-6 bg-surface-elevated p-4 flex items-center shadow-md">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full divide-x divide-border/40">
@@ -999,11 +1106,35 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
             >
               <Plus size={18} className="mr-1.5 shrink-0" />
               Agregar Carga
+=======
+        <GlassCard className="bg-surface-elevated p-6 border-l-4 border-l-emerald-500 flex items-center justify-between">
+          <div>
+            <h4 className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-1">REGISTROS</h4>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-black text-text-main tracking-tighter tabular-nums">{totals.count}</span>
+              <span className="text-xs font-bold text-emerald-500 uppercase">items</span>
+            </div>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-emerald-500/5 flex items-center justify-center text-emerald-500">
+            <BarChart3 size={24} />
+          </div>
+        </GlassCard>
+
+        {canEdit && (
+          <div className="flex flex-col justify-center">
+            <GlassButton 
+              onClick={handleOpenAdd}
+              className="h-full py-6 md:py-0 text-base shadow-lg shadow-primary/20"
+            >
+              <Plus size={20} className="mr-2" />
+              Agregar Producción
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
             </GlassButton>
           </div>
         )}
       </div>
 
+<<<<<<< HEAD
       {/* Registers Accordion Section */}
       <div className="space-y-4">
         <div className="flex items-center justify-between px-1">
@@ -1234,6 +1365,31 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
             </AnimatePresence>
           </GlassCard>
         )}
+=======
+      {/* Registers Table */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-3 px-2">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <History className="text-primary" size={16} />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-text-main uppercase tracking-widest">Producciones del Turno</h3>
+            <p className="text-[10px] text-text-muted font-bold uppercase tracking-tight">Listado detallado de cargas activas</p>
+          </div>
+        </div>
+
+        <DataTable 
+          title=""
+          columns={tableColumns}
+          data={history}
+          keyExtractor={(row) => row.id}
+          emptyState={{
+            icon: <Package size={32} opacity={0.3} />,
+            title: "Sin registros aún",
+            description: "Comienza agregando una producción para ver los datos aquí."
+          }}
+        />
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
       </div>
 
       {/* Form Modal */}
@@ -1287,17 +1443,29 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                   </div>
                 )}
 
+<<<<<<< HEAD
                 {Boolean((formData.hsMarchaTis && parseFloat(formData.hsMarchaTis) > 0) || (editingItem && editingItem.hsMarchaTis && parseFloat(String(editingItem.hsMarchaTis)) > 0)) && (
+=======
+                {effectiveTisValue && (
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
                   <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
                     <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-text-muted">
                       <span>Comparativa de Horas de Marcha</span>
                       <span className="font-mono text-text-main">
+<<<<<<< HEAD
                         App: {hsCalculatedByApp.toFixed(2)} hs | TIS: {parseFloat(formData.hsMarchaTis || (editingItem?.hsMarchaTis?.toString() || "0")).toFixed(2)} hs
+=======
+                        App: {hsCalculatedByApp.toFixed(2)} hs | TIS: {parseFloat(effectiveTisValue || "0").toFixed(2)} hs
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
                       </span>
                     </div>
                     
                     {(() => {
+<<<<<<< HEAD
                       const tisVal = parseFloat(formData.hsMarchaTis || (editingItem?.hsMarchaTis?.toString() || "0"));
+=======
+                      const tisVal = parseFloat(effectiveTisValue || "0");
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
                       const diff = hsCalculatedByApp - tisVal;
                       const absoluteDiff = Math.abs(diff);
                       

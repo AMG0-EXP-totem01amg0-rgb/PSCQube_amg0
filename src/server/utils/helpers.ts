@@ -132,6 +132,7 @@ export function areRecordsEqual(recordA: any, recordB: any, schemaHeaders: strin
       if (typeof v === "boolean") return v ? "true" : "false";
       if (typeof v === "string") {
         const lower = v.trim().toLowerCase();
+<<<<<<< HEAD
         if (lower === "true" || lower === "si" || lower === "sí" || lower === "yes") return "true";
         if (lower === "false" || lower === "no") return "false";
         if (lower.startsWith("[") || lower.startsWith("{")) {
@@ -144,6 +145,15 @@ export function areRecordsEqual(recordA: any, recordB: any, schemaHeaders: strin
         return v.trim();
       }
       if (typeof v === "number") {
+=======
+        if (lower === "true" || lower === "si" || lower === "sí" || lower === "1" || lower === "yes") return "true";
+        if (lower === "false" || lower === "no" || lower === "0") return "false";
+        return v.trim();
+      }
+      if (typeof v === "number") {
+        if (v === 1) return "true";
+        if (v === 0) return "false";
+>>>>>>> 2cd341a126a048a2992646c13b92b77efa1f00dc
         return String(v);
       }
       if (typeof v === "object") {
