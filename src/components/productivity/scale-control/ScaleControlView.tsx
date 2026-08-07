@@ -11,7 +11,7 @@ import { fetchTable } from '../../../lib/dataService';
 interface Props {
   masters: MasterData;
   currentUser: AppUser;
-  onSave: (report: ScaleControl) => void;
+  onSave: (report: ScaleControl, isUpdate?: boolean) => void;
   onDelete: (id: string) => void;
   history: ScaleControl[];
   selectedShiftId: string | null;
@@ -226,7 +226,8 @@ export default function ScaleControlView({ masters, currentUser, onSave, onDelet
       observations: formData.observations || ''
     };
 
-    onSave(report);
+    const isUpdate = !!editingId;
+    onSave(report, isUpdate);
     if (localRangeHistory) {
       setLocalRangeHistory(prev => {
         if (!prev) return prev;
@@ -286,7 +287,14 @@ export default function ScaleControlView({ masters, currentUser, onSave, onDelet
       accessor: (row) => canEdit ? (
         <TableActions 
           onEdit={() => {
-            setFormData(row);
+            setFormData({
+              ...row,
+              weight1: row.weight1 !== undefined && row.weight1 !== null ? String(row.weight1) : '',
+              weight2: row.weight2 !== undefined && row.weight2 !== null ? String(row.weight2) : '',
+              weight3: row.weight3 !== undefined && row.weight3 !== null ? String(row.weight3) : '',
+              patternWeight: row.patternWeight !== undefined && row.patternWeight !== null ? String(row.patternWeight) : '50',
+              observations: row.observations || ''
+            });
             setEditingId(row.id);
             setIsFormOpen(true);
           }}
@@ -358,97 +366,149 @@ export default function ScaleControlView({ masters, currentUser, onSave, onDelet
                </button>
             )}
           </div>
-          {!isFormOpen && canEdit && (
-            <GlassButton onClick={() => { setEditingId(null); setIsFormOpen(true); }} className="h-10 px-4 w-full sm:w-auto justify-center">
+          {canEdit && (
+            <GlassButton onClick={() => { setEditingId(null); setFormData({ hac: '', weight1: '', weight2: '', weight3: '', patternWeight: '50', observations: '' }); setIsFormOpen(true); }} className="h-10 px-4 w-full sm:w-auto justify-center">
               <Plus size={18} /> <span className="inline ml-2">Nuevo Control</span>
             </GlassButton>
           )}
         </div>
       </div>
 
+      {/* Modal de Edición / Creación Flotante */}
       <AnimatePresence>
         {isFormOpen && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
-            <GlassCard className="p-6 overflow-hidden">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-sm font-bold uppercase tracking-widest">{editingId ? 'Editar' : 'Nuevo'} Control de Balanza</h3>
-                <button onClick={() => setIsFormOpen(false)} className="text-text-muted hover:text-text-main transition-colors"><Plus className="rotate-45" size={20} /></button>
-              </div>
-              
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  <GlassSelect 
-                    label="HAC (Balanza)" 
-                    options={scaleHacs.map(h => ({ label: `${h.hac} - ${h.detail}`, value: h.hac }))}
-                    value={formData.hac}
-                    onChange={e => setFormData({...formData, hac: e.target.value})}
-                    required
-                  />
-                  <GlassInput 
-                    type="number" 
-                    step="0.01"
-                    label="Peso #1 (kg)" 
-                    value={formData.weight1} 
-                    onChange={e => setFormData({...formData, weight1: e.target.value})} 
-                  />
-                  <GlassInput 
-                    type="number" 
-                    step="0.01"
-                    label="Peso #2 (kg)" 
-                    value={formData.weight2} 
-                    onChange={e => setFormData({...formData, weight2: e.target.value})} 
-                  />
-                  <GlassInput 
-                    type="number" 
-                    step="0.01"
-                    label="Peso #3 (kg)" 
-                    value={formData.weight3} 
-                    onChange={e => setFormData({...formData, weight3: e.target.value})} 
-                  />
-                  <GlassInput 
-                    type="number" 
-                    step="0.01"
-                    label="Peso Patrón (kg)" 
-                    value={formData.patternWeight} 
-                    onChange={e => setFormData({...formData, patternWeight: e.target.value})} 
-                  />
-                  
-                  <div className="bg-bg/50 p-4 rounded-xl border border-border flex flex-col justify-center">
-                    <span className="text-[10px] uppercase font-bold text-text-muted mb-1">Media (Promedio)</span>
-                    <span className="text-xl font-mono font-bold text-primary">{computed.average.toFixed(2)}</span>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-md overflow-y-auto">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 15 }} 
+              animate={{ opacity: 1, scale: 1, y: 0 }} 
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-4xl max-h-[90vh] my-auto"
+            >
+              <GlassCard className="p-6 md:p-8 overflow-hidden shadow-2xl border border-white/20 bg-surface/95 dark:bg-surface/95">
+                <div className="flex items-center justify-between pb-4 mb-6 border-b border-border">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                      <Scale size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-extrabold uppercase tracking-wider text-text-main">
+                        {editingId ? 'Editar Control de Balanza' : 'Nuevo Control de Balanza'}
+                      </h3>
+                      <p className="text-xs text-text-muted">Ingrese o modifique los valores de pesaje y patrón</p>
+                    </div>
                   </div>
-                  
-                  <div className="bg-bg/50 p-4 rounded-xl border border-border flex flex-col justify-center">
-                    <span className="text-[10px] uppercase font-bold text-text-muted mb-1">Bias (Error)</span>
-                    <span className={cn("text-xl font-mono font-bold", Math.abs(computed.bias) > 0.5 ? "text-red-400" : "text-green-400")}>
-                      {computed.bias.toFixed(2)}
-                    </span>
-                  </div>
-
-                  <div className="bg-bg/50 p-4 rounded-xl border border-border flex flex-col justify-center">
-                    <span className="text-[10px] uppercase font-bold text-text-muted mb-1">Rango (Dispersion)</span>
-                    <span className="text-xl font-mono font-bold text-text-main">{computed.range.toFixed(2)}</span>
-                  </div>
+                  <button 
+                    onClick={() => { setIsFormOpen(false); setEditingId(null); }} 
+                    className="p-2 rounded-xl text-text-muted hover:text-text-main hover:bg-bg/80 transition-all active:scale-95"
+                    title="Cerrar ventana"
+                  >
+                    <Plus className="rotate-45" size={20} />
+                  </button>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="md:col-span-2">
-                    <GlassInput 
-                      label="Observaciones" 
-                      value={formData.observations} 
-                      onChange={e => setFormData({...formData, observations: e.target.value})} 
+                
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+                    <GlassSelect 
+                      label="HAC (Balanza)" 
+                      options={scaleHacs.map(h => ({ label: `${h.hac} - ${h.detail}`, value: h.hac }))}
+                      value={formData.hac}
+                      onChange={e => setFormData({...formData, hac: e.target.value})}
+                      required
                     />
+                    <GlassInput 
+                      type="text" 
+                      inputMode="decimal"
+                      label="Peso #1 (kg)" 
+                      value={formData.weight1 ?? ''} 
+                      onChange={e => {
+                        const val = e.target.value.replace(',', '.');
+                        if (val === '' || /^-?\d*\.?\d*$/.test(val)) {
+                          setFormData({...formData, weight1: val});
+                        }
+                      }} 
+                    />
+                    <GlassInput 
+                      type="text" 
+                      inputMode="decimal"
+                      label="Peso #2 (kg)" 
+                      value={formData.weight2 ?? ''} 
+                      onChange={e => {
+                        const val = e.target.value.replace(',', '.');
+                        if (val === '' || /^-?\d*\.?\d*$/.test(val)) {
+                          setFormData({...formData, weight2: val});
+                        }
+                      }} 
+                    />
+                    <GlassInput 
+                      type="text" 
+                      inputMode="decimal"
+                      label="Peso #3 (kg)" 
+                      value={formData.weight3 ?? ''} 
+                      onChange={e => {
+                        const val = e.target.value.replace(',', '.');
+                        if (val === '' || /^-?\d*\.?\d*$/.test(val)) {
+                          setFormData({...formData, weight3: val});
+                        }
+                      }} 
+                    />
+                    <GlassInput 
+                      type="text" 
+                      inputMode="decimal"
+                      label="Peso Patrón (kg)" 
+                      value={formData.patternWeight ?? ''} 
+                      onChange={e => {
+                        const val = e.target.value.replace(',', '.');
+                        if (val === '' || /^-?\d*\.?\d*$/.test(val)) {
+                          setFormData({...formData, patternWeight: val});
+                        }
+                      }} 
+                    />
+                    
+                    <div className="bg-bg/60 p-4 rounded-xl border border-border flex flex-col justify-center">
+                      <span className="text-[10px] uppercase font-bold text-text-muted mb-1">Media (Promedio)</span>
+                      <span className="text-xl font-mono font-bold text-primary">{computed.average.toFixed(2)}</span>
+                    </div>
+                    
+                    <div className="bg-bg/60 p-4 rounded-xl border border-border flex flex-col justify-center">
+                      <span className="text-[10px] uppercase font-bold text-text-muted mb-1">Bias (Error)</span>
+                      <span className={cn("text-xl font-mono font-bold", Math.abs(computed.bias) > 0.5 ? "text-red-400" : "text-green-400")}>
+                        {computed.bias.toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div className="bg-bg/60 p-4 rounded-xl border border-border flex flex-col justify-center">
+                      <span className="text-[10px] uppercase font-bold text-text-muted mb-1">Rango (Dispersión)</span>
+                      <span className="text-xl font-mono font-bold text-text-main">{computed.range.toFixed(2)}</span>
+                    </div>
                   </div>
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2">
-                    <GlassButton variant="secondary" type="button" onClick={() => setIsFormOpen(false)} className="w-full sm:flex-1 h-10">Cancelar</GlassButton>
-                    <GlassButton type="submit" className="w-full sm:flex-1 h-10">
-                      <Save size={16} className="shrink-0" /> Guardar
-                    </GlassButton>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+                    <div className="md:col-span-2">
+                      <GlassInput 
+                        label="Observaciones" 
+                        value={formData.observations} 
+                        onChange={e => setFormData({...formData, observations: e.target.value})} 
+                      />
+                    </div>
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2.5">
+                      <GlassButton 
+                        variant="secondary" 
+                        type="button" 
+                        onClick={() => { setIsFormOpen(false); setEditingId(null); }} 
+                        className="w-full sm:flex-1 h-11"
+                      >
+                        Cancelar
+                      </GlassButton>
+                      <GlassButton type="submit" className="w-full sm:flex-1 h-11">
+                        <Save size={16} className="shrink-0" /> Guardar
+                      </GlassButton>
+                    </div>
                   </div>
-                </div>
-              </form>
-            </GlassCard>
-          </motion.div>
+                </form>
+              </GlassCard>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 

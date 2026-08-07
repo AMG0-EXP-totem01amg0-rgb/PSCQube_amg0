@@ -78,8 +78,8 @@ export function sanitizeValue(val: any): any {
         return num;
       }
     }
-    // Safe numeric parsing for decimal strings with comma, e.g., "50,2"
-    if (/^-?\d+,\d+$/.test(trimmed)) {
+    // Safe numeric parsing for decimal strings with dot or comma, e.g., "50.01" or "50,01"
+    if (/^-?\d+(?:[\.,]\d+)?$/.test(trimmed)) {
       const num = parseFloat(trimmed.replace(',', '.'));
       if (!isNaN(num)) return num;
     }

@@ -11,7 +11,7 @@ import { fetchTable } from '../../../lib/dataService';
 interface Props {
   masters: MasterData;
   currentUser: AppUser;
-  onSave: (report: DaterControl) => void;
+  onSave: (report: DaterControl, isUpdate?: boolean) => void;
   onDelete: (id: string) => void;
   history: DaterControl[];
   selectedShiftId: string | null;
@@ -199,7 +199,8 @@ export default function DaterControlView({ masters, currentUser, onSave, onDelet
       observations: formData.observations || ''
     };
 
-    onSave(report);
+    const isUpdate = !!editingId;
+    onSave(report, isUpdate);
     if (localRangeHistory) {
       setLocalRangeHistory(prev => {
         if (!prev) return prev;

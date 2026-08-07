@@ -246,6 +246,20 @@ export async function writeToSupabase(tableName: string, action: 'insert' | 'upd
         }
       }
 
+      // Code 23505: Duplicate primary key on insert -> perform update fallback
+      if (error.code === '23505' || errStr.toLowerCase().includes('duplicate key') || errStr.toLowerCase().includes('unique constraint') || errStr.toLowerCase().includes('already exists')) {
+        console.log(`[Supabase Self-Heal] Code 23505 duplicate key in '${currentTable}' on ${action}. Performing update fallback...`);
+        const cleanIdVal = typeof idVal === 'string' ? idVal.trim() : idVal;
+        const updateFallback = await supabase.from(currentTable).update(payload).eq(dbIdCol, cleanIdVal).select();
+        if (!updateFallback.error && updateFallback.data && updateFallback.data.length > 0) {
+          console.log(`[Supabase Self-Heal] Successfully updated duplicate key record in '${currentTable}'.`);
+          return updateFallback.data;
+        }
+        if (updateFallback.error) {
+          console.warn(`[Supabase Self-Heal] Update fallback error:`, formatSupabaseError(updateFallback.error));
+        }
+      }
+
       // Code 22P02: Invalid type representation
       if (error.code === '22P02') {
         const errStrLower = errStr.toLowerCase();

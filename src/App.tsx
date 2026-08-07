@@ -1080,22 +1080,18 @@ export default function App() {
     
     // Invalidate local cooldown for this combination
     delete tableCooldownsRef.current[key];
-    
-    // Trigger guarded fetch with bypassCache = true
+  // Trigger guarded fetch with bypassCache = true
     fetchTableWithGuards(tableName, true, `CRUD_${tableName}`);
   }, [userContext.selectedDate, userContext.selectedShiftId, getCooldownKey, fetchTableWithGuards]);
 
   // --- Centralized, Synchronized & Toast-Enabled handlers ---
   
   const handleSaveDispatch = (entry: any) => {
-    let exists = false;
-    let nextEntries: any[] = [];
+    const exists = dispatchEntries.some(x => x.id === entry.id);
     setDispatchEntries(prev => {
-      exists = !!prev.find(x => x.id === entry.id);
-      nextEntries = exists
+      return exists
         ? prev.map(x => x.id === entry.id ? entry : x)
         : [entry, ...prev];
-      return nextEntries;
     });
 
     const actionPromise = exists
@@ -1113,11 +1109,7 @@ export default function App() {
   };
 
   const handleDeleteDispatch = (id: string) => {
-    let nextEntries: any[] = [];
-    setDispatchEntries(prev => {
-      nextEntries = prev.filter(e => e.id !== id);
-      return nextEntries;
-    });
+    setDispatchEntries(prev => prev.filter(e => e.id !== id));
 
     deleteRecordInSheets("DESPACHOSV2", id).then(res => {
       if (res.success) {
@@ -1130,15 +1122,12 @@ export default function App() {
   };
 
   const handleSaveStop = (stop: MachineStop) => {
-    let exists = false;
-    let nextStops: MachineStop[] = [];
     deletedStopIdsRef.current.delete(stop.id);
+    const exists = stops.some(x => x.id === stop.id);
     setStops(prev => {
-      exists = !!prev.find(x => x.id === stop.id);
-      nextStops = exists
+      return exists
         ? prev.map(x => x.id === stop.id ? stop : x)
         : [stop, ...prev];
-      return nextStops;
     });
 
     const actionPromise = exists
@@ -1168,34 +1157,41 @@ export default function App() {
 
     setIsSaving(true);
     try {
-      const promises = stopsToSave.map(s => createRecordInSheets("PAROSV2", s));
+      const promises = stopsToSave.map(stop => {
+        deletedStopIdsRef.current.delete(stop.id);
+        const exists = stops.some(x => x.id === stop.id);
+        return exists
+          ? updateRecordInSheets("PAROSV2", stop.id, stop)
+          : createRecordInSheets("PAROSV2", stop);
+      });
+
       const results = await Promise.all(promises);
       const allSuccess = results.every(res => res.success);
-      
+
       if (allSuccess) {
-        addToast(`${stopsToSave.length} paros registrados con éxito en la base de datos`, "success");
+        addToast(
+          stopsToSave.length > 1
+            ? `${stopsToSave.length} paros registrados y sincronizados con éxito`
+            : "Paro registrado con éxito",
+          "success"
+        );
+        forceRefreshTable("PAROSV2");
+        forceRefreshTable("PRODUCCIONV2");
       } else {
-        const successCount = results.filter(res => res.success).length;
-        addToast(`Sincronización parcial: se guardaron ${successCount} de ${stopsToSave.length} paros.`, "warning");
+        const errorMsg = results.find(r => !r.success)?.error || "Error de sincronización con Google Sheets";
+        addToast(`Guardado localmente. Error al sincronizar: ${errorMsg}`, "warning");
       }
-      
-      forceRefreshTable("PAROSV2");
-      forceRefreshTable("PRODUCCIONV2");
-    } catch (err) {
-      console.error("Error saving multiple stops:", err);
-      addToast("Error al sincronizar el lote de paros con la base de datos.", "error");
+    } catch (err: any) {
+      console.error("[Save Multiple Stops Error]", err);
+      addToast("Error al guardar paros en base de datos", "warning");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDeleteStop = (id: string) => {
-    let nextStops: MachineStop[] = [];
-    setStops(prev => {
-      nextStops = prev.filter(s => s.id !== id);
-      return nextStops;
-    });
     deletedStopIdsRef.current.add(id);
+    setStops(prev => prev.filter(s => s.id !== id));
 
     deleteRecordInSheets("PAROSV2", id).then(res => {
       if (res.success) {
@@ -1209,14 +1205,11 @@ export default function App() {
   };
 
   const handleSaveProductionReport = (report: ProductionReport) => {
-    let exists = false;
-    let nextReports: ProductionReport[] = [];
+    const exists = productionReports.some(x => x.id === report.id);
     setProductionReports(prev => {
-      exists = !!prev.find(x => x.id === report.id);
-      nextReports = exists
+      return exists
         ? prev.map(x => x.id === report.id ? report : x)
         : [report, ...prev];
-      return nextReports;
     });
 
     const actionPromise = exists
@@ -1234,11 +1227,7 @@ export default function App() {
   };
 
   const handleDeleteProductionReport = (id: string) => {
-    let nextReports: ProductionReport[] = [];
-    setProductionReports(prev => {
-      nextReports = prev.filter(r => r.id !== id);
-      return nextReports;
-    });
+    setProductionReports(prev => prev.filter(r => r.id !== id));
 
     deleteRecordInSheets("PRODUCCIONV2", id).then(res => {
       if (res.success) {
@@ -1250,15 +1239,13 @@ export default function App() {
     });
   };
 
-  const handleSaveDaterControl = (report: DaterControl) => {
-    let exists = false;
-    let nextDater: DaterControl[] = [];
+  const handleSaveDaterControl = (report: DaterControl, isUpdateExplicit?: boolean) => {
+    const exists = isUpdateExplicit !== undefined ? isUpdateExplicit : daterControls.some(x => x.id === report.id);
     setDaterControls(prev => {
-      exists = !!prev.find(x => x.id === report.id);
-      nextDater = exists
+      const inPrev = prev.some(x => x.id === report.id);
+      return inPrev
         ? prev.map(x => x.id === report.id ? report : x)
         : [report, ...prev];
-      return nextDater;
     });
 
     const actionPromise = exists
@@ -1276,11 +1263,7 @@ export default function App() {
   };
 
   const handleDeleteDaterControl = (id: string) => {
-    let nextDater: DaterControl[] = [];
-    setDaterControls(prev => {
-      nextDater = prev.filter(c => c.id !== id);
-      return nextDater;
-    });
+    setDaterControls(prev => prev.filter(c => c.id !== id));
 
     deleteRecordInSheets("CONTROL_FECHADORV2", id).then(res => {
       if (res.success) {
@@ -1292,15 +1275,13 @@ export default function App() {
     });
   };
 
-  const handleSaveScaleControl = (report: ScaleControl) => {
-    let exists = false;
-    let nextScale: ScaleControl[] = [];
+  const handleSaveScaleControl = (report: ScaleControl, isUpdateExplicit?: boolean) => {
+    const exists = isUpdateExplicit !== undefined ? isUpdateExplicit : scaleControls.some(x => x.id === report.id);
     setScaleControls(prev => {
-      exists = !!prev.find(x => x.id === report.id);
-      nextScale = exists
+      const inPrev = prev.some(x => x.id === report.id);
+      return inPrev
         ? prev.map(x => x.id === report.id ? report : x)
         : [report, ...prev];
-      return nextScale;
     });
 
     const actionPromise = exists
@@ -1318,11 +1299,7 @@ export default function App() {
   };
 
   const handleDeleteScaleControl = (id: string) => {
-    let nextScale: ScaleControl[] = [];
-    setScaleControls(prev => {
-      nextScale = prev.filter(c => c.id !== id);
-      return nextScale;
-    });
+    setScaleControls(prev => prev.filter(c => c.id !== id));
 
     deleteRecordInSheets("CONTROL_BALANZAV2", id).then(res => {
       if (res.success) {
@@ -1335,14 +1312,11 @@ export default function App() {
   };
 
   const handleSaveInventory = (entry: InventoryEntry) => {
-    let exists = false;
-    let nextInventory: InventoryEntry[] = [];
+    const exists = inventoryEntries.some(x => x.id === entry.id);
     setInventoryEntries(prev => {
-      exists = !!prev.find(x => x.id === entry.id);
-      nextInventory = exists
+      return exists
         ? prev.map(x => x.id === entry.id ? entry : x)
         : [entry, ...prev];
-      return nextInventory;
     });
 
     const actionPromise = exists
@@ -1360,11 +1334,7 @@ export default function App() {
   };
 
   const handleDeleteInventory = (id: string) => {
-    let nextInventory: InventoryEntry[] = [];
-    setInventoryEntries(prev => {
-      nextInventory = prev.filter(e => e.id !== id);
-      return nextInventory;
-    });
+    setInventoryEntries(prev => prev.filter(e => e.id !== id));
 
     deleteRecordInSheets("INVENTARIO_FISICOV2", id).then(res => {
       if (res.success) {
@@ -1420,14 +1390,11 @@ export default function App() {
   };
 
   const handleSavePalletClass = (entry: PalletClassification) => {
-    let exists = false;
-    let nextEntries: PalletClassification[] = [];
+    const exists = palletClassifications.some(x => x.id === entry.id);
     setPalletClassifications(prev => {
-      exists = !!prev.find(x => x.id === entry.id);
-      nextEntries = exists
+      return exists
         ? prev.map(x => x.id === entry.id ? entry : x)
         : [entry, ...prev];
-      return nextEntries;
     });
 
     const actionPromise = exists
@@ -1445,11 +1412,7 @@ export default function App() {
   };
 
   const handleDeletePalletClass = (id: string) => {
-    let nextEntries: PalletClassification[] = [];
-    setPalletClassifications(prev => {
-      nextEntries = prev.filter(e => e.id !== id);
-      return nextEntries;
-    });
+    setPalletClassifications(prev => prev.filter(e => e.id !== id));
 
     deleteRecordInSheets("CLASISFICACION_PALLETSV2", id).then(res => {
       if (res.success) {
@@ -1462,14 +1425,11 @@ export default function App() {
   };
 
   const handleSaveProductChange = (report: ProductChange) => {
-    let exists = false;
-    let nextChanges: ProductChange[] = [];
+    const exists = productChanges.some(x => x.id === report.id);
     setProductChanges(prev => {
-      exists = !!prev.find(x => x.id === report.id);
-      nextChanges = exists
+      return exists
         ? prev.map(x => x.id === report.id ? report : x)
         : [report, ...prev];
-      return nextChanges;
     });
 
     const actionPromise = exists
@@ -1487,11 +1447,7 @@ export default function App() {
   };
 
   const handleDeleteProductChange = (id: string) => {
-    let nextChanges: ProductChange[] = [];
-    setProductChanges(prev => {
-      nextChanges = prev.filter(c => c.id !== id);
-      return nextChanges;
-    });
+    setProductChanges(prev => prev.filter(c => c.id !== id));
 
     deleteRecordInSheets("CAMBIO_PRODUCTOV2", id).then(res => {
       if (res.success) {
@@ -1504,8 +1460,6 @@ export default function App() {
   };
 
   const handleSaveLaneStatus = (laneStatus: any) => {
-    let exists = false;
-    let nextLanes: any[] = [];
     const statusesToSave = Array.isArray(laneStatus) ? laneStatus : [laneStatus];
 
     setLaneStatuses(prev => {
@@ -1514,12 +1468,10 @@ export default function App() {
         const idx = current.findIndex(x => x.id === status.id);
         if (idx > -1) {
           current[idx] = status;
-          exists = true;
         } else {
           current = [status, ...current];
         }
       });
-      nextLanes = current;
       return current;
     });
 
@@ -1536,7 +1488,7 @@ export default function App() {
         addToast(
           Array.isArray(laneStatus)
             ? "Estados de calles actualizados con éxito"
-            : (exists ? "Calle de carga actualizada con éxito" : "Calle de carga registrada con éxito"),
+            : "Calle de carga guardada con éxito",
           "success"
         );
         forceRefreshTable("ESTADO_CALLESV2");
@@ -1549,11 +1501,7 @@ export default function App() {
   };
 
   const handleDeleteLaneStatus = (id: string) => {
-    let nextLanes: any[] = [];
-    setLaneStatuses(prev => {
-      nextLanes = prev.filter(l => l.id !== id);
-      return nextLanes;
-    });
+    setLaneStatuses(prev => prev.filter(l => l.id !== id));
 
     deleteRecordInSheets("ESTADO_CALLESV2", id).then(res => {
       if (res.success) {
@@ -1566,14 +1514,11 @@ export default function App() {
   };
 
   const handleSaveFuelLoad = (load: any) => {
-    let exists = false;
-    let nextLoads: any[] = [];
+    const exists = fuelLoads.some(x => x.id === load.id);
     setFuelLoads(prev => {
-      exists = !!prev.find(x => x.id === load.id);
-      nextLoads = exists
+      return exists
         ? prev.map(x => x.id === load.id ? load : x)
         : [load, ...prev];
-      return nextLoads;
     });
 
     const actionPromise = exists
@@ -1591,11 +1536,7 @@ export default function App() {
   };
 
   const handleDeleteFuelLoad = (id: string) => {
-    let nextLoads: any[] = [];
-    setFuelLoads(prev => {
-      nextLoads = prev.filter(e => e.id !== id);
-      return nextLoads;
-    });
+    setFuelLoads(prev => prev.filter(e => e.id !== id));
 
     deleteRecordInSheets("CARGA_COMBUSTIBLEV2", id).then(res => {
       if (res.success) {
