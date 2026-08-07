@@ -157,18 +157,44 @@ export default function ScaleControlView({ masters, currentUser, onSave, onDelet
     });
   }, [filteredHistory, masters.shifts]);
 
+  const parseWeightNum = (val: any): number => {
+    if (typeof val === 'number') return isNaN(val) ? 0 : val;
+    if (typeof val === 'string') {
+      const parsed = parseFloat(val.replace(',', '.').trim());
+      return isNaN(parsed) ? 0 : parsed;
+    }
+    return 0;
+  };
+
+  const formatRowDate = (d: string | undefined): string => {
+    if (!d) return '-';
+    try {
+      const dmy = d.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+      if (dmy) {
+        return `${dmy[1].padStart(2, '0')}/${dmy[2].padStart(2, '0')}/${dmy[3]}`;
+      }
+      return format(parseISO(d), 'dd/MM/yyyy');
+    } catch {
+      return d;
+    }
+  };
+
   // Computed fields
   const computed = useMemo(() => {
-    const p1 = Number(formData.weight1) || 0;
-    const p2 = Number(formData.weight2) || 0;
-    const p3 = Number(formData.weight3) || 0;
-    const pPatron = Number(formData.patternWeight) || 0;
+    const p1 = parseWeightNum(formData.weight1);
+    const p2 = parseWeightNum(formData.weight2);
+    const p3 = parseWeightNum(formData.weight3);
+    const pPatron = parseWeightNum(formData.patternWeight) || 50;
 
     const average = (p1 + p2 + p3) / 3;
     const bias = pPatron - average;
     const range = Math.max(p1, p2, p3) - Math.min(p1, p2, p3);
 
-    return { average, bias, range };
+    return { 
+      average: isNaN(average) ? 0 : average, 
+      bias: isNaN(bias) ? 0 : bias, 
+      range: isNaN(range) ? 0 : range 
+    };
   }, [formData.weight1, formData.weight2, formData.weight3, formData.patternWeight]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -176,17 +202,24 @@ export default function ScaleControlView({ masters, currentUser, onSave, onDelet
     
     if (!formData.hac) return;
 
+    let targetDate = editingId ? (formData.date || selectedDate) : selectedDate;
+    // Normalize date to ISO YYYY-MM-DD
+    const dmy = targetDate?.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (dmy) {
+      targetDate = `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+    }
+
     const report: ScaleControl = {
       id: editingId || `BAL-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
-      date: editingId ? (formData.date || selectedDate) : selectedDate,
+      date: targetDate,
       userId: editingId ? (formData.userId || currentUser?.dni || '') : (currentUser?.dni || ''),
       userName: editingId ? (formData.userName || currentUser?.name || '') : (currentUser?.name || ''),
       shiftId: editingId ? (formData.shiftId || selectedShiftId || '') : (selectedShiftId || ''),
       hac: formData.hac || '',
-      weight1: Number(formData.weight1) || 0,
-      weight2: Number(formData.weight2) || 0,
-      weight3: Number(formData.weight3) || 0,
-      patternWeight: Number(formData.patternWeight) || 0,
+      weight1: parseWeightNum(formData.weight1),
+      weight2: parseWeightNum(formData.weight2),
+      weight3: parseWeightNum(formData.weight3),
+      patternWeight: parseWeightNum(formData.patternWeight) || 50,
       average: computed.average,
       bias: computed.bias,
       range: computed.range,
@@ -212,7 +245,7 @@ export default function ScaleControlView({ masters, currentUser, onSave, onDelet
   };
 
   const columns: Column<ScaleControl>[] = [
-    { header: 'Fecha', accessor: (row) => <span className="text-[10px] opacity-70">{format(parseISO(row.date), 'dd/MM/yyyy')}</span> },
+    { header: 'Fecha', accessor: (row) => <span className="text-[10px] opacity-70">{formatRowDate(row.date)}</span> },
     { header: 'HAC', accessor: (row) => <span className="font-bold text-primary">{row.hac}</span> },
     { header: 'Turno', accessor: (row) => <span className="text-xs font-semibold text-text-muted">{masters.shifts?.find(s => s.id === row.shiftId)?.name || row.shiftId || 'N/A'}</span> },
     {

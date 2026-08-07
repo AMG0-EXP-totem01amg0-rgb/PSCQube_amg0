@@ -46,17 +46,42 @@ export function sanitizeColumnName(col: string): string {
   return result;
 }
 
+export function normalizeDateToISO(val: any): string | any {
+  if (typeof val !== 'string') return val;
+  const trimmed = val.trim();
+  const dmyMatch = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (dmyMatch) {
+    const day = dmyMatch[1].padStart(2, '0');
+    const month = dmyMatch[2].padStart(2, '0');
+    const year = dmyMatch[3];
+    return `${year}-${month}-${day}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+    return trimmed.substring(0, 10);
+  }
+  return trimmed;
+}
+
 export function sanitizeValue(val: any): any {
   if (val === undefined || val === null) return val;
+  if (typeof val === 'number') {
+    if (isNaN(val) || !isFinite(val)) return 0;
+    return val;
+  }
   if (typeof val === 'string') {
     const trimmed = val.trim();
     // Match percentage value, e.g., "99.3%" or "99.3 %" or "-15.2%"
-    const matchPercent = trimmed.match(/^(-?\d+(?:\.\d+)?)\s*%$/);
+    const matchPercent = trimmed.match(/^(-?\d+(?:[\.,]\d+)?)\s*%$/);
     if (matchPercent) {
-      const num = parseFloat(matchPercent[1]);
+      const num = parseFloat(matchPercent[1].replace(',', '.'));
       if (!isNaN(num)) {
         return num;
       }
+    }
+    // Safe numeric parsing for decimal strings with comma, e.g., "50,2"
+    if (/^-?\d+,\d+$/.test(trimmed)) {
+      const num = parseFloat(trimmed.replace(',', '.'));
+      if (!isNaN(num)) return num;
     }
     return trimmed;
   }
@@ -78,6 +103,9 @@ export function getProcessedValue(colName: string, originalKey: string, val: any
   }
   if (BOOLEAN_COLUMNS.has(cleanCol) || BOOLEAN_COLUMNS.has(cleanOrig) || colName.endsWith('?') || originalKey.endsWith('?')) {
     return toBoolean(val);
+  }
+  if (cleanCol === 'fecha' || cleanCol === 'date' || cleanOrig === 'fecha' || cleanOrig === 'date') {
+    return normalizeDateToISO(val);
   }
   const sanitized = sanitizeValue(val);
   return typeof sanitized === "object" ? JSON.stringify(sanitized) : sanitized;

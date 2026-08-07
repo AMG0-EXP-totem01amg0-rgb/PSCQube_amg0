@@ -176,7 +176,15 @@ export async function writeToSupabase(tableName: string, action: 'insert' | 'upd
         if (action === 'update') {
           if (!data || data.length === 0) {
             const cleanIdVal = typeof idVal === 'string' ? idVal.trim() : idVal;
-            throw new Error(`No se actualizó ningún registro en ${currentTable} con ${dbIdCol}=${cleanIdVal}`);
+            console.log(`[Supabase Write Fallback] 0 rows updated for ${dbIdCol}=${cleanIdVal} in ${currentTable}. Attempting insert fallback...`);
+            const insertQuery = await supabase.from(currentTable).insert([payload]).select();
+            if (!insertQuery.error && insertQuery.data && insertQuery.data.length > 0) {
+              console.log(`[Supabase Write Fallback] Successfully inserted record into ${currentTable} on update fallback.`);
+              return insertQuery.data;
+            }
+            if (insertQuery.error) {
+              console.warn(`[Supabase Write Fallback] Insert failed:`, formatSupabaseError(insertQuery.error));
+            }
           }
         }
         console.log(`[Supabase Write] Successfully completed ${action} in ${currentTable} after ${attempt} attempts.`);
