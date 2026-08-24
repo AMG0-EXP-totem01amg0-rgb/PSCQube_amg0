@@ -391,6 +391,9 @@ export function useHSModule() {
     // Generar Plan de Acción automático si hubo hallazgos
     if (hasMinor || hasCritical) {
       const failedAnswers = answersWithDetails.filter(a => a.status === 'NO_OK');
+      const sectorObj = sectors.find(s => s.id === targetObj.sectorId);
+      const responsiblePerson = sectorObj?.responsiblePerson || 'Asignación Pendiente';
+
       const newPlans: HSActionPlan[] = failedAnswers.map((fail, idx) => ({
         id: `ap-auto-${Date.now()}-${idx}`,
         inspectionId: newInspectionId,
@@ -401,7 +404,7 @@ export function useHSModule() {
         title: `Hallazgo: ${fail.checklistItemLabel}`,
         description: fail.observation || `Falla detectada durante la inspección realizada por ${inspectionData.operatorName}.`,
         severity: fail.isCriticalFinding ? 'CRITICAL' : 'MEDIUM',
-        assignedTo: 'Asignación Pendiente',
+        assignedTo: responsiblePerson,
         dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         status: 'OPEN',
         createdAt: dateStr

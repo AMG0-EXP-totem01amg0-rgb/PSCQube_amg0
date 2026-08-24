@@ -52,12 +52,11 @@ export default function HSModuleView({ currentUser, isDark, addToast }: HSModule
               <h2 className="text-lg font-black uppercase tracking-wider text-text-main">
                 Higiene y Seguridad: Inspecciones Programadas
               </h2>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                Frontend v1.0
-              </span>
+
+
             </div>
             <p className="text-xs text-text-muted mt-0.5">
-              Control periódico de extintores, botiquines, hidrantes y gestión de hallazgos críticos.
+              Control periódico y gestión de hallazgos críticos.
             </p>
           </div>
         </div>
@@ -66,23 +65,21 @@ export default function HSModuleView({ currentUser, isDark, addToast }: HSModule
         <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-bg border border-border self-start md:self-auto">
           <button
             onClick={() => setActiveMainTab('SCANNER')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-              activeMainTab === 'SCANNER'
-                ? 'bg-primary text-white shadow-md'
-                : 'text-text-muted hover:text-text-main hover:bg-surface'
-            }`}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${activeMainTab === 'SCANNER'
+              ? 'bg-primary text-white shadow-md'
+              : 'text-text-muted hover:text-text-main hover:bg-surface'
+              }`}
           >
-            <QrCode size={16} />
-            <span>Escáner QR & Control</span>
+            <ClipboardList size={16} />
+            <span>Resumen Inspecciones</span>
           </button>
 
           <button
             onClick={() => setActiveMainTab('ACTION_PLANS')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer relative ${
-              activeMainTab === 'ACTION_PLANS'
-                ? 'bg-primary text-white shadow-md'
-                : 'text-text-muted hover:text-text-main hover:bg-surface'
-            }`}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer relative ${activeMainTab === 'ACTION_PLANS'
+              ? 'bg-primary text-white shadow-md'
+              : 'text-text-muted hover:text-text-main hover:bg-surface'
+              }`}
           >
             <ClipboardList size={16} />
             <span>Planes de Acción</span>
@@ -95,11 +92,10 @@ export default function HSModuleView({ currentUser, isDark, addToast }: HSModule
 
           <button
             onClick={() => setActiveMainTab('ADMIN')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-              activeMainTab === 'ADMIN'
-                ? 'bg-primary text-white shadow-md'
-                : 'text-text-muted hover:text-text-main hover:bg-surface'
-            }`}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${activeMainTab === 'ADMIN'
+              ? 'bg-primary text-white shadow-md'
+              : 'text-text-muted hover:text-text-main hover:bg-surface'
+              }`}
           >
             <Settings size={16} />
             <span>Administración</span>

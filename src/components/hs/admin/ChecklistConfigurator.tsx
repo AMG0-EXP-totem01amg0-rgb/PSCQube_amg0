@@ -57,10 +57,10 @@ export function ChecklistConfigurator({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-black uppercase tracking-wider text-text-main">
-            Configurador de Checklists Dinámicos
+            Configurar Checklists
           </h3>
           <p className="text-xs text-text-muted mt-0.5">
-            Definición de ítems a inspeccionar por cada tipo de objeto y configuración de hallazgos críticos.
+            Definición de ítems a inspeccionar y configuración de hallazgos críticos.
           </p>
         </div>
         <button
@@ -81,17 +81,15 @@ export function ChecklistConfigurator({
             <button
               key={ot.id}
               onClick={() => setSelectedTypeId(ot.id)}
-              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 border ${
-                isSelected
-                  ? 'bg-primary text-white border-primary shadow-sm'
-                  : 'bg-surface text-text-muted hover:text-text-main border-border hover:border-primary/40'
-              }`}
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 border ${isSelected
+                ? 'bg-primary text-white border-primary shadow-sm'
+                : 'bg-surface text-text-muted hover:text-text-main border-border hover:border-primary/40'
+                }`}
             >
               <ListChecks size={14} />
               <span>{ot.name}</span>
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
-                isSelected ? 'bg-white/20 text-white' : 'bg-bg text-text-muted'
-              }`}>
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${isSelected ? 'bg-white/20 text-white' : 'bg-bg text-text-muted'
+                }`}>
                 {itemsCount}
               </span>
             </button>
@@ -109,16 +107,14 @@ export function ChecklistConfigurator({
           filteredItems.map(item => (
             <div
               key={item.id}
-              className={`p-3.5 rounded-xl border transition-all flex items-center justify-between gap-3 ${
-                item.isEnabled
-                  ? 'bg-surface border-border hover:border-primary/40'
-                  : 'bg-bg/40 border-border/50 opacity-60'
-              }`}
+              className={`p-3.5 rounded-xl border transition-all flex items-center justify-between gap-3 ${item.isEnabled
+                ? 'bg-surface border-border hover:border-primary/40'
+                : 'bg-bg/40 border-border/50 opacity-60'
+                }`}
             >
               <div className="flex items-start gap-3">
-                <div className={`p-2 rounded-lg mt-0.5 ${
-                  item.isCritical ? 'bg-rose-500/10 text-rose-500' : 'bg-primary/10 text-primary'
-                }`}>
+                <div className={`p-2 rounded-lg mt-0.5 ${item.isCritical ? 'bg-rose-500/10 text-rose-500' : 'bg-primary/10 text-primary'
+                  }`}>
                   {item.isCritical ? <AlertTriangle size={16} /> : <CheckSquare size={16} />}
                 </div>
 
@@ -143,11 +139,10 @@ export function ChecklistConfigurator({
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => onToggleItem(item.id, !item.isEnabled)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    item.isEnabled
-                      ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                      : 'bg-text-muted/10 text-text-muted border border-border'
-                  }`}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${item.isEnabled
+                    ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                    : 'bg-text-muted/10 text-text-muted border border-border'
+                    }`}
                 >
                   {item.isEnabled ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
                   <span>{item.isEnabled ? 'Habilitado' : 'Deshabilitado'}</span>
@@ -211,7 +206,7 @@ export function ChecklistConfigurator({
                   className="rounded text-primary focus:ring-primary"
                 />
                 <label htmlFor="isCritical" className="text-xs font-bold text-rose-500 cursor-pointer select-none">
-                  ¿Es un hallazgo Crítico? (Genera Plan de Acción inmediato si falla)
+                  ¿Es un hallazgo Crítico? (Genera Plan de Acción inmediato)
                 </label>
               </div>
 

@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { ScheduledInspectionsFilter } from './ScheduledInspectionsFilter';
 import { QRScannerSimulator } from './QRScannerSimulator';
 import { ObjectInspectionHistory } from './ObjectInspectionHistory';
 import { ActiveChecklistForm } from './ActiveChecklistForm';
 import { HSObject, HSChecklistItem, HSInspection, HSChecklistAnswerStatus } from '../types';
 import { AppUser } from '../../../types';
-import { MapPin, CheckCircle2, AlertCircle, Clock, FileCheck2 } from 'lucide-react';
+import { MapPin, CheckCircle2, AlertCircle, Clock, FileCheck2, ShieldAlert, ShieldCheck } from 'lucide-react';
 
 interface HSScannerViewProps {
   objects: HSObject[];
@@ -33,18 +34,24 @@ export function HSScannerView({
   onSubmitInspection,
   addToast
 }: HSScannerViewProps) {
-  const [activeSubTab, setActiveSubTab] = useState<'CHECKLIST' | 'HISTORY'>('CHECKLIST');
+  const [activeSubTab, setActiveSubTab] = useState<'CHECKLIST' | 'HISTORY'>('HISTORY');
+  const [isChecklistUnlocked, setIsChecklistUnlocked] = useState(false);
+
+  useEffect(() => {
+    setIsChecklistUnlocked(false);
+    setActiveSubTab('HISTORY');
+  }, [selectedObject?.id]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'OK':
-        return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"><CheckCircle2 size={14}/> Operativo</span>;
+        return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"><CheckCircle2 size={14} /> Operativo</span>;
       case 'WARNING':
-        return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20"><AlertCircle size={14}/> Observado</span>;
+        return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20"><AlertCircle size={14} /> Observado</span>;
       case 'CRITICAL':
-        return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/10 text-rose-500 border border-rose-500/20"><AlertCircle size={14}/> Falla Crítica</span>;
+        return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/10 text-rose-500 border border-rose-500/20"><AlertCircle size={14} /> Falla Crítica</span>;
       default:
-        return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20"><Clock size={14}/> Pendiente</span>;
+        return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20"><Clock size={14} /> Pendiente</span>;
     }
   };
 
@@ -63,11 +70,11 @@ export function HSScannerView({
 
   return (
     <div className="space-y-4">
-      {/* Módulo Escáner QR */}
-      <QRScannerSimulator
+      {/* Filtros en Cascada para Inspecciones Programadas */}
+      <ScheduledInspectionsFilter
         objects={objects}
         selectedObject={selectedObject}
-        onSelectQR={onSelectQR}
+        onSelectObject={onSelectQR}
       />
 
       {/* Detalle del Objeto Seleccionado */}
@@ -113,46 +120,52 @@ export function HSScannerView({
           <div className="flex items-center gap-2 border-b border-border pb-2">
             <button
               onClick={() => setActiveSubTab('CHECKLIST')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeSubTab === 'CHECKLIST'
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'text-text-muted hover:text-text-main hover:bg-bg'
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${activeSubTab === 'CHECKLIST'
+                ? 'bg-primary text-white shadow-xs'
+                : 'text-text-muted hover:text-text-main hover:bg-bg'
+                }`}
             >
               <FileCheck2 size={14} />
               <span>Realizar Inspección</span>
             </button>
 
-            <button
-              onClick={() => setActiveSubTab('HISTORY')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeSubTab === 'HISTORY'
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'text-text-muted hover:text-text-main hover:bg-bg'
-              }`}
-            >
-              <Clock size={14} />
-              <span>Historial ({inspectionHistory.length})</span>
-            </button>
           </div>
 
           {/* Contenido según SubTab */}
           {activeSubTab === 'CHECKLIST' && (
-            <ActiveChecklistForm
-              selectedObject={selectedObject}
-              checklistItems={checklistItems}
-              currentUser={currentUser}
-              onSubmit={handleFormSubmit}
-            />
-          )}
-
-          {activeSubTab === 'HISTORY' && (
-            <ObjectInspectionHistory history={inspectionHistory} />
+            isChecklistUnlocked ? (
+              <ActiveChecklistForm
+                selectedObject={selectedObject}
+                checklistItems={checklistItems}
+                currentUser={currentUser}
+                onSubmit={handleFormSubmit}
+              />
+            ) : (
+              <div className="space-y-4 animate-fade-in p-8 bg-surface border border-border rounded-2xl text-center shadow-xs">
+                <div className="w-16 h-16 mx-auto bg-primary/10 text-primary rounded-full flex items-center justify-center mb-4">
+                  <ShieldCheck size={32} />
+                </div>
+                <h3 className="text-base font-black uppercase tracking-wider text-text-main">
+                  Autorización Requerida
+                </h3>
+                <p className="text-xs text-text-muted max-w-md mx-auto">
+                  Para realizar una inspección programada, debe confirmar su identidad como personal autorizado.
+                </p>
+                <div className="pt-4">
+                  <button
+                    onClick={() => setIsChecklistUnlocked(true)}
+                    className="px-6 py-2.5 bg-primary text-white text-xs font-bold rounded-xl shadow-lg hover:bg-primary/90 transition-all flex items-center justify-center gap-2 mx-auto cursor-pointer"
+                  >
+                    Confirmar Autorización
+                  </button>
+                </div>
+              </div>
+            )
           )}
         </div>
       ) : (
         <div className="p-12 text-center bg-surface rounded-2xl border border-border text-text-muted text-xs">
-          Seleccione o escanee un código QR arriba para comenzar la inspección del objeto.
+          escanee un código QR arriba para comenzar la inspección del objeto.
         </div>
       )}
     </div>

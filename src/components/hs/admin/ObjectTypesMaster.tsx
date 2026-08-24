@@ -44,7 +44,7 @@ export function ObjectTypesMaster({ objectTypes, onSave }: ObjectTypesMasterProp
             Maestro de Tipos de Objeto
           </h3>
           <p className="text-xs text-text-muted mt-0.5">
-            Configuración de tipos de activos (Extintores, Botiquines, Hidrantes, etc.) y su frecuencia de inspección.
+            Configuración de tipos de activos y su frecuencia de inspección.
           </p>
         </div>
         <button

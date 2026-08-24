@@ -13,14 +13,14 @@ export function ObjectsMaster({ objects, objectTypes, sectors, onSave }: Objects
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSectorFilter, setSelectedSectorFilter] = useState('');
   const [selectedTypeFilter, setSelectedTypeFilter] = useState('');
-  
+
   const [isOpenModal, setIsOpenModal] = useState(false);
   const [editingItem, setEditingItem] = useState<Partial<HSObject> | null>(null);
 
   const filteredObjects = objects.filter(obj => {
     const matchesSearch = obj.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          obj.qrCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          obj.locationDetail.toLowerCase().includes(searchTerm.toLowerCase());
+      obj.qrCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      obj.locationDetail.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesSector = !selectedSectorFilter || obj.sectorId === selectedSectorFilter;
     const matchesType = !selectedTypeFilter || obj.typeId === selectedTypeFilter;
 
@@ -58,13 +58,13 @@ export function ObjectsMaster({ objects, objectTypes, sectors, onSave }: Objects
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'OK':
-        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"><CheckCircle size={12}/> Operativo</span>;
+        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"><CheckCircle size={12} /> Operativo</span>;
       case 'WARNING':
-        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20"><AlertCircle size={12}/> Observado</span>;
+        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20"><AlertCircle size={12} /> Observado</span>;
       case 'CRITICAL':
-        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-500 border border-rose-500/20"><AlertCircle size={12}/> Crítico</span>;
+        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-500 border border-rose-500/20"><AlertCircle size={12} /> Crítico</span>;
       default:
-        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20"><Clock size={12}/> Pendiente</span>;
+        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20"><Clock size={12} /> Pendiente</span>;
     }
   };
 
@@ -73,10 +73,10 @@ export function ObjectsMaster({ objects, objectTypes, sectors, onSave }: Objects
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-black uppercase tracking-wider text-text-main">
-            Maestro de Objetos con Código QR
+            Maestro de Objetos
           </h3>
           <p className="text-xs text-text-muted mt-0.5">
-            Registro de todos los activos físicos (extintores, botiquines, hidrantes) vinculados a sus sectores y QR.
+            Registro de todos los activos físicos.
           </p>
         </div>
         <button
@@ -192,7 +192,7 @@ export function ObjectsMaster({ objects, objectTypes, sectors, onSave }: Objects
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="w-full max-w-lg bg-surface border border-border rounded-2xl p-6 shadow-2xl space-y-4">
             <h3 className="text-sm font-black uppercase tracking-wider text-text-main">
-              {editingItem.id ? 'Editar Objeto con QR' : 'Nuevo Objeto con QR'}
+              {editingItem.id ? 'Editar Objeto' : 'Nuevo Objeto'}
             </h3>
 
             <form onSubmit={handleSubmit} className="space-y-3">

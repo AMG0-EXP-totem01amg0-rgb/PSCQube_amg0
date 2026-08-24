@@ -26,7 +26,7 @@ export function ActiveChecklistForm({
     () => {
       const initial: Record<string, { status: HSChecklistAnswerStatus; observation: string }> = {};
       checklistItems.forEach(ci => {
-        initial[ci.id] = { status: 'OK', observation: '' };
+        initial[ci.id] = { status: 'N_A', observation: '' };
       });
       return initial;
     }
@@ -34,6 +34,7 @@ export function ActiveChecklistForm({
 
   const [generalComments, setGeneralComments] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasPhotoEvidence, setHasPhotoEvidence] = useState(false);
 
   const handleStatusChange = (itemId: string, status: HSChecklistAnswerStatus) => {
     setAnswers(prev => ({
@@ -71,6 +72,8 @@ export function ActiveChecklistForm({
   };
 
   const hasCriticalFailure = checklistItems.some(ci => ci.isCritical && answers[ci.id]?.status === 'NO_OK');
+  const hasUnansweredItems = checklistItems.some(ci => answers[ci.id]?.status === 'N_A');
+  const isSubmitDisabled = isSubmitting || hasUnansweredItems;
 
   return (
     <div className="p-4 rounded-2xl border border-border bg-surface shadow-xs space-y-4">
@@ -98,13 +101,12 @@ export function ActiveChecklistForm({
           return (
             <div
               key={item.id}
-              className={`p-3.5 rounded-xl border transition-all space-y-2 ${
-                isNoOk
-                  ? item.isCritical
-                    ? 'bg-rose-500/5 border-rose-500/30'
-                    : 'bg-amber-500/5 border-amber-500/30'
-                  : 'bg-bg/40 border-border'
-              }`}
+              className={`p-3.5 rounded-xl border transition-all space-y-2 ${isNoOk
+                ? item.isCritical
+                  ? 'bg-rose-500/5 border-rose-500/30'
+                  : 'bg-amber-500/5 border-amber-500/30'
+                : 'bg-bg/40 border-border'
+                }`}
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
@@ -129,11 +131,10 @@ export function ActiveChecklistForm({
                   <button
                     type="button"
                     onClick={() => handleStatusChange(item.id, 'OK')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                      currentAnswer.status === 'OK'
-                        ? 'bg-emerald-500 text-white shadow-xs'
-                        : 'bg-surface text-text-muted hover:bg-bg border border-border'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${currentAnswer.status === 'OK'
+                      ? 'bg-emerald-500 text-white shadow-xs'
+                      : 'bg-surface text-text-muted hover:bg-bg border border-border'
+                      }`}
                   >
                     <CheckCircle2 size={14} /> OK
                   </button>
@@ -141,13 +142,12 @@ export function ActiveChecklistForm({
                   <button
                     type="button"
                     onClick={() => handleStatusChange(item.id, 'NO_OK')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                      currentAnswer.status === 'NO_OK'
-                        ? item.isCritical
-                          ? 'bg-rose-500 text-white shadow-xs'
-                          : 'bg-amber-500 text-white shadow-xs'
-                        : 'bg-surface text-text-muted hover:bg-bg border border-border'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${currentAnswer.status === 'NO_OK'
+                      ? item.isCritical
+                        ? 'bg-rose-500 text-white shadow-xs'
+                        : 'bg-amber-500 text-white shadow-xs'
+                      : 'bg-surface text-text-muted hover:bg-bg border border-border'
+                      }`}
                   >
                     <XCircle size={14} /> NO OK
                   </button>
@@ -155,11 +155,10 @@ export function ActiveChecklistForm({
                   <button
                     type="button"
                     onClick={() => handleStatusChange(item.id, 'N_A')}
-                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      currentAnswer.status === 'N_A'
-                        ? 'bg-text-muted text-white shadow-xs'
-                        : 'bg-surface text-text-muted hover:bg-bg border border-border'
-                    }`}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentAnswer.status === 'N_A'
+                      ? 'bg-text-muted text-white shadow-xs'
+                      : 'bg-surface text-text-muted hover:bg-bg border border-border'
+                      }`}
                   >
                     N/A
                   </button>
@@ -190,14 +189,21 @@ export function ActiveChecklistForm({
         <div className="p-3.5 rounded-xl border border-border bg-bg/40 space-y-3">
           <div className="flex items-center justify-between">
             <label className="text-xs font-bold text-text-main flex items-center gap-1.5">
-              <MessageSquare size={14} className="text-primary" /> Observaciones Generales de la Inspección
+              <MessageSquare size={14} className="text-primary" /> Observaciones generales de la Inspección
             </label>
-            <button
-              type="button"
-              className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
-            >
-              <Camera size={14} /> Adjuntar Foto (Opcional)
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setHasPhotoEvidence(!hasPhotoEvidence)}
+                className={`text-[11px] font-bold px-2 py-1 rounded flex items-center gap-1 cursor-pointer transition-colors ${hasPhotoEvidence
+                  ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                  : 'text-primary hover:bg-primary/10'
+                  }`}
+              >
+                <Camera size={14} />
+                {hasPhotoEvidence ? 'Foto Adjuntada' : 'Adjuntar Foto (Opcional)'}
+              </button>
+            </div>
           </div>
           <textarea
             rows={2}
@@ -212,10 +218,11 @@ export function ActiveChecklistForm({
         <div className="flex justify-end pt-2">
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="w-full sm:w-auto px-6 py-2.5 bg-primary text-white text-xs font-bold rounded-xl shadow-lg hover:bg-primary/90 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            disabled={isSubmitDisabled}
+            className={`w-full sm:w-auto px-6 py-2.5 text-white text-xs font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer ${isSubmitDisabled ? 'bg-bg border border-border text-text-muted cursor-not-allowed' : 'bg-primary hover:bg-primary/90'
+              }`}
           >
-            <Send size={16} /> Finalizar y Registrar Inspección
+            Finalizar y registrar inspección
           </button>
         </div>
       </form>
