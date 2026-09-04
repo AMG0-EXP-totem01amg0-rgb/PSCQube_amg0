@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
-import { Plus, MapPin, Edit2, User, CheckCircle2 } from 'lucide-react';
+import { Plus, MapPin, Edit2, User, CheckCircle2, Trash2, AlertTriangle } from 'lucide-react';
 import { HSSector } from '../types';
 
 interface SectorsMasterProps {
   sectors: HSSector[];
   onSave: (item: Partial<HSSector>) => void;
+  onDelete?: (id: string) => void;
 }
 
-export function SectorsMaster({ sectors, onSave }: SectorsMasterProps) {
+export function SectorsMaster({ sectors, onSave, onDelete }: SectorsMasterProps) {
   const [isOpenModal, setIsOpenModal] = useState(false);
   const [editingItem, setEditingItem] = useState<Partial<HSSector> | null>(null);
+
+  // Estado para el modal de confirmación de eliminación
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleOpenNew = () => {
     setEditingItem({
@@ -24,6 +28,15 @@ export function SectorsMaster({ sectors, onSave }: SectorsMasterProps) {
   const handleOpenEdit = (item: HSSector) => {
     setEditingItem(item);
     setIsOpenModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (deletingId && onDelete) {
+      onDelete(deletingId);
+    }
+    setDeletingId(null);
+    setIsOpenModal(false);
+    setEditingItem(null);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -76,7 +89,7 @@ export function SectorsMaster({ sectors, onSave }: SectorsMasterProps) {
                 </div>
                 <button
                   onClick={() => handleOpenEdit(sec)}
-                  className="p-1 text-text-muted hover:text-primary rounded hover:bg-bg transition-colors"
+                  className="p-1 text-text-muted hover:text-primary rounded hover:bg-bg transition-colors cursor-pointer"
                   title="Editar Sector"
                 >
                   <Edit2 size={14} />
@@ -93,20 +106,32 @@ export function SectorsMaster({ sectors, onSave }: SectorsMasterProps) {
                 <User size={14} className="text-primary" /> Responsable:
               </span>
               <span className="font-bold text-text-main">
-                {sec.responsiblePerson}
+                {sec.responsiblePerson || 'Sin asignar'}
               </span>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Modal Form */}
+      {/* Modal Formulario */}
       {isOpenModal && editingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="w-full max-w-md bg-surface border border-border rounded-2xl p-6 shadow-2xl space-y-4">
-            <h3 className="text-sm font-black uppercase tracking-wider text-text-main">
-              {editingItem.id ? 'Editar Sector' : 'Nuevo Sector'}
-            </h3>
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-sm font-black uppercase tracking-wider text-text-main">
+                {editingItem.id ? 'Editar Sector' : 'Nuevo Sector'}
+              </h3>
+              {editingItem.id && (
+                <button
+                  type="button"
+                  onClick={() => setDeletingId(editingItem.id!)}
+                  className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                  title="Eliminar Sector"
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
+            </div>
 
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
@@ -161,18 +186,53 @@ export function SectorsMaster({ sectors, onSave }: SectorsMasterProps) {
                 <button
                   type="button"
                   onClick={() => setIsOpenModal(false)}
-                  className="px-3 py-1.5 rounded-lg border border-border text-text-muted text-xs font-bold hover:bg-bg transition-colors"
+                  className="px-3 py-1.5 rounded-lg border border-border text-text-muted text-xs font-bold hover:bg-bg transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90 transition-colors inline-flex items-center gap-1"
+                  className="px-4 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90 transition-colors inline-flex items-center gap-1 cursor-pointer"
                 >
                   <CheckCircle2 size={14} /> Guardar
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Personalizado de Confirmación de Eliminación */}
+      {deletingId && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="w-full max-w-sm bg-surface border border-border rounded-2xl p-5 shadow-2xl space-y-4 text-center">
+            <div className="w-10 h-10 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto">
+              <AlertTriangle size={20} />
+            </div>
+
+            <div>
+              <h4 className="text-sm font-bold text-text-main">¿Eliminar sector?</h4>
+              <p className="text-xs text-text-muted mt-1">
+                Esta acción quitará el sector de la lista.
+              </p>
+            </div>
+
+            <div className="flex justify-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeletingId(null)}
+                className="w-full py-2 rounded-xl border border-border text-text-main text-xs font-bold hover:bg-bg transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                className="w-full py-2 rounded-xl bg-rose-500 text-white text-xs font-bold hover:bg-rose-600 transition-colors cursor-pointer shadow-xs"
+              >
+                Sí, Eliminar
+              </button>
+            </div>
           </div>
         </div>
       )}

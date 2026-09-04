@@ -18,7 +18,7 @@ interface HSAdminViewProps {
   onAddChecklistItem: (item: Partial<HSChecklistItem>) => void;
 }
 
-type AdminSubTab = 'TYPES' | 'OBJECTS' | 'SECTORS' | 'CHECKLISTS';
+type AdminSubTab = 'SECTORS' | 'TYPES' | 'OBJECTS' | 'CHECKLISTS';
 
 export function HSAdminView({
   objectTypes,
@@ -31,13 +31,14 @@ export function HSAdminView({
   onToggleChecklistItem,
   onAddChecklistItem
 }: HSAdminViewProps) {
-  const [activeTab, setActiveTab] = useState<AdminSubTab>('OBJECTS');
+  // Orden jerárquico: Sectores primero
+  const [activeTab, setActiveTab] = useState<AdminSubTab>('SECTORS');
 
   const subTabs = [
-    { id: 'OBJECTS', label: 'Objetos con QR', icon: <QrCode size={14} />, count: objects.length },
+    { id: 'SECTORS', label: 'Sectores / Áreas', icon: <MapPin size={14} />, count: sectors.length },
     { id: 'TYPES', label: 'Tipos de Objeto', icon: <ShieldAlert size={14} />, count: objectTypes.length },
-    { id: 'SECTORS', label: 'Sectores', icon: <MapPin size={14} />, count: sectors.length },
-    { id: 'CHECKLISTS', label: 'Checklists Dinámicos', icon: <ListChecks size={14} />, count: checklistItems.length }
+    { id: 'OBJECTS', label: 'Puntos de Inspección', icon: <QrCode size={14} />, count: objects.length },
+    { id: 'CHECKLISTS', label: 'Checklists', icon: <ListChecks size={14} />, count: checklistItems.length }
   ] as const;
 
   return (
@@ -50,17 +51,15 @@ export function HSAdminView({
             <button
               key={st.id}
               onClick={() => setActiveTab(st.id as AdminSubTab)}
-              className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-                isActive
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'text-text-muted hover:text-text-main hover:bg-bg'
-              }`}
+              className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${isActive
+                ? 'bg-primary text-white shadow-xs'
+                : 'text-text-muted hover:text-text-main hover:bg-bg'
+                }`}
             >
               {st.icon}
               <span>{st.label}</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                isActive ? 'bg-white/20 text-white' : 'bg-bg text-text-muted border border-border'
-              }`}>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${isActive ? 'bg-white/20 text-white' : 'bg-bg text-text-muted border border-border'
+                }`}>
                 {st.count}
               </span>
             </button>
@@ -70,12 +69,10 @@ export function HSAdminView({
 
       {/* Vistas según SubTab */}
       <div className="p-4 rounded-2xl border border-border bg-surface shadow-xs">
-        {activeTab === 'OBJECTS' && (
-          <ObjectsMaster
-            objects={objects}
-            objectTypes={objectTypes}
+        {activeTab === 'SECTORS' && (
+          <SectorsMaster
             sectors={sectors}
-            onSave={onSaveObject}
+            onSave={onSaveSector}
           />
         )}
 
@@ -86,10 +83,12 @@ export function HSAdminView({
           />
         )}
 
-        {activeTab === 'SECTORS' && (
-          <SectorsMaster
+        {activeTab === 'OBJECTS' && (
+          <ObjectsMaster
+            objects={objects}
+            objectTypes={objectTypes}
             sectors={sectors}
-            onSave={onSaveSector}
+            onSave={onSaveObject}
           />
         )}
 

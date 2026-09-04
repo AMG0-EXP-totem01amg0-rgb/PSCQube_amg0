@@ -1,4 +1,4 @@
-export type HSObjectStatus = 'OK' | 'WARNING' | 'CRITICAL' | 'PENDING';
+export type HSObjectStatus = 'OK' | 'NO_OK' | 'PENDING';
 
 export type HSInspectionResult = 'CONFORME' | 'NO_CONFORME_MENOR' | 'NO_CONFORME_CRITICA';
 
@@ -40,6 +40,7 @@ export interface HSObject {
   lastInspectedBy?: string;
   nextInspectionDue: string;
   notes?: string;
+  observations?: string;
 }
 
 export interface HSChecklistItem {
@@ -57,6 +58,7 @@ export interface HSInspectionAnswer {
   checklistItemLabel: string;
   status: HSChecklistAnswerStatus;
   observation?: string;
+  actionPlan?: string;
   isCriticalFinding: boolean;
 }
 

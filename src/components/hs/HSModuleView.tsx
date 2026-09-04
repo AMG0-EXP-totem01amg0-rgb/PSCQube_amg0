@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShieldCheck, QrCode, Settings, ClipboardList } from 'lucide-react';
 import { useHSModule } from './useHSModule';
 import { HSScannerView } from './scanner/HSScannerView';
 import { HSAdminView } from './admin/HSAdminView';
 import { HSActionPlansView } from './action-plans/HSActionPlansView';
+import { InspectionCertificateView } from './scanner/InspectionCertificateView';
 import { AppUser } from '../../types';
 
 interface HSModuleViewProps {
@@ -16,6 +17,18 @@ type MainHSTab = 'SCANNER' | 'ADMIN' | 'ACTION_PLANS';
 
 export default function HSModuleView({ currentUser, isDark, addToast }: HSModuleViewProps) {
   const [activeMainTab, setActiveMainTab] = useState<MainHSTab>('SCANNER');
+  const [sharedInspectionParam, setSharedInspectionParam] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('inspection') || params.get('id') || null;
+  });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const param = params.get('inspection') || params.get('id');
+    if (param) {
+      setSharedInspectionParam(param);
+    }
+  }, []);
 
   const {
     objectTypes,
@@ -38,6 +51,21 @@ export default function HSModuleView({ currentUser, isDark, addToast }: HSModule
   } = useHSModule();
 
   const activeActionPlansCount = actionPlans.filter(p => p.status === 'OPEN' || p.status === 'IN_PROGRESS').length;
+
+  if (sharedInspectionParam) {
+    return (
+      <InspectionCertificateView
+        inspectionParam={sharedInspectionParam}
+        objects={objects}
+        inspections={inspections}
+        checklistItems={checklistItems}
+        onClose={() => {
+          window.history.pushState({}, '', window.location.pathname);
+          setSharedInspectionParam(null);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4 max-w-7xl mx-auto pb-8">
@@ -109,7 +137,9 @@ export default function HSModuleView({ currentUser, isDark, addToast }: HSModule
           objects={objects}
           selectedObject={selectedObject}
           checklistItems={activeChecklistForSelectedObject}
+          allChecklistItems={checklistItems}
           inspectionHistory={selectedObjectInspectionHistory}
+          allInspections={inspections}
           currentUser={currentUser}
           onSelectQR={selectObjectByQR}
           onSubmitInspection={submitInspection}

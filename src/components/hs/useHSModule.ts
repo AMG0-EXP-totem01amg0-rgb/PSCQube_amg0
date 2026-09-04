@@ -114,11 +114,12 @@ const INITIAL_OBJECTS: HSObject[] = [
     typeId: 'ot-1',
     sectorId: 'sec-2',
     locationDetail: 'Panel principal Celda 2 Paletizadora',
-    status: 'CRITICAL',
+    status: 'NO_OK',
     lastInspectedAt: '2026-08-10',
     lastInspectedBy: 'Roberto Martínez',
     nextInspectionDue: '2026-08-15',
-    notes: 'Manómetro vencido y manguera agrietada. Generó Plan de Acción.'
+    notes: 'Manómetro fuera de rango y manguera agrietada.',
+    observations: 'Sin presión (en rojo) y fisura visible en base de acople.'
   },
   {
     id: 'obj-3',
@@ -127,11 +128,12 @@ const INITIAL_OBJECTS: HSObject[] = [
     typeId: 'ot-2',
     sectorId: 'sec-1',
     locationDetail: 'Oficina de supervisores Ensacado',
-    status: 'WARNING',
+    status: 'NO_OK',
     lastInspectedAt: '2026-08-05',
     lastInspectedBy: 'Carlos Gómez',
     nextInspectionDue: '2026-08-20',
-    notes: 'Falta reposición de gasas estériles y antiséptico.'
+    notes: 'Falta reposición de insumos básicos.',
+    observations: 'Insumos básicos incompletos (sin gasas ni vendas).'
   },
   {
     id: 'obj-4',
@@ -157,7 +159,7 @@ const INITIAL_OBJECTS: HSObject[] = [
     lastInspectedAt: '2026-07-15',
     lastInspectedBy: 'Juan Perez',
     nextInspectionDue: '2026-08-12',
-    notes: 'Inspección periódica vencida.'
+    notes: 'Inspección periódica pendiente.'
   }
 ];
 
@@ -200,9 +202,23 @@ const INITIAL_INSPECTIONS: HSInspection[] = [
     actionPlanGenerated: true,
     answers: [
       { checklistItemId: 'cli-1', checklistItemLabel: 'Acceso y visibilidad despejada', status: 'OK', isCriticalFinding: false },
-      { checklistItemId: 'cli-2', checklistItemLabel: 'Manómetro en rango de presión correcto', status: 'NO_OK', observation: 'Sin presión (en rojo)', isCriticalFinding: true },
+      {
+        checklistItemId: 'cli-2',
+        checklistItemLabel: 'Manómetro en rango de presión correcto',
+        status: 'NO_OK',
+        observation: 'Sin presión (aguja en zona roja por debajo de los 10 bar)',
+        actionPlan: 'Reemplazo inmediato del manómetro y prueba de estanqueidad en taller.',
+        isCriticalFinding: true
+      },
       { checklistItemId: 'cli-3', checklistItemLabel: 'Precinto y pasador de seguridad intacto', status: 'OK', isCriticalFinding: false },
-      { checklistItemId: 'cli-4', checklistItemLabel: 'Manguera y boquilla en buen estado', status: 'NO_OK', observation: 'Fisura visible en base de acople', isCriticalFinding: false }
+      {
+        checklistItemId: 'cli-4',
+        checklistItemLabel: 'Manguera y boquilla en buen estado',
+        status: 'NO_OK',
+        observation: 'Fisura visible en base de acople de manguera',
+        actionPlan: 'Sustitución de manguera por repuesto homologado.',
+        isCriticalFinding: false
+      }
     ]
   },
   {
@@ -317,7 +333,7 @@ export function useHSModule() {
       operatorDni: string;
       operatorName: string;
       comments?: string;
-      answers: { checklistItemId: string; status: HSChecklistAnswerStatus; observation?: string }[];
+      answers: { checklistItemId: string; status: HSChecklistAnswerStatus; observation?: string; actionPlan?: string }[];
     }
   ) => {
     const targetObj = enrichedObjects.find(o => o.id === inspectionData.objectId);
@@ -331,23 +347,17 @@ export function useHSModule() {
         checklistItemLabel: item ? item.label : 'Ítem',
         status: ans.status,
         observation: ans.observation,
+        actionPlan: ans.actionPlan,
         isCriticalFinding
       };
     });
 
-    const hasCritical = answersWithDetails.some(a => a.isCriticalFinding);
-    const hasMinor = answersWithDetails.some(a => a.status === 'NO_OK');
+    const hasAnyNoOk = answersWithDetails.some(a => a.status === 'NO_OK');
 
-    let overallResult: 'CONFORME' | 'NO_CONFORME_MENOR' | 'NO_CONFORME_CRITICA' = 'CONFORME';
-    let newObjectStatus: HSObjectStatus = 'OK';
-
-    if (hasCritical) {
-      overallResult = 'NO_CONFORME_CRITICA';
-      newObjectStatus = 'CRITICAL';
-    } else if (hasMinor) {
-      overallResult = 'NO_CONFORME_MENOR';
-      newObjectStatus = 'WARNING';
-    }
+    const overallResult: 'CONFORME' | 'NO_CONFORME_MENOR' | 'NO_CONFORME_CRITICA' = hasAnyNoOk
+      ? 'NO_CONFORME_CRITICA'
+      : 'CONFORME';
+    const newObjectStatus: HSObjectStatus = hasAnyNoOk ? 'NO_OK' : 'OK';
 
     const newInspectionId = `insp-${Date.now()}`;
     const dateStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
@@ -364,7 +374,7 @@ export function useHSModule() {
       overallResult,
       comments: inspectionData.comments,
       answers: answersWithDetails,
-      actionPlanGenerated: hasMinor || hasCritical
+      actionPlanGenerated: hasAnyNoOk
     };
 
     setInspections(prev => [newInspection, ...prev]);
@@ -374,6 +384,8 @@ export function useHSModule() {
     const freqDays = typeObj ? typeObj.inspectionFrequencyDays : 30;
     const nextDueDate = new Date(Date.now() + freqDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
+    const firstFailed = answersWithDetails.find(a => a.status === 'NO_OK');
+
     setObjects(prev => prev.map(o => {
       if (o.id === targetObj.id) {
         return {
@@ -382,14 +394,15 @@ export function useHSModule() {
           lastInspectedAt: dateStr.substring(0, 10),
           lastInspectedBy: inspectionData.operatorName,
           nextInspectionDue: nextDueDate,
-          notes: inspectionData.comments || o.notes
+          notes: inspectionData.comments || o.notes,
+          observations: firstFailed ? firstFailed.observation : o.observations
         };
       }
       return o;
     }));
 
     // Generar Plan de Acción automático si hubo hallazgos
-    if (hasMinor || hasCritical) {
+    if (hasAnyNoOk) {
       const failedAnswers = answersWithDetails.filter(a => a.status === 'NO_OK');
       const sectorObj = sectors.find(s => s.id === targetObj.sectorId);
       const responsiblePerson = sectorObj?.responsiblePerson || 'Asignación Pendiente';
@@ -402,8 +415,8 @@ export function useHSModule() {
         sectorName: targetObj.sectorName || 'Sin Sector',
         checklistItemId: fail.checklistItemId,
         title: `Hallazgo: ${fail.checklistItemLabel}`,
-        description: fail.observation || `Falla detectada durante la inspección realizada por ${inspectionData.operatorName}.`,
-        severity: fail.isCriticalFinding ? 'CRITICAL' : 'MEDIUM',
+        description: `Detalle del Hallazgo: ${fail.observation || 'Sin detalle'}\nPlan de Acción: ${fail.actionPlan || 'Sin plan redactado'}`,
+        severity: fail.isCriticalFinding ? 'CRITICAL' : 'HIGH',
         assignedTo: responsiblePerson,
         dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         status: 'OPEN',
@@ -414,7 +427,7 @@ export function useHSModule() {
     }
 
     return newInspection;
-  }, [enrichedObjects, checklistItems, objectTypes]);
+  }, [enrichedObjects, checklistItems, objectTypes, sectors]);
 
   // ABM Maestros
   const addOrUpdateObjectType = useCallback((item: Partial<HSObjectType>) => {

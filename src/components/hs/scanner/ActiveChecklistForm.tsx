@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckCircle2, XCircle, Send, Camera, MessageSquare, ShieldAlert } from 'lucide-react';
+import { CheckCircle2, XCircle, Camera, MessageSquare, ShieldAlert } from 'lucide-react';
 import { HSChecklistItem, HSChecklistAnswerStatus, HSObject } from '../types';
 import { AppUser } from '../../../types';
 
@@ -12,7 +12,7 @@ interface ActiveChecklistFormProps {
     operatorDni: string;
     operatorName: string;
     comments?: string;
-    answers: { checklistItemId: string; status: HSChecklistAnswerStatus; observation?: string }[];
+    answers: { checklistItemId: string; status: HSChecklistAnswerStatus; observation?: string; actionPlan?: string }[];
   }) => void;
 }
 
@@ -22,11 +22,11 @@ export function ActiveChecklistForm({
   currentUser,
   onSubmit
 }: ActiveChecklistFormProps) {
-  const [answers, setAnswers] = useState<Record<string, { status: HSChecklistAnswerStatus; observation: string }>>(
+  const [answers, setAnswers] = useState<Record<string, { status: HSChecklistAnswerStatus; observation: string; actionPlan: string }>>(
     () => {
-      const initial: Record<string, { status: HSChecklistAnswerStatus; observation: string }> = {};
+      const initial: Record<string, { status: HSChecklistAnswerStatus; observation: string; actionPlan: string }> = {};
       checklistItems.forEach(ci => {
-        initial[ci.id] = { status: 'N_A', observation: '' };
+        initial[ci.id] = { status: 'N_A', observation: '', actionPlan: '' };
       });
       return initial;
     }
@@ -50,14 +50,22 @@ export function ActiveChecklistForm({
     }));
   };
 
+  const handleActionPlanChange = (itemId: string, actionPlan: string) => {
+    setAnswers(prev => ({
+      ...prev,
+      [itemId]: { ...prev[itemId], actionPlan }
+    }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const formattedAnswers = (Object.entries(answers) as [string, { status: HSChecklistAnswerStatus; observation: string }][]).map(([checklistItemId, val]) => ({
+    const formattedAnswers = (Object.entries(answers) as [string, { status: HSChecklistAnswerStatus; observation: string; actionPlan: string }][]).map(([checklistItemId, val]) => ({
       checklistItemId,
       status: val.status,
-      observation: val.observation
+      observation: val.observation,
+      actionPlan: val.actionPlan
     }));
 
     onSubmit({
@@ -71,13 +79,13 @@ export function ActiveChecklistForm({
     setIsSubmitting(false);
   };
 
-  const hasCriticalFailure = checklistItems.some(ci => ci.isCritical && answers[ci.id]?.status === 'NO_OK');
+  const hasAnyNoOk = checklistItems.some(ci => answers[ci.id]?.status === 'NO_OK');
   const hasUnansweredItems = checklistItems.some(ci => answers[ci.id]?.status === 'N_A');
   const isSubmitDisabled = isSubmitting || hasUnansweredItems;
 
   return (
     <div className="p-4 rounded-2xl border border-border bg-surface shadow-xs space-y-4">
-      <div className="flex items-center justify-between border-b border-border pb-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
         <div>
           <h3 className="text-sm font-black uppercase tracking-wider text-text-main">
             Checklist de Inspección Activo
@@ -86,25 +94,28 @@ export function ActiveChecklistForm({
             Responda cada ítem de control para completar la inspección periódica.
           </p>
         </div>
-        {hasCriticalFailure && (
-          <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-500 border border-rose-500/20 flex items-center gap-1 animate-pulse">
-            <ShieldAlert size={12} /> Alerta Crítica
-          </span>
-        )}
+
+        {/* Indicador de Estado Resultante de la Inspección */}
+        <div className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5 border transition-all ${
+          hasAnyNoOk
+            ? 'bg-rose-500/10 text-rose-500 border-rose-500/30 animate-pulse'
+            : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
+        }`}>
+          {hasAnyNoOk ? <ShieldAlert size={14} /> : <CheckCircle2 size={14} />}
+          <span>Estado Resultante: {hasAnyNoOk ? 'NO HABILITADO' : 'HABILITADO'}</span>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {checklistItems.map((item, index) => {
-          const currentAnswer = answers[item.id] || { status: 'OK', observation: '' };
+          const currentAnswer = answers[item.id] || { status: 'OK', observation: '', actionPlan: '' };
           const isNoOk = currentAnswer.status === 'NO_OK';
 
           return (
             <div
               key={item.id}
-              className={`p-3.5 rounded-xl border transition-all space-y-2 ${isNoOk
-                ? item.isCritical
-                  ? 'bg-rose-500/5 border-rose-500/30'
-                  : 'bg-amber-500/5 border-amber-500/30'
+              className={`p-3.5 rounded-xl border transition-all space-y-3 ${isNoOk
+                ? 'bg-rose-500/5 border-rose-500/30'
                 : 'bg-bg/40 border-border'
                 }`}
             >
@@ -143,9 +154,7 @@ export function ActiveChecklistForm({
                     type="button"
                     onClick={() => handleStatusChange(item.id, 'NO_OK')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${currentAnswer.status === 'NO_OK'
-                      ? item.isCritical
-                        ? 'bg-rose-500 text-white shadow-xs'
-                        : 'bg-amber-500 text-white shadow-xs'
+                      ? 'bg-rose-500 text-white shadow-xs'
                       : 'bg-surface text-text-muted hover:bg-bg border border-border'
                       }`}
                   >
@@ -165,20 +174,36 @@ export function ActiveChecklistForm({
                 </div>
               </div>
 
-              {/* Campo de observación si es NO OK */}
+              {/* Campos desplegables para NO OK: Hallazgo y Plan de Acción */}
               {isNoOk && (
-                <div className="ml-7 pt-2 space-y-1">
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-rose-500">
-                    Detalle del hallazgo u observación *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={currentAnswer.observation}
-                    onChange={e => handleObservationChange(item.id, e.target.value)}
-                    placeholder="Describa el motivo de la no conformidad..."
-                    className="w-full px-3 py-1.5 rounded-lg border border-rose-500/30 bg-surface text-text-main text-xs focus:ring-1 focus:ring-rose-500 outline-hidden"
-                  />
+                <div className="ml-7 pt-2 border-t border-rose-500/20 space-y-3">
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-rose-500">
+                      Detalle del Hallazgo u Observación *
+                    </label>
+                    <textarea
+                      rows={2}
+                      required
+                      value={currentAnswer.observation}
+                      onChange={e => handleObservationChange(item.id, e.target.value)}
+                      placeholder="Ingrese el detalle de la falla encontrada..."
+                      className="w-full px-3 py-2 rounded-lg border border-rose-500/30 bg-surface text-text-main text-xs focus:ring-1 focus:ring-rose-500 outline-hidden resize-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-amber-500">
+                      Plan de Acción (Tareas y Seguimiento) *
+                    </label>
+                    <textarea
+                      rows={2}
+                      required
+                      value={currentAnswer.actionPlan}
+                      onChange={e => handleActionPlanChange(item.id, e.target.value)}
+                      placeholder="Redacte las tareas y el seguimiento que se llevarán a cabo para corregir el problema..."
+                      className="w-full px-3 py-2 rounded-lg border border-amber-500/30 bg-surface text-text-main text-xs focus:ring-1 focus:ring-amber-500 outline-hidden resize-none"
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -229,3 +254,4 @@ export function ActiveChecklistForm({
     </div>
   );
 }
+

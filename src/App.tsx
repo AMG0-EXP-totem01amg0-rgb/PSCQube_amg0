@@ -353,6 +353,16 @@ export default function App() {
   const [isProdMenuOpen, setIsProdMenuOpen] = useState(false);
   const [adminTab, setAdminTab] = useState('SHIFTS');
   const [hasEnteredApp, setHasEnteredApp] = useState(false);
+
+  // Detector de parámetro de inspección en URL al cargar la aplicación
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const inspectionParam = params.get('inspection') || params.get('id');
+    if (inspectionParam) {
+      setHasEnteredApp(true);
+      setActiveSection('SAFETY');
+    }
+  }, []);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const subNavRef = useRef<HTMLDivElement>(null);
 
