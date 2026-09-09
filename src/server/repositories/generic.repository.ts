@@ -1,15 +1,21 @@
 import { getCachedData, setCachedData, invalidateCache } from "../cache/cache.service.js";
-import { readFromSupabase, writeToSupabase, deleteFromSupabase } from "../services/supabase.service.js";
+import { readFromSupabase, writeToSupabase, deleteFromSupabase, ReadOptions } from "../services/supabase.service.js";
 import { normalizeUniqueIds, getIdColumnAndKey } from "../utils/mappings.js";
 
 export class GenericRepository {
-  static async findAll(tableName: string): Promise<any[]> {
-    const cached = getCachedData(tableName);
+  static async findAll(tableName: string, options?: ReadOptions): Promise<any[]> {
+    let cacheKey = tableName;
+    if (options && Object.keys(options).length > 0) {
+      cacheKey = `${tableName}_${JSON.stringify(options)}`;
+    }
+    
+    const cached = getCachedData(tableName, cacheKey);
     if (cached !== null) return cached;
 
-    const dbData = await readFromSupabase(tableName);
+    const dbData = await readFromSupabase(tableName, options);
     const normalized = normalizeUniqueIds(tableName, dbData || []);
-    setCachedData(tableName, normalized);
+    
+    setCachedData(tableName, normalized, cacheKey);
     return normalized;
   }
 

@@ -340,7 +340,11 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
       "disponibilidad_boquillas",
       "hs_marcha_tis",
       "id_maquinista",
-      "descripcion_maquinista"
+      "descripcion_maquinista",
+      "maquinista_id",
+      "maquinista_nombre",
+      "usuario_id",
+      "usuario_nombre"
     ],
     clientToSheet: {
       id: "id",
@@ -381,7 +385,12 @@ export const TABLE_SCHEMAS: Record<string, TableSchema> = {
       disponibilidad_boquillas: "nozzleAvailability",
       hs_marcha_tis: "hsMarchaTis",
       id_maquinista: "machinistId",
-      descripcion_maquinista: "machinistName"
+      descripcion_maquinista: "machinistName",
+      maquinista_id: "machinistId",
+      maquinista_nombre: "machinistName",
+      "descripción_maquinista": "machinistName",
+      usuario_id: "machinistId",
+      usuario_nombre: "machinistName"
     }
   },
   PAROS_BOQUILLASV2: {

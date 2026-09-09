@@ -106,6 +106,9 @@ export const safeCache = {
         if (
           k &&
           (k.startsWith('app_cache_v2_') ||
+            k.startsWith('app_cache_v3_') ||
+            k.startsWith('app_table_cache_v2_') ||
+            k.startsWith('app_table_cache_v3_') ||
             k.startsWith('pscqube_op_cache_') ||
             k.startsWith('pscqube_maestros_cache'))
         ) {
@@ -124,3 +127,15 @@ export const safeCache = {
 
 // Automatically run legacy cleanup on module load
 safeCache.purgeLegacyLocalStorage();
+
+// Purge stale IndexedDB entries from old cache versions (v2 had 12h TTL, now replaced by v3 with 5min)
+// This runs asynchronously and silently to ensure no user-visible disruption
+(async () => {
+  try {
+    await safeCache.clearByPrefix("app_cache_v2_");
+    await safeCache.clearByPrefix("pscqube_op_cache_"); // Also clear old op snapshots (they may have stale 12h data)
+  } catch {
+    // Silent fail - not critical
+  }
+})();
+

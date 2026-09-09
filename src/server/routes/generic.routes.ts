@@ -5,7 +5,7 @@ import { ParosService } from "../services/paros.service.js";
 import { MaestrosService } from "../services/maestros.service.js";
 import { TABLE_SCHEMAS } from "../schemas/tableSchemas.js";
 import { getIdColumnAndKey } from "../utils/mappings.js";
-import { areRecordsEqual, areNozzleNewsListsEqual, areDetailsListsEqual } from "../utils/helpers.js";
+import { areRecordsEqual, areNozzleNewsListsEqual, areDetailsListsEqual, formatSupabaseError } from "../utils/helpers.js";
 import { getSupabaseClient } from "../services/supabase.service.js";
 import { invalidateCache, MASTER_TABLES } from "../cache/cache.service.js";
 const router = Router();
@@ -174,12 +174,13 @@ router.get("/api/supabase-test", async (req, res) => {
 
     for (const table of testTables) {
       try {
-        const { data, error } = await supabase.from(table).select("*").limit(1);
+        const { data, error } = await supabase.from(table).select("*").limit(5);
         results[table] = {
           success: !error,
           rowCount: data ? data.length : 0,
+          sample: data || [],
           columns: data && data.length > 0 ? Object.keys(data[0]) : [],
-          error: error || null
+          error: error ? formatSupabaseError(error) : null
         };
       } catch (err: any) {
         results[table] = {
@@ -189,6 +190,10 @@ router.get("/api/supabase-test", async (req, res) => {
       }
     }
 
+    console.log("=== SUPABASE-TEST RESULTS ===");
+    console.log("PAROSV2 Row Count:", results["parosv2"]?.rowCount);
+    console.log("PAROSV2 Sample:", JSON.stringify(results["parosv2"]?.sample, null, 2));
+    
     return res.json({
       success: true,
       message: "Supabase connection and structure diagnostics.",
@@ -282,6 +287,44 @@ router.get("/api/catalogos", async (req, res) => {
   }
 });
 
+// Helper to safely compare dates regardless of format (YYYY-MM-DD, DD/MM/YYYY, ISO Timestamps)
+function matchesDateFilter(itemDate: any, targetDate?: string, dateFrom?: string, dateTo?: string): boolean {
+  if (!targetDate && !dateFrom && !dateTo) return true;
+  if (!itemDate) return false;
+  
+  const normItem = String(itemDate).trim();
+  let itemIso = "";
+  if (/^\d{4}-\d{2}-\d{2}/.test(normItem)) {
+    itemIso = normItem.substring(0, 10);
+  } else {
+    const match = normItem.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (match) {
+      itemIso = `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
+    } else {
+      itemIso = normItem;
+    }
+  }
+
+  if (targetDate) {
+    let targetIso = targetDate.trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(targetIso)) {
+      targetIso = targetIso.substring(0, 10);
+    } else {
+      const match = targetIso.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+      if (match) {
+        targetIso = `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
+      }
+    }
+    return itemIso === targetIso;
+  }
+
+  if (dateFrom && dateTo) {
+    return itemIso >= dateFrom && itemIso <= dateTo;
+  }
+
+  return true;
+}
+
 // GET Produccion Endpoint
 router.get("/api/produccion", async (req, res) => {
   logTraceRequest(req, "GET /api/produccion", "PRODUCCIONV2");
@@ -293,15 +336,8 @@ router.get("/api/produccion", async (req, res) => {
     setCdnCacheHeader(res, 30, 120);
   }
   try {
-    let list = await GenericRepository.findAll("PRODUCCIONV2");
-
-    // Apply active filters at backend level if provided!
     const { date, dateFrom, dateTo } = req.query as Record<string, string>;
-    if (dateFrom && dateTo) {
-      list = list.filter((r: any) => r.date && r.date >= dateFrom && r.date <= dateTo);
-    } else if (date) {
-      list = list.filter((r: any) => r.date === date);
-    }
+    let list = await GenericRepository.findAll("PRODUCCIONV2", { date, dateFrom, dateTo });
 
     await ProductionService.enrichProductionReportsWithNozzleNews(list);
     await ProductionService.enrichProductionReportsWithDetails(list);
@@ -335,15 +371,8 @@ router.get("/api/paros", async (req, res) => {
     setCdnCacheHeader(res, 30, 120);
   }
   try {
-    let list = await GenericRepository.findAll("PAROSV2");
-
-    // Apply active filters at backend level if provided!
     const { date, dateFrom, dateTo } = req.query as Record<string, string>;
-    if (dateFrom && dateTo) {
-      list = list.filter((r: any) => r.date && r.date >= dateFrom && r.date <= dateTo);
-    } else if (date) {
-      list = list.filter((r: any) => r.date === date);
-    }
+    let list = await GenericRepository.findAll("PAROSV2", { date, dateFrom, dateTo });
 
     await ParosService.enrichParosOnRead(list);
     return res.json({ success: true, data: list });
@@ -375,8 +404,6 @@ router.get("/api/sheets", async (req, res) => {
   }
 
   try {
-    let list = await GenericRepository.findAll(table);
-
     const upperTable = table.toUpperCase();
 
     // List of transactional/filterable tables
@@ -393,13 +420,12 @@ router.get("/api/sheets", async (req, res) => {
       "CARGA_COMBUSTIBLEV2"
     ];
 
+    const { date, dateFrom, dateTo } = req.query as Record<string, string>;
+    let list = [];
     if (filterableTables.includes(upperTable)) {
-      const { date, dateFrom, dateTo } = req.query as Record<string, string>;
-      if (dateFrom && dateTo) {
-        list = list.filter((r: any) => r.date && r.date >= dateFrom && r.date <= dateTo);
-      } else if (date) {
-        list = list.filter((r: any) => r.date === date);
-      }
+      list = await GenericRepository.findAll(table, { date, dateFrom, dateTo });
+    } else {
+      list = await GenericRepository.findAll(table);
     }
 
     if (upperTable === "PRODUCCIONV2") {

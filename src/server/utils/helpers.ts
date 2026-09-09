@@ -109,15 +109,24 @@ export const calculateDurationTime = (startStr: string, endStr: string): string 
 };
 
 export const durationMinutesFromHHMMSS = (timeStr: any): number => {
-  if (!timeStr && timeStr !== 0) return 0;
-  const str = String(timeStr).trim();
-  const parts = str.split(":").map(Number);
-  if (parts.length >= 2) {
-    const h = parts[0] || 0;
-    const m = parts[1] || 0;
-    return h * 60 + m;
+  if (timeStr === undefined || timeStr === null || timeStr === '') return 0;
+  if (typeof timeStr === 'number') {
+    return isNaN(timeStr) ? 0 : Math.round(timeStr);
   }
-  return 0;
+  const str = String(timeStr).trim();
+  if (/^\d+$/.test(str)) {
+    return parseInt(str, 10);
+  }
+  if (str.includes(":")) {
+    const parts = str.split(":").map(Number);
+    if (parts.length >= 2) {
+      const h = parts[0] || 0;
+      const m = parts[1] || 0;
+      return h * 60 + m;
+    }
+  }
+  const num = parseFloat(str);
+  return isNaN(num) ? 0 : Math.round(num);
 };
 
 export function areRecordsEqual(recordA: any, recordB: any, schemaHeaders: string[], schema: any): boolean {

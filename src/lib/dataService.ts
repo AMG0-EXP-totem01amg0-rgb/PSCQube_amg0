@@ -14,7 +14,7 @@ export interface FetchResult {
   error?: string;
 }
 
-const CACHE_PREFIX = "app_table_cache_v2_";
+const CACHE_PREFIX = "app_table_cache_v3_";
 
 export const MASTER_TABLES = [
   "TURNOSV2", "PALETIZADORAV2", "ENSACADORAV2", "HACSV2",
@@ -29,7 +29,7 @@ async function getBrowserCache(
   tableName: string,
   filters?: { date?: string; shiftId?: string; palletizerId?: string; dateFrom?: string; dateTo?: string }
 ): Promise<any[] | null> {
-  let key = `app_cache_v2_${tableName.toUpperCase()}`;
+  let key = `app_cache_v3_${tableName.toUpperCase()}`;
   if (filters?.date) key += `_${filters.date}`;
   if (filters?.dateFrom) key += `_from_${filters.dateFrom}`;
   if (filters?.dateTo) key += `_to_${filters.dateTo}`;
@@ -41,12 +41,14 @@ async function setBrowserCache(
   data: any[],
   filters?: { date?: string; shiftId?: string; palletizerId?: string; dateFrom?: string; dateTo?: string }
 ): Promise<void> {
-  let key = `app_cache_v2_${tableName.toUpperCase()}`;
+  let key = `app_cache_v3_${tableName.toUpperCase()}`;
   if (filters?.date) key += `_${filters.date}`;
   if (filters?.dateFrom) key += `_from_${filters.dateFrom}`;
   if (filters?.dateTo) key += `_to_${filters.dateTo}`;
   const isMaster = MASTER_TABLES.includes(tableName.toUpperCase());
-  const ttl = isMaster ? 30 * 60 * 1000 : 12 * 60 * 60 * 1000;
+  // Operational tables: 5 minutes (enough to avoid hammering the server on same-context renders)
+  // Master tables: 30 minutes (they change rarely)
+  const ttl = isMaster ? 30 * 60 * 1000 : 5 * 60 * 1000;
   await safeCache.set(key, data, ttl);
 }
 
@@ -54,21 +56,25 @@ export async function clearClientCache(tableName?: string): Promise<void> {
   try {
     if (tableName) {
       const sheetName = tableName.toUpperCase();
-      const keysToClear = [sheetName, sheetName.endsWith('V2') ? sheetName : `${sheetName}V2`];
-      for (const k of keysToClear) {
-        await safeCache.remove(`app_cache_v2_${k}`);
-        if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(CACHE_PREFIX + k);
-      }
-      if (sheetName.includes("PARO") || sheetName.includes("PRODUC")) {
-        await safeCache.remove(`app_cache_v2_PAROSV2`);
-        await safeCache.remove(`app_cache_v2_PRODUCCIONV2`);
-        if (typeof sessionStorage !== 'undefined') {
-          sessionStorage.removeItem(CACHE_PREFIX + "PAROSV2");
-          sessionStorage.removeItem(CACHE_PREFIX + "PRODUCCIONV2");
+      const normalizedName = sheetName.endsWith('V2') ? sheetName : `${sheetName}V2`;
+      // Clear ALL keys for this table (including date/shift-filtered variants) using prefix clear
+      await safeCache.clearByPrefix(`app_cache_v3_${normalizedName}`);
+      if (typeof sessionStorage !== 'undefined') {
+        // Clear sessionStorage entries with this table prefix
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const k = sessionStorage.key(i);
+          if (k && k.startsWith(CACHE_PREFIX + normalizedName)) keysToRemove.push(k);
         }
+        keysToRemove.forEach(k => sessionStorage.removeItem(k));
+      }
+      // Related tables cascade clear
+      if (sheetName.includes("PARO") || sheetName.includes("PRODUC")) {
+        await safeCache.clearByPrefix(`app_cache_v3_PAROSV2`);
+        await safeCache.clearByPrefix(`app_cache_v3_PRODUCCIONV2`);
       }
     } else {
-      await safeCache.clearByPrefix("app_cache_v2_");
+      await safeCache.clearByPrefix("app_cache_v3_");
       if (typeof sessionStorage !== 'undefined') {
         sessionStorage.clear();
       }

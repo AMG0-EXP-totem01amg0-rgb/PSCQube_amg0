@@ -96,7 +96,7 @@ export class ProductionService {
   static async enrichProductionRecords(data: any[]): Promise<void> {
     if (!data || data.length === 0) return;
     try {
-      const [dbShifts, dbPalletizers, dbBaggers, dbMaterials, dbHacs, dbParos, dbCauses, dbCapacities, dbDetails] = await Promise.all([
+      const [dbShifts, dbPalletizers, dbBaggers, dbMaterials, dbHacs, dbParos, dbCauses, dbCapacities, dbDetails, dbUsers] = await Promise.all([
         GenericRepository.findAll("TURNOSV2").catch(() => []),
         GenericRepository.findAll("PALETIZADORAV2").catch(() => []),
         GenericRepository.findAll("ENSACADORAV2").catch(() => []),
@@ -106,9 +106,21 @@ export class ProductionService {
         GenericRepository.findAll("CAUSASV2").catch(() => []),
         GenericRepository.findAll("CAPACIDADESV2").catch(() => []),
         GenericRepository.findAll("DETALLES_PRODUCCIONV2").catch(() => []),
+        GenericRepository.findAll("USUARIOSV2").catch(() => []),
       ]);
 
       await ParosService.enrichParosOnRead(dbParos);
+
+      // Fast Lookup Map for Users by DNI, id, or SAP user
+      const userMap = new Map<string, any>();
+      for (let i = 0; i < dbUsers.length; i++) {
+        const u = dbUsers[i];
+        if (!u) continue;
+        if (u.dni) userMap.set(String(u.dni).trim().toUpperCase(), u);
+        if (u.id) userMap.set(String(u.id).trim().toUpperCase(), u);
+        if (u.sapUser) userMap.set(String(u.sapUser).trim().toUpperCase(), u);
+        if (u.name) userMap.set(String(u.name).trim().toUpperCase(), u);
+      }
 
       // Fast Lookup Map for DETALLES_PRODUCCIONV2 grouped by productionId
       const detailsByProdId = new Map<string, any[]>();
@@ -298,6 +310,20 @@ export class ProductionService {
         const oeePercent = (availabilityPercent / 100) * (yieldPercent / 100) * 100;
         const oeeStr = `${Math.round(oeePercent)}%`;
         item.oee = oeeStr;
+
+        // Machinist Enrichment
+        const machId = String(item.machinistId || item.id_maquinista || item.maquinista_id || item.userId || item.usuario_id || "").trim();
+        let machName = String(item.machinistName || item.descripcion_maquinista || item.maquinista_nombre || item.userName || item.usuario_nombre || "").trim();
+        if (!machName && machId) {
+          const u = userMap.get(machId.toUpperCase());
+          if (u) machName = u.name || u.nombre || "";
+        }
+        item.machinistId = machId;
+        item.machinistName = machName;
+        item["id_maquinista"] = machId;
+        item["maquinista_id"] = machId;
+        item["descripcion_maquinista"] = machName;
+        item["maquinista_nombre"] = machName;
       });
     } catch (enrichError) {
       console.error("Error enriching production data:", enrichError);
@@ -305,29 +331,9 @@ export class ProductionService {
   }
 
   static async autoRecalculateProductionMetrics(): Promise<void> {
-    try {
-      console.log("[autoRecalculateProductionMetrics] Starting automatic OEE/Availability/Yield recalculation...");
-      invalidateCache("PRODUCCIONV2");
-      invalidateCache("PAROSV2");
-
-      const productionList = await GenericRepository.findAll("PRODUCCIONV2");
-      if (!productionList || productionList.length === 0) {
-        console.log("[autoRecalculateProductionMetrics] No production records found to recalculate.");
-        return;
-      }
-
-      await ProductionService.enrichProductionRecords(productionList);
-
-      console.log(`[autoRecalculateProductionMetrics] Recalculated ${productionList.length} records. Committing updates to Supabase...`);
-      for (const report of productionList) {
-        await GenericRepository.update("PRODUCCIONV2", report.id, report);
-      }
-      
-      invalidateCache("PRODUCCIONV2");
-      console.log("[autoRecalculateProductionMetrics] Recalculation completed successfully.");
-    } catch (err) {
-      console.error("[autoRecalculateProductionMetrics] Failed to auto-recalculate:", err);
-    }
+    // TEMPORARILY DISABLED: Prevent massive background updates to all records on every single edit.
+    // The metrics are already calculated on-the-fly during GET requests.
+    return;
   }
 
   static async deleteNozzlesForProduction(productionId: string): Promise<void> {

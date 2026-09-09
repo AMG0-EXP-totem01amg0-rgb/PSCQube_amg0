@@ -18,9 +18,11 @@ export const MASTER_TABLES = [
 export const MASTER_TTL_MS = 30 * 60 * 1000; // 30 minutes
 export const OPERATIONAL_TTL_MS = 10000; // 10 seconds (optimized from 6s)
 
-export function getCachedData(table: string): any[] | null {
+export function getCachedData(table: string, customCacheKey?: string): any[] | null {
   const upperTable = table.toUpperCase();
-  const cached = readCache[upperTable];
+  const keyToUse = customCacheKey ? customCacheKey.toUpperCase() : upperTable;
+  
+  const cached = readCache[keyToUse];
   if (cached) {
     const isMaster = MASTER_TABLES.includes(upperTable);
     const ttl = isMaster ? MASTER_TTL_MS : OPERATIONAL_TTL_MS;
@@ -31,9 +33,11 @@ export function getCachedData(table: string): any[] | null {
   return null;
 }
 
-export function setCachedData(table: string, data: any[]): void {
+export function setCachedData(table: string, data: any[], customCacheKey?: string): void {
   const upperTable = table.toUpperCase();
-  readCache[upperTable] = {
+  const keyToUse = customCacheKey ? customCacheKey.toUpperCase() : upperTable;
+  
+  readCache[keyToUse] = {
     timestamp: Date.now(),
     data
   };
@@ -41,12 +45,27 @@ export function setCachedData(table: string, data: any[]): void {
 
 export function invalidateCache(table: string): void {
   const upper = table.toUpperCase();
-  delete readCache[upper];
+  
+  // Borrar todas las entradas cuyo prefijo sea el nombre de la tabla
+  // Esto limpia cachés como PAROSV2 y PAROSV2_{"date":"2026-09-09"}
+  for (const key of Object.keys(readCache)) {
+    if (key.startsWith(upper)) {
+      delete readCache[key];
+    }
+  }
+  
   if (upper === "PRODUCCIONV2") {
-    delete readCache["PAROS_BOQUILLASV2"];
-    delete readCache["DETALLES_PRODUCCIONV2"];
+    for (const key of Object.keys(readCache)) {
+      if (key.startsWith("PAROS_BOQUILLASV2") || key.startsWith("DETALLES_PRODUCCIONV2")) {
+        delete readCache[key];
+      }
+    }
   } else if (upper === "PAROS_BOQUILLASV2" || upper === "DETALLES_PRODUCCIONV2") {
-    delete readCache["PRODUCCIONV2"];
+    for (const key of Object.keys(readCache)) {
+      if (key.startsWith("PRODUCCIONV2")) {
+        delete readCache[key];
+      }
+    }
   }
 }
 
@@ -55,3 +74,4 @@ export function clearAllCache(): void {
     delete readCache[key];
   }
 }
+

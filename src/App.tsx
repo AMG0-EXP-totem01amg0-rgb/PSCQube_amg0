@@ -42,6 +42,24 @@ import { safeCache } from './lib/safeCache';
 import { ToastContainer, ToastMessage } from './components/ui/Toast';
 
 // --- Utilities ---
+const normalizeDateStr = (d: any): string => {
+  if (!d) return "";
+  const str = String(d).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+    return str.substring(0, 10);
+  }
+  const dmyMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (dmyMatch) {
+    return `${dmyMatch[3]}-${dmyMatch[2].padStart(2, '0')}-${dmyMatch[1].padStart(2, '0')}`;
+  }
+  return str;
+};
+
+const isSameDate = (d1: any, d2: any): boolean => {
+  if (!d1 || !d2) return false;
+  return normalizeDateStr(d1) === normalizeDateStr(d2);
+};
+
 const saveToLocalStorageSafe = (
   key: string, 
   value: string
@@ -81,9 +99,30 @@ const isStopForMachine = (stop: any, machineId: string | any | null | undefined,
   if (!targetId) return false;
 
   // 1.5 Direct robust match to prevent master lookup failures
-  const stopMacId = String(stop.machineId || stop.palletizerId || "").trim().toUpperCase();
-  if (stopMacId && targetId && (stopMacId === targetId || targetId.includes(stopMacId) || stopMacId.includes(targetId))) {
+  const stopMacId = String(stop.machineId || stop.palletizerId || stop.baggerId || "").trim().toUpperCase();
+  const stopMachineName = String(stop.machineName || "").trim().toUpperCase();
+  const stopMachineHacText = String(stop.machineHacText || stop["máquina afectada"] || stop.maquina_afectada || "").trim().toUpperCase();
+
+  if (stopMacId && (stopMacId === targetId || targetId.includes(stopMacId) || stopMacId.includes(targetId))) {
     return true;
+  }
+  if (stopMachineHacText && (stopMachineHacText === targetId || targetId.includes(stopMachineHacText) || stopMachineHacText.includes(targetId))) {
+    return true;
+  }
+  if (stopMachineName && (stopMachineName === targetId || targetId.includes(stopMachineName) || stopMachineName.includes(targetId))) {
+    return true;
+  }
+  if (stop.id && typeof stop.id === 'string' && stop.id.includes('_')) {
+    const parts = stop.id.split('_');
+    if (parts[1] && (parts[1].trim().toUpperCase() === targetId || targetId.includes(parts[1].trim().toUpperCase()))) {
+      return true;
+    }
+  }
+  if (stop.idparo && typeof stop.idparo === 'string' && stop.idparo.includes('_')) {
+    const parts = stop.idparo.split('_');
+    if (parts[1] && (parts[1].trim().toUpperCase() === targetId || targetId.includes(parts[1].trim().toUpperCase()))) {
+      return true;
+    }
   }
 
   // 2. Find the selected machine object in palletizers or baggers
@@ -97,14 +136,8 @@ const isStopForMachine = (stop: any, machineId: string | any | null | undefined,
     String(b.name || b.nombre || "").trim().toUpperCase() === targetId
   ));
 
-  // Stop's fields
-  const stopMachineId = String(stop.machineId || "").trim().toUpperCase();
-  const stopMachineName = String(stop.machineName || "").trim().toUpperCase();
-  const stopMachineHacText = String(stop.machineHacText || "").trim().toUpperCase();
-
   if (!selectedMac) {
-    // If we can't find reference in master tables, check if stop's fields strictly equal targetId
-    return stopMachineId === targetId || stopMachineHacText === targetId || stopMachineName === targetId;
+    return stopMacId === targetId || stopMachineHacText === targetId || stopMachineName === targetId;
   }
 
   // Machine's fields
@@ -113,7 +146,7 @@ const isStopForMachine = (stop: any, machineId: string | any | null | undefined,
   const macHacId = String(selectedMac.hacId || selectedMac.hac_id || "").trim().toUpperCase();
 
   // Strict match among any of the stop and mac fields
-  const stopFields = [stopMachineId, stopMachineName, stopMachineHacText].filter(Boolean);
+  const stopFields = [stopMacId, stopMachineName, stopMachineHacText].filter(Boolean);
   const macFields = [macId, macName, macHacId].filter(Boolean);
 
   for (const sField of stopFields) {
@@ -129,7 +162,7 @@ const isStopForMachine = (stop: any, machineId: string | any | null | undefined,
 
   for (const sClean of cleanStopFields) {
     for (const mClean of cleanMacFields) {
-      if (sClean === mClean) return true;
+      if (sClean === mClean || sClean.includes(mClean) || mClean.includes(sClean)) return true;
     }
   }
 
@@ -144,21 +177,24 @@ const isStopForShift = (stop: any, shiftId: string | null | undefined, mastersAv
   const targetId = String(shiftId).trim().toUpperCase();
   
   const selectedS: any = (mastersAvailable.shifts || []).find((s: any) => s && String(s.id).trim().toUpperCase() === targetId);
-  if (!selectedS) {
-    return String(stop.shiftId || '').trim().toUpperCase() === targetId;
-  }
   
-  const sId = String(selectedS.id).trim().toUpperCase();
-  const sName = String(selectedS.name || selectedS.nombre || "").trim().toUpperCase();
+  const sId = selectedS ? String(selectedS.id).trim().toUpperCase() : targetId;
+  const sName = selectedS ? String(selectedS.name || selectedS.nombre || "").trim().toUpperCase() : "";
   
-  const stopShiftId = String(stop.shiftId || "").trim().toUpperCase();
+  const stopShiftId = String(stop.shiftId || stop.turno_id || "").trim().toUpperCase();
   const stopShiftName = String(stop.shiftName || stop.turno || "").trim().toUpperCase();
   
-  if (stopShiftId === sId) return true;
-  if (stopShiftName === sName) return true;
-  if (stopShiftId === sName) return true;
-  if (stopShiftName === sId) return true;
+  if (stopShiftId && stopShiftId === sId) return true;
+  if (stopShiftName && sName && stopShiftName === sName) return true;
+  if (stopShiftId && sName && stopShiftId === sName) return true;
+  if (stopShiftName && sId && stopShiftName === sId) return true;
   
+  if (sName && stopShiftName && (stopShiftName.includes(sName) || sName.includes(stopShiftName))) return true;
+  
+  const cleanSName = sName.replace("TURNO", "").trim();
+  const cleanStopShiftName = stopShiftName.replace("TURNO", "").trim();
+  if (cleanSName && cleanStopShiftName && (cleanSName === cleanStopShiftName || cleanSName.includes(cleanStopShiftName) || cleanStopShiftName.includes(cleanSName))) return true;
+
   return false;
 };
 
@@ -251,24 +287,8 @@ export default function App() {
   // Track Form edits to set hasUnsavedChanges (using state-free real-time DOM queries to prevent aggressive re-renders and selection interference)
 
   const handleVersionMismatch = (serverVer: string) => {
-    const activeUnsaved = hasUnsavedChanges || checkHasUnsavedChanges();
-    if (activeUnsaved || isSaving) {
-      if (!pendingVersionUpdate) {
-        setPendingVersionUpdate(true);
-        addToast("Hay una nueva versión disponible. Se actualizará automáticamente al finalizar la operación.", "info");
-      }
-    } else {
-      if (document.visibilityState === 'visible') {
-        console.log("[Version Control] Tab visible and idle. Executing silent background reload.");
-        try {
-          clearClientCache();
-          localStorage.removeItem("pscqube_app_version");
-        } catch (e) {}
-        window.location.reload();
-      } else {
-        setPendingVersionUpdate(true);
-      }
-    }
+    // Flag pending update without disrupting current active user work
+    setPendingVersionUpdate(true);
   };
 
   const checkAppVersion = async (isStartup = false) => {
@@ -295,46 +315,30 @@ export default function App() {
     }
   };
 
-  // Perform a silent reload immediately once active save/edit operations finish and no unsaved changes remain
-  useEffect(() => {
-    if (!isSaving && pendingVersionUpdate) {
-      const activeUnsaved = hasUnsavedChanges || checkHasUnsavedChanges();
-      if (!activeUnsaved) {
-        console.log("[Version Control] Active operations completed, no unsaved changes. Performing silent reload.");
-        try {
-          clearClientCache();
-          localStorage.removeItem("pscqube_app_version");
-        } catch (e) {}
-        window.location.reload();
-      }
-    }
-  }, [isSaving, pendingVersionUpdate, hasUnsavedChanges]);
-
   useEffect(() => {
     checkAppVersion(true);
 
     let lastCheckTime = Date.now();
-    const tenMinutes = 10 * 60 * 1000;
+    const fifteenMinutes = 15 * 60 * 1000;
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        // Si hay una actualización pendiente y no hay cambios sin guardar, recargar
+      if (document.visibilityState === 'hidden') {
+        // When tab is hidden and an update is pending, reload cleanly in the background
         if (pendingVersionUpdate) {
           const activeUnsaved = hasUnsavedChanges || checkHasUnsavedChanges();
           if (!activeUnsaved && !isSaving) {
+            console.log("[Version Control] Tab hidden. Applying pending version update cleanly in background.");
             try {
               clearClientCache();
               localStorage.removeItem("pscqube_app_version");
             } catch (e) {}
             window.location.reload();
-            return;
           }
         }
-
-        // Chequear versión solo si pasaron más de 10 minutos desde el último chequeo
+      } else if (document.visibilityState === 'visible') {
+        // Check for updates only if at least 15 minutes have passed
         const timeElapsed = Date.now() - lastCheckTime;
-        if (timeElapsed > tenMinutes) {
-          console.log("[Version Control] Visibility check. Checking for updates...");
+        if (timeElapsed > fifteenMinutes) {
           checkAppVersion(false);
           lastCheckTime = Date.now();
         }
@@ -725,6 +729,9 @@ export default function App() {
                              (!targetShiftId || targetShiftId === userContext.selectedShiftId);
     
     if (isCurrentContext) {
+      const key = getCooldownKey(upper, targetDate || userContext.selectedDate, targetShiftId || userContext.selectedShiftId);
+      operationalDataByKeyRef.current[key] = data;
+
       if (upper === "PAROSV2") {
         setStops(data.filter(s => s && !deletedStopIdsRef.current.has(s.id)));
       } else if (upper === "PRODUCCIONV2") {
@@ -754,7 +761,7 @@ export default function App() {
     const key = getCooldownKey(tableName, actualDate, actualShiftId);
     
     operationalDataByKeyRef.current[key] = data;
-    safeCache.set('pscqube_op_cache_' + key, data, 12 * 60 * 60 * 1000);
+    safeCache.set('pscqube_op_cache_' + key, data, 5 * 60 * 1000); // 5 minutes TTL (aligns with dataService operational TTL)
   }, [userContext.selectedDate, userContext.selectedShiftId, getCooldownKey]);
 
   // --- On-demand database synchronization triggered by pressing "Ingresar"
@@ -784,23 +791,25 @@ export default function App() {
         palletizerId: userContext.selectedPalletizerId
       };
 
+      // Force bypass=true for all operational tables on login to always get fresh data from server
+      // (prevents stale IndexedDB snapshots from being served at startup)
       const [
         resStops, resProduction, resDater, resScale, resStock,
         resPalletClassifications, resChange, resDespachos,
         resLoadingLanes, resFuelLoads, resUsers, resScaleParams
       ] = await Promise.all([
-        fetchTable("PAROSV2", false, initialFilters, "App.handleSyncOnEnter"),
-        fetchTable("PRODUCCIONV2", false, initialFilters, "App.handleSyncOnEnter"),
-        fetchTable("CONTROL_FECHADORV2", false, initialFilters, "App.handleSyncOnEnter"),
-        fetchTable("CONTROL_BALANZAV2", false, initialFilters, "App.handleSyncOnEnter"),
-        fetchTable("INVENTARIO_FISICOV2", false, initialFilters, "App.handleSyncOnEnter"),
-        fetchTable("CLASISFICACION_PALLETSV2", false, initialFilters, "App.handleSyncOnEnter"),
-        fetchTable("CAMBIO_PRODUCTOV2", false, initialFilters, "App.handleSyncOnEnter"),
-        fetchTable("DESPACHOSV2", false, initialFilters, "App.handleSyncOnEnter"),
-        fetchTable("ESTADO_CALLESV2", false, initialFilters, "App.handleSyncOnEnter"),
-        fetchTable("CARGA_COMBUSTIBLEV2", false, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("PAROSV2", true, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("PRODUCCIONV2", true, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("CONTROL_FECHADORV2", true, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("CONTROL_BALANZAV2", true, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("INVENTARIO_FISICOV2", true, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("CLASISFICACION_PALLETSV2", true, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("CAMBIO_PRODUCTOV2", true, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("DESPACHOSV2", true, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("ESTADO_CALLESV2", true, initialFilters, "App.handleSyncOnEnter"),
+        fetchTable("CARGA_COMBUSTIBLEV2", true, initialFilters, "App.handleSyncOnEnter"),
         fetchTable("USUARIOSV2", true, {}, "App.handleSyncOnEnter"),
-        fetchTable("PARAMETROS_BALANZAV2", false, {}, "App.handleSyncOnEnter")
+        fetchTable("PARAMETROS_BALANZAV2", true, {}, "App.handleSyncOnEnter")
       ]);
 
       setSyncMessage('Preparando sistema...');
@@ -943,9 +952,9 @@ export default function App() {
           console.log(`[Immediate Restore] Found snapshot for ${tableName} (key: ${key}). Restoring.`);
           updateTableState(tableName, cachedData, date, shiftId);
         } else {
-          // First-time visit or no cache: clear the state to prevent leaking previous context's data in local UI filters
-          console.log(`[Immediate Restore] No snapshot found for ${tableName} (key: ${key}). Clearing state.`);
-          updateTableState(tableName, [], date, shiftId);
+          // If no snapshot exists yet, delete cooldown so navigation sync fetches fresh data immediately
+          console.log(`[Immediate Restore] No snapshot found for ${tableName} (key: ${key}). Awaiting fetch.`);
+          delete tableCooldownsRef.current[key];
         }
       }
     };
@@ -958,12 +967,12 @@ export default function App() {
     const shiftId = userContext.selectedShiftId;
     const key = getCooldownKey(tableName, date, shiftId);
 
-    // 1. Cooldown Check (60 seconds)
+    // 1. Anti-spam Debounce Guard (2 seconds) — only applies when NOT bypassing cache
     if (!bypassCache) {
       const lastFetch = tableCooldownsRef.current[key] || 0;
       const now = Date.now();
-      if (now - lastFetch < 60000) {
-        console.log(`[Cooldown Guard] Skipping fetch for ${tableName} (last fetch ${Math.round((now - lastFetch)/1000)}s ago)`);
+      if (now - lastFetch < 2000) {
+        console.log(`[Debounce Guard] Skipping rapid duplicate fetch for ${tableName} (last fetch ${Math.round((now - lastFetch)/1000)}s ago)`);
         
         // Ensure state contains latest cache as a fallback/guard
         let cachedData = operationalDataByKeyRef.current[key];
@@ -982,7 +991,10 @@ export default function App() {
     }
 
     // 2. In-flight Guard Check
-    if (inFlightFetchesRef.current[key]) {
+    // IMPORTANT: When bypassCache=true (post-CRUD refresh), we must NOT reuse an in-flight
+    // request that was fired BEFORE the write completed — it would return stale data without
+    // the newly created/updated record. Start a fresh request instead.
+    if (!bypassCache && inFlightFetchesRef.current[key]) {
       console.log(`[In-Flight Guard] Request for ${tableName} already in progress. Re-using existing query.`);
       return inFlightFetchesRef.current[key];
     }
@@ -992,13 +1004,19 @@ export default function App() {
     const fetchPromise = (async () => {
       try {
         const res = await fetchTable(tableName, bypassCache, filters, source);
-        if (res.success && res.data) {
-          updateTableState(tableName, res.data, date, shiftId);
-          tableCooldownsRef.current[key] = Date.now();
+        // Prevent race conditions: only update state if this is still the active fetch
+        if (inFlightFetchesRef.current[key] === fetchPromise) {
+          if (res.success && res.data) {
+            updateTableState(tableName, res.data, date, shiftId);
+            tableCooldownsRef.current[key] = Date.now();
+          }
         }
         return res;
       } finally {
-        delete inFlightFetchesRef.current[key];
+        // Only clear the in-flight ref if it wasn't replaced by a newer request
+        if (inFlightFetchesRef.current[key] === fetchPromise) {
+          delete inFlightFetchesRef.current[key];
+        }
       }
     })();
 
@@ -1089,9 +1107,11 @@ export default function App() {
     const shiftId = userContext.selectedShiftId;
     const key = getCooldownKey(tableName, date, shiftId);
     
-    // Invalidate local cooldown for this combination
+    // Invalidate local cooldown and in-flight fetch for this combination
     delete tableCooldownsRef.current[key];
-  // Trigger guarded fetch with bypassCache = true
+    delete inFlightFetchesRef.current[key];
+    
+    // Trigger guarded fetch with bypassCache = true
     fetchTableWithGuards(tableName, true, `CRUD_${tableName}`);
   }, [userContext.selectedDate, userContext.selectedShiftId, getCooldownKey, fetchTableWithGuards]);
 
@@ -1100,9 +1120,13 @@ export default function App() {
   const handleSaveDispatch = (entry: any) => {
     const exists = dispatchEntries.some(x => x.id === entry.id);
     setDispatchEntries(prev => {
-      return exists
+      const updated = exists
         ? prev.map(x => x.id === entry.id ? entry : x)
         : [entry, ...prev];
+      const key = getCooldownKey("DESPACHOSV2", userContext.selectedDate, userContext.selectedShiftId);
+      operationalDataByKeyRef.current[key] = updated;
+      safeCache.set('pscqube_op_cache_' + key, updated, 5 * 60 * 1000);
+      return updated;
     });
 
     const actionPromise = exists
@@ -1120,7 +1144,11 @@ export default function App() {
   };
 
   const handleDeleteDispatch = (id: string) => {
-    setDispatchEntries(prev => prev.filter(e => e.id !== id));
+    const updated = dispatchEntries.filter(e => e.id !== id);
+    setDispatchEntries(updated);
+    const key = getCooldownKey("DESPACHOSV2", userContext.selectedDate, userContext.selectedShiftId);
+    operationalDataByKeyRef.current[key] = updated;
+    safeCache.set('pscqube_op_cache_' + key, updated, 5 * 60 * 1000);
 
     deleteRecordInSheets("DESPACHOSV2", id).then(res => {
       if (res.success) {
@@ -1135,11 +1163,15 @@ export default function App() {
   const handleSaveStop = (stop: MachineStop) => {
     deletedStopIdsRef.current.delete(stop.id);
     const exists = stops.some(x => x.id === stop.id);
-    setStops(prev => {
-      return exists
-        ? prev.map(x => x.id === stop.id ? stop : x)
-        : [stop, ...prev];
-    });
+    const newStops = exists
+      ? stops.map(x => x.id === stop.id ? stop : x)
+      : [stop, ...stops];
+      
+    setStops(newStops);
+    
+    const key = getCooldownKey("PAROSV2", userContext.selectedDate, userContext.selectedShiftId);
+    operationalDataByKeyRef.current[key] = newStops;
+    safeCache.set('pscqube_op_cache_' + key, newStops, 5 * 60 * 1000);
 
     const actionPromise = exists
       ? updateRecordInSheets("PAROSV2", stop.id, stop)
@@ -1160,11 +1192,14 @@ export default function App() {
     if (!stopsToSave || stopsToSave.length === 0) return;
     
     // Optimistically update the client state for immediate visual feedback
-    setStops(prev => {
-      const stopIds = stopsToSave.map(s => s.id);
-      const filtered = prev.filter(s => !stopIds.includes(s.id));
-      return [...stopsToSave, ...filtered];
-    });
+    const stopIds = stopsToSave.map(s => s.id);
+    const filtered = stops.filter(s => !stopIds.includes(s.id));
+    const newStops = [...stopsToSave, ...filtered];
+    
+    setStops(newStops);
+    const key = getCooldownKey("PAROSV2", userContext.selectedDate, userContext.selectedShiftId);
+    operationalDataByKeyRef.current[key] = newStops;
+    safeCache.set('pscqube_op_cache_' + key, newStops, 5 * 60 * 1000);
 
     setIsSaving(true);
     try {
@@ -1189,7 +1224,7 @@ export default function App() {
         forceRefreshTable("PAROSV2");
         forceRefreshTable("PRODUCCIONV2");
       } else {
-        const errorMsg = results.find(r => !r.success)?.error || "Error de sincronización con Google Sheets";
+        const errorMsg = results.find(r => !r.success)?.error || "Error de sincronización con base de datos";
         addToast(`Guardado localmente. Error al sincronizar: ${errorMsg}`, "warning");
       }
     } catch (err: any) {
@@ -1202,7 +1237,12 @@ export default function App() {
 
   const handleDeleteStop = (id: string) => {
     deletedStopIdsRef.current.add(id);
-    setStops(prev => prev.filter(s => s.id !== id));
+    const newStops = stops.filter(s => s.id !== id);
+    setStops(newStops);
+    
+    const key = getCooldownKey("PAROSV2", userContext.selectedDate, userContext.selectedShiftId);
+    operationalDataByKeyRef.current[key] = newStops;
+    safeCache.set('pscqube_op_cache_' + key, newStops, 5 * 60 * 1000);
 
     deleteRecordInSheets("PAROSV2", id).then(res => {
       if (res.success) {
@@ -1218,9 +1258,14 @@ export default function App() {
   const handleSaveProductionReport = (report: ProductionReport) => {
     const exists = productionReports.some(x => x.id === report.id);
     setProductionReports(prev => {
-      return exists
+      const updated = exists
         ? prev.map(x => x.id === report.id ? report : x)
         : [report, ...prev];
+      
+      const key = getCooldownKey("PRODUCCIONV2", userContext.selectedDate, userContext.selectedShiftId);
+      operationalDataByKeyRef.current[key] = updated;
+      safeCache.set('pscqube_op_cache_' + key, updated, 5 * 60 * 1000);
+      return updated;
     });
 
     const actionPromise = exists
@@ -1231,6 +1276,7 @@ export default function App() {
       if (res.success) {
         addToast(exists ? "Producción actualizada con éxito" : "Producción guardada con éxito", "success");
         forceRefreshTable("PRODUCCIONV2");
+        forceRefreshTable("PAROSV2");
       } else {
         addToast("Guardada localmente. Error al sincronizar con base de datos.", "warning");
       }
@@ -1238,12 +1284,18 @@ export default function App() {
   };
 
   const handleDeleteProductionReport = (id: string) => {
-    setProductionReports(prev => prev.filter(r => r.id !== id));
+    const updated = productionReports.filter(r => r.id !== id);
+    setProductionReports(updated);
+    
+    const key = getCooldownKey("PRODUCCIONV2", userContext.selectedDate, userContext.selectedShiftId);
+    operationalDataByKeyRef.current[key] = updated;
+    safeCache.set('pscqube_op_cache_' + key, updated, 5 * 60 * 1000);
 
     deleteRecordInSheets("PRODUCCIONV2", id).then(res => {
       if (res.success) {
         addToast("Reporte de producción eliminado de base de datos", "success");
         forceRefreshTable("PRODUCCIONV2");
+        forceRefreshTable("PAROSV2");
       } else {
         addToast("Eliminado localmente. Error al sincronizar con base de datos.", "warning");
       }
@@ -1576,23 +1628,27 @@ export default function App() {
     if (!selectedPalletizer || !selectedShift) return { availability: 0, performance: 0, hsMarcha: 0, totalTons: 0 };
     const machineStops = stops.filter(s => 
       s &&
-      s.date === userContext.selectedDate &&
+      isSameDate(s.date, userContext.selectedDate) &&
       isStopForMachine(s, selectedPalletizer.id, masters) &&
       isStopForShift(s, selectedShift.id, masters)
     );
     const contextReports = productionReports.filter(r => 
-      r.palletizerId === selectedPalletizer.id && 
-      r.shiftId === selectedShift.id &&
-      r.date === userContext.selectedDate
+      String(r.palletizerId || '').trim().toUpperCase() === String(selectedPalletizer.id || '').trim().toUpperCase() && 
+      isStopForShift(r, selectedShift.id, masters) &&
+      isSameDate(r.date, userContext.selectedDate)
     );
 
-    const hsShift = selectedShift.durationHours;
-    const totalStopMinutes = machineStops.reduce((sum, s) => sum + s.durationMinutes, 0);
+    const hsShift = selectedShift.durationHours || 8;
+    const totalStopMinutes = machineStops.reduce((sum, s) => sum + (Number(s.durationMinutes) || 0), 0);
     const totalStopHours = totalStopMinutes / 60;
     
     const externalStopMinutes = machineStops
-      .filter(s => masters.causes.find(c => c.id === s.causeId)?.stopType === 'EXTERNO')
-      .reduce((sum, s) => sum + s.durationMinutes, 0);
+      .filter(s => {
+        const causeObj = masters.causes.find(c => c.id === s.causeId || c.text === s.causeText);
+        const type = String(s.stopType || causeObj?.stopType || 'INTERNO').toUpperCase();
+        return type === 'EXTERNO';
+      })
+      .reduce((sum, s) => sum + (Number(s.durationMinutes) || 0), 0);
     const externalStopHours = externalStopMinutes / 60;
 
     const hsMarcha = hsShift - totalStopHours;
@@ -1981,20 +2037,20 @@ export default function App() {
                         selectedShift={selectedShift}
                         selectedDate={userContext.selectedDate}
                         onTabChange={tab => setProdTab(tab)} 
-                        stops={stops.filter(s => s && s.date === userContext.selectedDate && isStopForShift(s, userContext.selectedShiftId, masters))}
-                        productionReports={productionReports.filter(r => r.shiftId === userContext.selectedShiftId && r.date === userContext.selectedDate)}
-                        inventoryEntries={inventoryEntries.filter(e => e.date === userContext.selectedDate)}
-                        dispatchEntries={dispatchEntries.filter(d => d.shiftId === userContext.selectedShiftId && d.date === userContext.selectedDate)}
-                        laneStatuses={laneStatuses.filter(l => l.shiftId === userContext.selectedShiftId && l.date === userContext.selectedDate)}
-                        allProductionReports={productionReports.filter(r => r.date === userContext.selectedDate)}
-                        allDispatchEntries={dispatchEntries.filter(d => d.date === userContext.selectedDate)}
+                        stops={stops.filter(s => s && isSameDate(s.date, userContext.selectedDate) && isStopForShift(s, userContext.selectedShiftId, masters))}
+                        productionReports={productionReports.filter(r => isStopForShift(r, userContext.selectedShiftId, masters) && isSameDate(r.date, userContext.selectedDate))}
+                        inventoryEntries={inventoryEntries.filter(e => isSameDate(e.date, userContext.selectedDate))}
+                        dispatchEntries={dispatchEntries.filter(d => isStopForShift(d, userContext.selectedShiftId, masters) && isSameDate(d.date, userContext.selectedDate))}
+                        laneStatuses={laneStatuses.filter(l => isStopForShift(l, userContext.selectedShiftId, masters) && isSameDate(l.date, userContext.selectedDate))}
+                        allProductionReports={productionReports.filter(r => isSameDate(r.date, userContext.selectedDate))}
+                        allDispatchEntries={dispatchEntries.filter(d => isSameDate(d.date, userContext.selectedDate))}
                     />
                   )}
                   {prodTab === 'DESPACHOS' && (
                     <DespachosView 
                       masters={masters}
                       currentUser={currentUser}
-                      history={(dispatchEntries || []).filter(d => d && d.date === userContext.selectedDate)}
+                      history={(dispatchEntries || []).filter(d => d && isSameDate(d.date, userContext.selectedDate))}
                       onSave={handleSaveDispatch}
                       onDelete={handleDeleteDispatch}
                       selectedShiftId={userContext.selectedShiftId}
@@ -2018,7 +2074,7 @@ export default function App() {
                         palletizerId={userContext.selectedPalletizerId} 
                         shiftId={userContext.selectedShiftId} 
                         selectedDate={userContext.selectedDate}
-                        history={stops.filter(s => s && s.date === userContext.selectedDate && isStopForMachine(s, userContext.selectedPalletizerId, masters) && isStopForShift(s, userContext.selectedShiftId, masters))}
+                        history={stops.filter(s => s && isSameDate(s.date, userContext.selectedDate) && isStopForMachine(s, userContext.selectedPalletizerId, masters) && isStopForShift(s, userContext.selectedShiftId, masters))}
                         allStops={stops}
                     />
                   )}
@@ -2031,7 +2087,7 @@ export default function App() {
                         palletizerId={userContext.selectedPalletizerId} 
                         shiftId={userContext.selectedShiftId} 
                         selectedDate={userContext.selectedDate}
-                        history={productionReports.filter(r => r && String(r.palletizerId || '').trim().toUpperCase() === String(userContext.selectedPalletizerId || '').trim().toUpperCase() && String(r.shiftId || '').trim().toUpperCase() === String(userContext.selectedShiftId || '').trim().toUpperCase() && r.date === userContext.selectedDate)}
+                        history={productionReports.filter(r => r && String(r.palletizerId || '').trim().toUpperCase() === String(userContext.selectedPalletizerId || '').trim().toUpperCase() && isStopForShift(r, userContext.selectedShiftId, masters) && isSameDate(r.date, userContext.selectedDate))}
                         stops={stops}
                       />
                   )}
@@ -2074,7 +2130,7 @@ export default function App() {
                     <PalletClassificationView 
                         masters={masters} 
                         currentUser={currentUser}
-                        entries={palletClassifications.filter(e => e.shiftId === userContext.selectedShiftId && e.date === userContext.selectedDate)}
+                        entries={palletClassifications.filter(e => isStopForShift(e, userContext.selectedShiftId, masters) && isSameDate(e.date, userContext.selectedDate))}
                         allEntries={palletClassifications}
                         onSave={handleSavePalletClass}
                         onDelete={handleDeletePalletClass}
@@ -2098,7 +2154,7 @@ export default function App() {
                     <LoadingLanesView 
                         masters={masters} 
                         currentUser={currentUser}
-                        history={laneStatuses.filter(l => l.shiftId === userContext.selectedShiftId && l.date === userContext.selectedDate)}
+                        history={laneStatuses.filter(l => isStopForShift(l, userContext.selectedShiftId, masters) && isSameDate(l.date, userContext.selectedDate))}
                         onSave={handleSaveLaneStatus}
                         onDelete={handleDeleteLaneStatus}
                         selectedShiftId={userContext.selectedShiftId}
@@ -2109,7 +2165,7 @@ export default function App() {
                     <FuelView 
                         masters={masters} 
                         currentUser={currentUser}
-                        history={fuelLoads.filter(f => (!f.shiftId || f.shiftId === userContext.selectedShiftId) && f.date === userContext.selectedDate)}
+                        history={fuelLoads.filter(f => (!f.shiftId || isStopForShift(f, userContext.selectedShiftId, masters)) && isSameDate(f.date, userContext.selectedDate))}
                         allFuelLoads={fuelLoads}
                         onSave={handleSaveFuelLoad}
                         onDelete={handleDeleteFuelLoad}

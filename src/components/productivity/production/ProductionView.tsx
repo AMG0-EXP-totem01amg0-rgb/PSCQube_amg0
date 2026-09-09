@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Package, Plus, Trash2, History, Pencil, TrendingUp, Filter, BarChart3, Clock, AlertCircle, ShieldCheck, Check, X, CheckCircle2, AlertTriangle, XCircle, Calendar, User, ChevronDown, MessageSquare } from 'lucide-react';
+import { Package, Plus, Trash2, History, Pencil, TrendingUp, Filter, BarChart3, Clock, AlertCircle, ShieldCheck, Check, X, CheckCircle2, AlertTriangle, XCircle, Calendar, User, ChevronDown, MessageSquare, HelpCircle } from 'lucide-react';
 import { format, parse, differenceInMinutes } from 'date-fns';
 import { GlassCard, GlassInput, GlassSelect, GlassButton, ConfirmModal, Modal } from '../../ui/GlassUI';
 import { DataTable, Column, TableActions } from '../../ui/DataTable';
@@ -112,6 +112,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ProductionReport | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isKpiHelpOpen, setIsKpiHelpOpen] = useState(false);
   const [isNozzleModalOpen, setIsNozzleModalOpen] = useState(false);
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({ main: true });
 
@@ -138,6 +139,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
     discardedBagsTransport: '',
     nozzleNews: [] as NozzleNews[],
     hsMarchaTis: '',
+    machinistId: '',
     materialsDetails: [] as any[]
   });
 
@@ -394,26 +396,34 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
     const hsShift = selectedShift?.durationHours || 8;
     const hsMarcha = hsCalculatedByApp;
     
-    // Availability %
-    const availabilityPct = hsShift > 0 ? Math.min(100, Math.max(0, (hsMarcha / hsShift) * 100)) : 100;
+    // 1. Disponibilidad = Hs de Marcha / Hs de Turno
+    const availabilityPct = hsShift > 0 ? (hsMarcha / hsShift) * 100 : 0;
 
-    // Average Nozzle availability from reports or default
-    const nozzleAvailabilities = history.map(r => parseFloat(r.nozzleAvailability || '100')).filter(n => !isNaN(n));
-    const avgNozzleAvail = nozzleAvailabilities.length > 0
-      ? nozzleAvailabilities.reduce((a, b) => a + b, 0) / nozzleAvailabilities.length
-      : 100;
+    // 2. Rendimiento = Tiempo Teórico / Tiempo Real Operativo (Hs Marcha)
+    //    Tiempo Teórico = Sumatoria (Toneladas Producidas / BDP Teórico)
+    let theoreticalHours = 0;
+    history.forEach(r => {
+      if (r.materialsDetails && r.materialsDetails.length > 0) {
+        r.materialsDetails.forEach(det => {
+          const bdp = det.bdp || 100;
+          if (bdp > 0) theoreticalHours += (det.tonsProduced / bdp);
+        });
+      } else {
+        const bdp = r.bdp || 100;
+        if (bdp > 0) theoreticalHours += (r.tonsProduced / bdp);
+      }
+    });
 
-    // Performance % based on nozzle availability and production status
-    const performancePct = totals.totalTons > 0 ? Math.min(100, Math.max(70, avgNozzleAvail)) : 0;
+    const performancePct = hsMarcha > 0 ? (theoreticalHours / hsMarcha) * 100 : 0;
 
-    // OEE % = (Availability * Performance) / 100
-    const oeePct = Math.round((availabilityPct * (performancePct || 100)) / 100);
+    // 3. OEE = Disponibilidad * Rendimiento
+    const oeePct = (availabilityPct * performancePct) / 100;
 
     return {
       hsMarcha,
-      availability: Math.round(availabilityPct),
-      performance: Math.round(performancePct),
-      oee: totals.totalTons > 0 ? oeePct : 0
+      availability: Math.min(100, Math.max(0, Math.round(availabilityPct))),
+      performance: Math.min(150, Math.max(0, Math.round(performancePct))), // Cap at 150% just in case of weird BDP
+      oee: totals.totalTons > 0 ? Math.min(100, Math.max(0, Math.round(oeePct))) : 0
     };
   }, [hsCalculatedByApp, shiftId, masters.shifts, history, totals.totalTons]);
 
@@ -436,6 +446,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       discardedBagsTransport: '0',
       nozzleNews: [],
       hsMarchaTis: '',
+      machinistId: '',
       materialsDetails: []
     });
     setActiveDetail({
@@ -489,6 +500,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       discardedBagsTransport: item.discardedBagsTransport?.toString() || '0',
       nozzleNews: item.nozzleNews || [],
       hsMarchaTis: item.hsMarchaTis?.toString() || '',
+      machinistId: item.machinistId || '',
       materialsDetails: initialDetails
     });
     setActiveDetail({
@@ -571,6 +583,11 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
 
   const handleSave = () => {
     if (!formData.baggerId || !palletizerId || !shiftId) return;
+
+    if (!formData.machinistId) {
+      alert("Por favor, selecciona un Maquinista para este reporte.");
+      return;
+    }
 
     if (tempNews.nozzleNumber || tempNews.observation || tempNews.startTime || tempNews.endTime) {
       const confirmAdd = window.confirm(
@@ -722,8 +739,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
       nozzleNews: formData.nozzleNews,
       nozzleAvailability: nozzleAvailabilityStr,
       hsMarchaTis: formData.hsMarchaTis ? parseFloat(formData.hsMarchaTis) : null,
-      machinistId: editingItem?.machinistId || currentUser?.dni || "",
-      machinistName: editingItem?.machinistName || currentUser?.name || "",
+      machinistId: formData.machinistId || currentUser?.dni || "",
+      machinistName: formData.machinistId ? (masters.users.find((u: any) => u.dni === formData.machinistId)?.name || currentUser?.name || "") : (currentUser?.name || ""),
       materialsDetails: activeDetailsList
     };
 
@@ -961,8 +978,15 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
         </GlassCard>
 
         {/* Contenedor 2: Panel Unificado de Eficiencia (Rend, Disp, OEE, Hs. Marcha) */}
-        <GlassCard className="lg:col-span-6 bg-surface-elevated p-4 flex items-center shadow-md">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full divide-x divide-border/40">
+        <GlassCard className="lg:col-span-6 bg-surface-elevated p-4 flex items-center shadow-md relative group">
+          <button 
+            onClick={() => setIsKpiHelpOpen(true)}
+            className="absolute top-2 right-2 p-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary dark:text-sky-400 hover:bg-primary/20 hover:scale-105 transition-all shadow-sm"
+            title="Ver explicación de cálculos"
+          >
+            <HelpCircle size={20} />
+          </button>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full divide-x divide-border/40 pt-3 sm:pt-0">
             {/* Rendimiento */}
             <div className="px-2 first:pl-0 flex flex-col justify-center">
               <span className="text-[9px] font-black text-text-muted uppercase tracking-widest block mb-0.5">RENDIMIENTO</span>
@@ -1270,7 +1294,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
         <div className="space-y-8 max-h-[70vh] overflow-y-auto no-scrollbar pr-1">
           {/* Section 1: Datos Generales del Turno */}
           <div className="space-y-4">
-            <div className="flex items-center gap-2 text-primary border-b border-white/5 pb-2">
+            <div className="flex items-center gap-2 text-primary dark:text-white border-b border-white/5 pb-2">
               <TrendingUp size={16} />
               <h4 className="text-xs font-black uppercase tracking-widest">1. Datos Generales del Turno</h4>
             </div>
@@ -1281,6 +1305,14 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
                   options={masters.baggers.map((e:any) => ({label: e.name, value: e.id}))} 
                   value={formData.baggerId} 
                   onChange={e => setFormData(prev => ({...prev, baggerId: (e.target as HTMLSelectElement).value}))} 
+                />
+                <GlassSelect
+                  label="Maquinista"
+                  options={masters.users
+                    .filter(u => String(u.position || '').toLowerCase() === 'operario maquinista' || String(u.position || '').toLowerCase() === 'operario tecnico' || String(u.position || '').toLowerCase() === 'operario técnico')
+                    .map(u => ({ label: u.name, value: u.dni }))}
+                  value={formData.machinistId || (currentUser?.position?.toLowerCase().includes('maquinista') ? currentUser.dni : '')}
+                  onChange={e => setFormData(prev => ({ ...prev, machinistId: (e.target as HTMLSelectElement).value }))}
                 />
                 <GlassInput 
                   label="Boquillas Disponibles" 
@@ -1304,8 +1336,8 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
               <div className="grid grid-cols-1 gap-4">
                 {selectedBaggerObj && (
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/5 border border-primary/10 rounded-lg justify-center w-full">
-                    <ShieldCheck size={14} className="text-primary" />
-                    <span className="text-[10px] font-black text-primary uppercase tracking-widest">
+                    <ShieldCheck size={14} className="text-primary dark:text-white" />
+                    <span className="text-[10px] font-black text-primary dark:text-white uppercase tracking-widest">
                       EQUIPO (HAC): {selectedBaggerObj.hacId || 'N/A'} — {selectedBaggerObj.nozzles} BOQUILLAS
                     </span>
                   </div>
@@ -1357,7 +1389,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
           {/* Section 2: Producción por Material */}
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b border-white/5 pb-2">
-              <div className="flex items-center gap-2 text-primary">
+              <div className="flex items-center gap-2 text-primary dark:text-white">
                 <Package size={16} />
                 <h4 className="text-xs font-black uppercase tracking-widest">2. Producción por Material</h4>
                 {activeDetail.tons && (
@@ -1498,7 +1530,7 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
           {/* Section 3: Materiales Registrados */}
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-2">
-              <div className="flex items-center gap-2 text-primary">
+              <div className="flex items-center gap-2 text-primary dark:text-white">
                 <History size={16} />
                 <h4 className="text-xs font-black uppercase tracking-widest">3. Materiales Registrados</h4>
               </div>
@@ -1735,6 +1767,51 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
           </div>
         </div>
       </Modal>
+
+      {/* Modal de Ayuda KPI */}
+      <Modal
+        isOpen={isKpiHelpOpen}
+        onClose={() => setIsKpiHelpOpen(false)}
+        title="Fórmulas de Eficiencia (KPIs)"
+        maxWidth="md"
+      >
+        <div className="space-y-6 text-sm text-text-main">
+          <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl space-y-2">
+            <h4 className="font-black text-primary uppercase tracking-widest flex items-center gap-2">
+              <CheckCircle2 size={16} /> 1. Disponibilidad
+            </h4>
+            <p className="text-text-muted text-xs">Mide qué porcentaje del tiempo planificado del turno estuvo realmente operando la máquina.</p>
+            <div className="bg-black/20 p-3 rounded-lg border border-white/5 font-mono text-xs overflow-x-auto">
+              Disponibilidad = (Horas de Marcha / Horas de Turno) × 100
+            </div>
+          </div>
+
+          <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl space-y-2">
+            <h4 className="font-black text-emerald-500 uppercase tracking-widest flex items-center gap-2">
+              <TrendingUp size={16} /> 2. Rendimiento
+            </h4>
+            <p className="text-text-muted text-xs">Mide la velocidad real de producción comparada con la velocidad teórica. Se calcula utilizando el tiempo teórico requerido para producir las toneladas reportadas, ponderado por el BDP (Toneladas/Hora) de cada material individualmente.</p>
+            <div className="bg-black/20 p-3 rounded-lg border border-white/5 font-mono text-xs space-y-2 overflow-x-auto">
+              <div>Tiempo Teórico Total = Σ (Toneladas Producidas / BDP del Material)</div>
+              <div>Rendimiento = (Tiempo Teórico Total / Horas de Marcha) × 100</div>
+            </div>
+            <p className="text-[10px] text-text-muted mt-2 italic">
+              Ejemplo: Si produces 100 TN de Material A (BDP=50) teóricamente tardarías 2hs. Si en la realidad demoraste 4hs (Hs Marcha), tu Rendimiento fue del 50%.
+            </p>
+          </div>
+
+          <div className="p-4 bg-purple-500/5 border border-purple-500/20 rounded-xl space-y-2">
+            <h4 className="font-black text-purple-500 uppercase tracking-widest flex items-center gap-2">
+              <BarChart3 size={16} /> 3. OEE (Eficiencia General de los Equipos)
+            </h4>
+            <p className="text-text-muted text-xs">Es el indicador global que cruza la disponibilidad de la máquina con el rendimiento al que operó cuando estuvo encendida.</p>
+            <div className="bg-black/20 p-3 rounded-lg border border-white/5 font-mono text-xs overflow-x-auto">
+              OEE = (Disponibilidad × Rendimiento) / 100
+            </div>
+          </div>
+        </div>
+      </Modal>
+
     </motion.div>
   );
 }

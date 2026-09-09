@@ -3,13 +3,14 @@ import { TABLE_ALIASES, getIdColumnAndKey, mapItemForSupabase, mapSupabaseRowToC
 import { sanitizeColumnName } from "../utils/sanitizers.js";
 import { formatSupabaseError, extractColumnFromError } from "../utils/helpers.js";
 import { invalidateCache } from "../cache/cache.service.js";
+import { TABLE_SCHEMAS } from "../schemas/tableSchemas.js";
 
 let supabaseClient: any = null;
 
 export function getSupabaseClient() {
   if (!supabaseClient) {
-    let supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    let supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
     if (supabaseUrl && supabaseKey) {
       // Auto-sanitize the URL to prevent /rest/v1/ invalid path errors
@@ -40,7 +41,13 @@ Please update SUPABASE_URL to your Project API URL, which looks like: https://xx
   return supabaseClient;
 }
 
-export async function readFromSupabase(tableName: string): Promise<any[] | null> {
+export interface ReadOptions {
+  date?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export async function readFromSupabase(tableName: string, options?: ReadOptions): Promise<any[] | null> {
   const supabase = getSupabaseClient();
   if (!supabase) return null;
 
@@ -52,82 +59,69 @@ export async function readFromSupabase(tableName: string): Promise<any[] | null>
 
   for (const targetTable of tablesToTry) {
     try {
-      const allRows: any[] = [];
-      let page = 0;
-      const PAGE_SIZE = 1000;
+      let allData: any[] = [];
+      let start = 0;
+      const limit = 1000; // Supabase hard API limit per request
       let hasMore = true;
-      let selectStr = "*";
-      
-      const isCausaTable = targetTable.toLowerCase().includes("causa");
-      if (isCausaTable) {
-        // Optimize: select only the required columns for causas to stay performant and avoid fat wire loads
-        selectStr = "id,hac,descripcion,parte_objeto,grupo_codigo_sintoma,codigo_sintoma,causa_sap,grupo_codigo_causa,codigo_causa,tipo_paro";
-      }
+      let targetError = null;
 
       while (hasMore) {
-        const from = page * PAGE_SIZE;
-        const to = from + PAGE_SIZE - 1;
-
-        let query = supabase.from(targetTable).select(selectStr).range(from, to);
-
-        if (isCausaTable) {
-          query = query.order("hac", { ascending: true });
+        let query = supabase.from(targetTable).select("*");
+        
+        if (options?.date) {
+          query = query.eq("fecha", options.date);
+        } else if (options?.dateFrom && options?.dateTo) {
+          query = query.gte("fecha", options.dateFrom).lte("fecha", options.dateTo);
         }
-
-        const { data, error } = await query;
+        
+        const { data, error } = await query.range(start, start + limit - 1);
+        
         if (error) {
-          // If optimized select failed, handle fallback to select("*") in page 0
-          if (selectStr !== "*" && page === 0) {
-            console.warn(`[Supabase Read] Optimized select failed for '${targetTable}', falling back to select("*"). Error: ${error.message}`);
-            selectStr = "*";
-            continue; // Retry the first page with "*"
-          }
-
-          const errStr = (error.message || "").toLowerCase();
-          const errCode = error.code || "";
-          const isTableMissing = errCode === "42P01" || errStr.includes("does not exist") || errStr.includes("no existe") || errStr.includes("not found") || errStr.includes("invalid path");
-          
-          if (isTableMissing && page === 0) {
-            console.log(`[Supabase Read] Table '${targetTable}' does not exist in database yet (expected fallback).`);
-            break; // Break the page loop to try the next table fallback
-          }
-          throw error;
+          targetError = error;
+          break;
         }
 
         if (data && data.length > 0) {
-          allRows.push(...data);
-          if (data.length < PAGE_SIZE) {
-            hasMore = false;
-          } else {
-            page++;
+          allData = allData.concat(data);
+          start += limit;
+          if (data.length < limit) {
+            hasMore = false; // Fetched the last page
           }
         } else {
           hasMore = false;
         }
       }
 
-      if (allRows.length > 0 || page > 0) {
-        console.log(`[Supabase Read] Successfully loaded ${allRows.length} total records from table '${targetTable}' over ${page + 1} pages.`);
+      if (targetError) {
+        const errStr = (targetError.message || "").toLowerCase();
+        const errCode = targetError.code || "";
+        const isTableMissing = errCode === "42P01" || errStr.includes("does not exist") || errStr.includes("no existe") || errStr.includes("not found") || errStr.includes("invalid path");
         
-        // Fast Array mapping
-        const mappedList = new Array(allRows.length);
-        for (let i = 0; i < allRows.length; i++) {
-          mappedList[i] = mapSupabaseRowToClient(tableName, allRows[i]);
+        if (isTableMissing) {
+          console.log(`[Supabase Read] Table '${targetTable}' does not exist in database yet (expected fallback).`);
+          continue;
         }
+        console.error(`[Supabase Read Error] Failed reading '${targetTable}':`, formatSupabaseError(targetError));
+        throw targetError;
+      }
+
+      if (allData.length > 0) {
+        console.log(`[Supabase Read] Successfully loaded ${allData.length} total records from table '${targetTable}'.`);
         
-        if (tableName.toUpperCase() === "CAUSASV2") {
-          console.log(`[Diagnostic] CAUSASV2 total read from database: ${allRows.length} original records.`);
+        const mappedList = new Array(allData.length);
+        for (let i = 0; i < allData.length; i++) {
+          mappedList[i] = mapSupabaseRowToClient(tableName, allData[i]);
         }
         
         return mappedList;
       }
     } catch (err: any) {
       const errMsg = formatSupabaseError(err);
-      console.warn(`[Supabase Read Trial Notice] Trial for safety table fallback '${targetTable}': ${errMsg}`);
+      console.warn(`[Supabase Read Trial Notice] Trial for table '${targetTable}': ${errMsg}`);
     }
   }
 
-  return null;
+  return [];
 }
 
 export async function writeToSupabase(tableName: string, action: 'insert' | 'update' | 'upsert', idKey: string, idVal: any, rawData: any): Promise<any> {
@@ -226,6 +220,11 @@ export async function writeToSupabase(tableName: string, action: 'insert' | 'upd
       ) {
         const missingCol = extractColumnFromError(error.message);
         if (missingCol && payload[missingCol] !== undefined) {
+          const val = payload[missingCol];
+          const cleanCol = sanitizeColumnName(missingCol);
+          if (cleanCol && cleanCol !== missingCol && payload[cleanCol] === undefined) {
+            payload[cleanCol] = val;
+          }
           console.log(`[Supabase Self-Heal] Column '${missingCol}' does not exist in table '${currentTable}'. Removing and retrying...`);
           delete payload[missingCol];
           continue;
@@ -237,7 +236,12 @@ export async function writeToSupabase(tableName: string, action: 'insert' | 'upd
           for (const quoted of matchAnyQuote) {
             const col = quoted.replace(/['"“]/g, '');
             if (payload[col] !== undefined && col !== idKey) {
-              console.log(`[Supabase Self-Heal] Removing quoted column '${col}' from payload.`);
+              const val = payload[col];
+              const cleanCol = sanitizeColumnName(col);
+              if (cleanCol && cleanCol !== col && payload[cleanCol] === undefined) {
+                payload[cleanCol] = val;
+              }
+              console.log(`[Supabase Self-Heal] Removing column '${col}' from payload.`);
               delete payload[col];
               removedAny = true;
             }

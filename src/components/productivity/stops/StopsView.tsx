@@ -211,7 +211,7 @@ export default function StopsView({ masters, currentUser, onSave, onDelete, pall
     const shiftName = selectedShift?.name || '';
 
     onSave({
-      id: editingId || `STP-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+      id: editingId || `STP-${Math.random().toString(36).substr(2, 6).toUpperCase()}_${palletizerId || ''}`,
       date: selectedDate,
       finishDate: selectedDate, // Igual a fecha de registro (FECHAFIN = FECHA)
       machineId: palletizerId || '', 

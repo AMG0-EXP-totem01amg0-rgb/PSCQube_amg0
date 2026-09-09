@@ -15,6 +15,7 @@ const ALLOWED_ORIGINS = [
   "https://psc-qube.vercel.app",
   "https://psc-qube-amg0.vercel.app",
   "http://localhost:3000",
+  "http://localhost:3001",
   "http://localhost:5173",
 ];
 
@@ -32,8 +33,8 @@ app.use(cors({
 }));
 
 // Configure middlewares
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
+app.use(express.json({ limit: "5mb" }));
+app.use(express.urlencoded({ limit: "5mb", extended: true }));
 
 // Vercel-specific optimizations: Anti-timeout and global GET Cache-Control
 if (process.env.VERCEL) {

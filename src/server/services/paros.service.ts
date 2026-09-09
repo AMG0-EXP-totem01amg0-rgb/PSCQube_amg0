@@ -51,43 +51,52 @@ export class ParosService {
           safeMatch(s.id, shiftId) || 
           safeMatch(s.name, shiftId) || 
           safeMatch(s.nombre, shiftId) || 
-          safeMatch(s.id, item.shiftId) ||
-          safeMatch(s.name, item.shiftId) ||
-          safeMatch(s.nombre, item.shiftId)
+          safeMatch(s.id, item.shiftName) ||
+          safeMatch(s.name, item.shiftName) ||
+          safeMatch(s.nombre, item.shiftName)
         ));
-        const shiftName = shift ? (shift.name || shift.nombre || "") : "";
+        const shiftName = shift ? (shift.name || shift.nombre || "") : (item.shiftName || item.turno || "");
         item.shiftName = shiftName;
         item["turno"] = shiftName;
 
-        if (item.machineId) {
-          const macKey = String(item.machineId).trim().toUpperCase();
-          const pal = machineMap.get(macKey) || dbPalletizers.find((p: any) => p && (safeMatch(p.id, item.machineId) || safeMatch(p.name, item.machineId) || safeMatch(p.nombre, item.machineId))) || 
-                      dbBaggers.find((b: any) => b && (safeMatch(b.id, item.machineId) || safeMatch(b.name, item.machineId) || safeMatch(b.nombre, item.machineId)));
+        if (item.machineId || item.machineHacText || item.machineName) {
+          const rawMacId = item.machineId || item.machineHacText || item.machineName;
+          const macKey = String(rawMacId).trim().toUpperCase();
+          const pal = machineMap.get(macKey) || dbPalletizers.find((p: any) => p && (safeMatch(p.id, rawMacId) || safeMatch(p.name, rawMacId) || safeMatch(p.nombre, rawMacId))) || 
+                      dbBaggers.find((b: any) => b && (safeMatch(b.id, rawMacId) || safeMatch(b.name, rawMacId) || safeMatch(b.nombre, rawMacId)));
           
           const hacPalKey = pal ? String(pal.hacId || "").trim().toUpperCase() : "";
           const hacPal = hacPalKey ? hacMap.get(hacPalKey) || dbHacs.find((h: any) => h && (safeMatch(h.id, pal?.hacId) || safeMatch(h.hac, pal?.hacId) || safeHacMatch(h.hac, pal?.hacId))) : null;
           
-          const targetHacId = pal?.hacId || pal?.hac_id || (hacPal ? hacPal.hac : (pal?.id || item.machineId));
+          const targetHacId = pal?.hacId || pal?.hac_id || (hacPal ? hacPal.hac : (pal?.id || item.machineHacText || item.machineName || item.machineId));
           item.machineHacText = targetHacId;
           item["máquina afectada"] = targetHacId;
+          item["maquina_afectada"] = targetHacId;
         }
 
         const matId = item.materialId || item.material_id;
         const matKey = matId ? String(matId).trim().toUpperCase() : "";
         const mat = matKey ? materialMap.get(matKey) || dbMaterials.find((m: any) => m && safeMatch(m.id, matId)) : null;
-        const matName = mat ? (mat.nombre || mat.name || "") : "";
+        const matName = mat ? (mat.nombre || mat.name || "") : (item.materialDescription || item.material || "");
         item.materialDescription = matName;
         item["material"] = matName;
 
-        item.finishDate = item.date;
-        item.center = "AMG0";
-        item.startTime = formatTimeHHMMSS(item.startTime);
-        item.endTime = formatTimeHHMMSS(item.endTime);
+        item.finishDate = item.finishDate || item.date;
+        item.center = item.center || "AMG0";
+        if (item.startTime) item.startTime = formatTimeHHMMSS(item.startTime);
+        if (item.endTime) item.endTime = formatTimeHHMMSS(item.endTime);
         
-        const duration = calculateDurationTime(item.startTime, item.endTime);
+        let duration = calculateDurationTime(item.startTime, item.endTime);
+        if (duration === "00:00:00" && item.durationMinutes) {
+          const mins = Number(item.durationMinutes) || 0;
+          const h = Math.floor(mins / 60);
+          const m = mins % 60;
+          duration = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`;
+        }
         item.durationTime = duration;
         item["duración"] = duration;
         item["duracion"] = duration;
+        item.durationMinutes = durationMinutesFromHHMMSS(duration);
       }
     } catch (err) {
       console.error("Error enriching paros:", err);
@@ -181,16 +190,42 @@ export class ParosService {
         }
 
         // 2. Machine Affected (Palletizer / Bagger)
+        let exactMachineId = null;
+        if (item.idparo && typeof item.idparo === 'string' && item.idparo.includes('_')) {
+           const parts = item.idparo.split('_');
+           if (parts.length > 1 && parts[1]) {
+             exactMachineId = parts[1];
+           }
+        } else if (item.id && typeof item.id === 'string' && item.id.includes('_')) {
+           const parts = item.id.split('_');
+           if (parts.length > 1 && parts[1]) {
+             exactMachineId = parts[1];
+           }
+        }
+
         const targetMachineText = String(item.machineHacText || "").trim().toUpperCase();
         let pal = null;
 
+        // Tier 0: Exact ID from generated string
+        if (exactMachineId) {
+          for (let j = 0; j < preparedMachines.length; j++) {
+            const pm = preparedMachines[j];
+            if (pm && pm.pId === exactMachineId) {
+              pal = pm.raw;
+              break;
+            }
+          }
+        }
+
         // Tier 1
-        for (let j = 0; j < preparedMachines.length; j++) {
-          const pm = preparedMachines[j];
-          if (!pm) continue;
-          if (pm.pId === targetMachineText || pm.pName === targetMachineText || (pm.pHacId && pm.pHacId === targetMachineText)) {
-            pal = pm.raw;
-            break;
+        if (!pal) {
+          for (let j = 0; j < preparedMachines.length; j++) {
+            const pm = preparedMachines[j];
+            if (!pm) continue;
+            if (pm.pId === targetMachineText || pm.pName === targetMachineText || (pm.pHacId && pm.pHacId === targetMachineText)) {
+              pal = pm.raw;
+              break;
+            }
           }
         }
 
@@ -303,7 +338,11 @@ export class ParosService {
         }
 
         // 6. durationMinutes
-        item.durationMinutes = durationMinutesFromHHMMSS(item.durationTime);
+        item.durationMinutes = durationMinutesFromHHMMSS(item.durationTime || item["duración"] || item.duracion);
+        if ((!item.durationMinutes || item.durationMinutes === 0) && item.startTime && item.endTime) {
+          const durStr = calculateDurationTime(item.startTime, item.endTime);
+          item.durationMinutes = durationMinutesFromHHMMSS(durStr);
+        }
 
         // 7. Format time for Form (HH:mm)
         if (item.startTime && item.startTime.length === 8) {

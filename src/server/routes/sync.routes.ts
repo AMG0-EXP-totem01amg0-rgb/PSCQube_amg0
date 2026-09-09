@@ -63,4 +63,14 @@ router.get("/api/sync/maestros", async (req, res) => {
   }
 });
 
+const APP_VERSION = process.env.APP_VERSION || "v2.0.1-stable";
+
+router.get("/api/version", (req, res) => {
+  res.setHeader("Cache-Control", "public, max-age=300, s-maxage=1800, stale-while-revalidate=86400");
+  return res.json({
+    success: true,
+    version: APP_VERSION
+  });
+});
+
 export default router;
