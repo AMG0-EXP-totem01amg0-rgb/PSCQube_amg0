@@ -394,10 +394,27 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
   const lineKpis = useMemo(() => {
     const selectedShift = masters.shifts.find(s => s.id === shiftId);
     const hsShift = selectedShift?.durationHours || 8;
+    
     const hsMarcha = hsCalculatedByApp;
     
-    // 1. Disponibilidad = Hs de Marcha / Hs de Turno
-    const availabilityPct = hsShift > 0 ? (hsMarcha / hsShift) * 100 : 0;
+    // 1. Disponibilidad = (Hs de Marcha + Paros Externos) / Hs de Turno
+    const machineStops = stops.filter(s => 
+      s &&
+      s.date === selectedDate &&
+      isStopForMachine(s, palletizerId, masters) &&
+      isStopForShift(s, shiftId, masters)
+    );
+    
+    const externalStopMinutes = machineStops
+      .filter(s => {
+        const causeObj = masters.causes.find(c => c.id === s.causeId || c.text === s.causeText);
+        const type = String(s.stopType || causeObj?.stopType || 'INTERNO').toUpperCase();
+        return type === 'EXTERNO';
+      })
+      .reduce((sum, s) => sum + (Number(s.durationMinutes) || 0), 0);
+    const externalStopHours = externalStopMinutes / 60;
+
+    const availabilityPct = hsShift > 0 ? ((externalStopHours + hsMarcha) / hsShift) * 100 : 0;
 
     // 2. Rendimiento = Tiempo Teórico / Tiempo Real Operativo (Hs Marcha)
     //    Tiempo Teórico = Sumatoria (Toneladas Producidas / BDP Teórico)
@@ -405,12 +422,12 @@ export default function ProductionView({ masters, currentUser, onSave, onDelete,
     history.forEach(r => {
       if (r.materialsDetails && r.materialsDetails.length > 0) {
         r.materialsDetails.forEach(det => {
-          const bdp = det.bdp || 100;
-          if (bdp > 0) theoreticalHours += (det.tonsProduced / bdp);
+          const bdp = Number(det.bdp) || 100;
+          if (bdp > 0) theoreticalHours += (Number(det.tonsProduced || 0) / bdp);
         });
       } else {
-        const bdp = r.bdp || 100;
-        if (bdp > 0) theoreticalHours += (r.tonsProduced / bdp);
+        const bdp = Number(r.bdp) || 100;
+        if (bdp > 0) theoreticalHours += (Number(r.tonsProduced || 0) / bdp);
       }
     });
 

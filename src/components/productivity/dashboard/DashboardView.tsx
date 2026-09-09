@@ -513,10 +513,19 @@ export default function DashboardView({
       let perfVal = 0;
       const actualHsMarchaUsed = Math.max(0, actualHsMarchaVal);
       if (lineReports.length > 0 && actualHsMarchaUsed > 0) {
-        const totalTons = lineReports.reduce((sum, r) => sum + (Number(r.tonsProduced) || 0), 0);
-        const sumTonsOverBDP = lineReports.reduce((sum, r) => sum + ((Number(r.tonsProduced) || 0) / (Number(r.bdp) || 100)), 0);
-        const theoreticBDPWeighted = sumTonsOverBDP > 0 ? totalTons / sumTonsOverBDP : 100;
-        perfVal = Math.min(1.5, (totalTons / actualHsMarchaUsed) / theoreticBDPWeighted);
+        let theoreticalHours = 0;
+        lineReports.forEach(r => {
+          if (r.materialsDetails && r.materialsDetails.length > 0) {
+            r.materialsDetails.forEach((det: any) => {
+              const bdp = Number(det.bdp) || 100;
+              if (bdp > 0) theoreticalHours += (Number(det.tonsProduced || 0) / bdp);
+            });
+          } else {
+            const bdp = Number(r.bdp) || 100;
+            if (bdp > 0) theoreticalHours += (Number(r.tonsProduced || 0) / bdp);
+          }
+        });
+        perfVal = Math.min(1.5, theoreticalHours / actualHsMarchaUsed);
       }
 
       const oeeVal = availVal * perfVal;
