@@ -83,8 +83,6 @@ function isStopForShift(stop: any, shiftId: string | null | undefined, dbShifts:
   if (stopShiftId === sName) return true;
   if (stopShiftName === sId) return true;
   
-  if (sName && stopShiftName && (stopShiftName.includes(sName) || sName.includes(stopShiftName))) return true;
-  
   const cleanSName = sName.replace("TURNO", "").trim();
   const cleanStopShiftName = stopShiftName.replace("TURNO", "").trim();
   if (cleanSName && cleanStopShiftName && cleanSName === cleanStopShiftName) return true;

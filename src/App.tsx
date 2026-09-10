@@ -189,11 +189,9 @@ const isStopForShift = (stop: any, shiftId: string | null | undefined, mastersAv
   if (stopShiftId && sName && stopShiftId === sName) return true;
   if (stopShiftName && sId && stopShiftName === sId) return true;
   
-  if (sName && stopShiftName && (stopShiftName.includes(sName) || sName.includes(stopShiftName))) return true;
-  
   const cleanSName = sName.replace("TURNO", "").trim();
   const cleanStopShiftName = stopShiftName.replace("TURNO", "").trim();
-  if (cleanSName && cleanStopShiftName && (cleanSName === cleanStopShiftName || cleanSName.includes(cleanStopShiftName) || cleanStopShiftName.includes(cleanSName))) return true;
+  if (cleanSName && cleanStopShiftName && cleanSName === cleanStopShiftName) return true;
 
   return false;
 };
