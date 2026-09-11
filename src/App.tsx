@@ -6,7 +6,7 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { format, parse, differenceInMinutes } from 'date-fns';
-import { 
+import {
   AlertTriangle, Package, ClipboardList, Fuel, Wrench,
   Activity, PlusCircle, ShieldCheck, Settings, Bot,
   ChevronLeft, ChevronRight, Truck, Droplet, Layers, MapPin,
@@ -29,6 +29,7 @@ import { DespachosView } from './components/productivity/despachos';
 import { FuelView } from './components/productivity/fuel';
 import ReportsView from './components/productivity/reports/ReportsView';
 import AdminView from './components/admin/AdminView';
+import HSModuleView from './components/hs/HSModuleView';
 import PlaceholderView from './components/PlaceholderView';
 import WelcomeScreen from './components/auth/WelcomeScreen';
 import { getSupabaseClient } from './lib/supabaseClient';
@@ -61,7 +62,7 @@ const isSameDate = (d1: any, d2: any): boolean => {
 };
 
 const saveToLocalStorageSafe = (
-  key: string, 
+  key: string,
   value: string
 ): boolean => {
   try {
@@ -87,7 +88,7 @@ const getCurrentShift = (shifts: Shift[]): Shift | null => {
 
 const isStopForMachine = (stop: any, machineId: string | any | null | undefined, mastersAvailable: MasterData) => {
   if (!stop || !machineId) return false;
-  
+
   // 1. Get the targetId helper
   let targetId = "";
   if (typeof machineId === 'object' && machineId !== null) {
@@ -95,7 +96,7 @@ const isStopForMachine = (stop: any, machineId: string | any | null | undefined,
   } else {
     targetId = String(machineId).trim().toUpperCase();
   }
-  
+
   if (!targetId) return false;
 
   // 1.5 Direct robust match to prevent master lookup failures
@@ -175,7 +176,7 @@ const isStopForMachine = (stop: any, machineId: string | any | null | undefined,
 const isStopForShift = (stop: any, shiftId: string | null | undefined, mastersAvailable: MasterData) => {
   if (!stop || !shiftId) return false;
   const targetId = String(shiftId).trim().toUpperCase();
-  
+
   const selectedS: any = (mastersAvailable.shifts || []).find((s: any) => s && String(s.id).trim().toUpperCase() === targetId);
   
   const sId = selectedS ? String(selectedS.id).trim().toUpperCase() : targetId;
@@ -329,7 +330,7 @@ export default function App() {
             try {
               clearClientCache();
               localStorage.removeItem("pscqube_app_version");
-            } catch (e) {}
+            } catch (e) { }
             window.location.reload();
           }
         }
@@ -354,6 +355,16 @@ export default function App() {
   const [isProdMenuOpen, setIsProdMenuOpen] = useState(false);
   const [adminTab, setAdminTab] = useState('SHIFTS');
   const [hasEnteredApp, setHasEnteredApp] = useState(false);
+
+  // Detector de parámetro de inspección en URL al cargar la aplicación
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const inspectionParam = params.get('inspection') || params.get('id');
+    if (inspectionParam) {
+      setHasEnteredApp(true);
+      setActiveSection('SAFETY');
+    }
+  }, []);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const subNavRef = useRef<HTMLDivElement>(null);
 
@@ -410,7 +421,7 @@ export default function App() {
       } else if (upper === "CAPACIDADESV2" || upper === "CAPACIDADES") {
         setCapacities(data);
       } else if (upper === "USUARIOSV2" || upper === "USUARIOS") {
-        const sorted = [...data].sort((a, b) => 
+        const sorted = [...data].sort((a, b) =>
           String(a.name || a.nombre || "").localeCompare(String(b.name || b.nombre || ""), "es", { sensitivity: "base" })
         );
         setUsers(sorted);
@@ -512,7 +523,7 @@ export default function App() {
 
   const currentUser = useMemo(() => {
     let found = masters.users.find(u => u.dni === userContext.currentUserDni) || masters.users[0] || DEFAULT_USER;
-    
+
     // Auto-normalize permissions array for safety to prevent client crashes from empty/missing/string properties
     let normalized = { ...found };
     let perms = normalized.permissions || (normalized as any).permisos;
@@ -588,10 +599,10 @@ export default function App() {
   // Redirect if current tab is hidden
   useEffect(() => {
     if (activeSection === 'PRODUCTIVITY' && !canView(prodTab)) {
-        const firstVisible = SYSTEM_VIEWS
-          .filter(v => v.section === 'PRODUCTIVITY')
-          .find(v => canView(v.id));
-        if (firstVisible) setProdTab(firstVisible.id as ProductivityTab);
+      const firstVisible = SYSTEM_VIEWS
+        .filter(v => v.section === 'PRODUCTIVITY')
+        .find(v => canView(v.id));
+      if (firstVisible) setProdTab(firstVisible.id as ProductivityTab);
     }
   }, [currentUser, prodTab, activeSection]);
 
@@ -623,7 +634,7 @@ export default function App() {
         currentUser.email ? `${currentUser.email}-${id}` : "",
         currentUser.sapUser ? `${currentUser.sapUser}-${id}` : ""
       ].filter(Boolean);
-      
+
       const updated = Array.from(new Set([...prev, ...keysToAdd]));
       localStorage.setItem('read_notifications_v1', JSON.stringify(updated));
       return updated;
@@ -647,11 +658,11 @@ export default function App() {
 
   const notifications = useMemo<AlertNotification[]>(() => {
     const list: AlertNotification[] = [];
-    
+
     productChanges.forEach(pc => {
       const prevMat = masters.materials.find(m => m.id === pc.previousMaterialId)?.name || 'Desconocido';
       const newMat = masters.materials.find(m => m.id === pc.newMaterialId)?.name || 'Desconocido';
-      
+
       // Notification for Lab users when product change is pending
       if (pc.approvalStatus === 'PENDIENTE') {
         const id = `${pc.id}-PENDIENTE`;
@@ -667,7 +678,7 @@ export default function App() {
           relatedId: pc.id
         });
       }
-      
+
       // Notification for operators when product change has been APPROVED or RECHAZADO
       if (pc.approvalStatus === 'APROBADO' || pc.approvalStatus === 'RECHAZADO') {
         const id = `${pc.id}-${pc.approvalStatus}`;
@@ -721,11 +732,11 @@ export default function App() {
 
   const updateTableState = useCallback((tableName: string, data: any[], targetDate?: string, targetShiftId?: string) => {
     const upper = tableName.toUpperCase();
-    
+
     // Only update active React states if the incoming data corresponds to the currently active context view
     const isCurrentContext = (!targetDate || targetDate === userContext.selectedDate) &&
-                             (!targetShiftId || targetShiftId === userContext.selectedShiftId);
-    
+      (!targetShiftId || targetShiftId === userContext.selectedShiftId);
+
     if (isCurrentContext) {
       const key = getCooldownKey(upper, targetDate || userContext.selectedDate, targetShiftId || userContext.selectedShiftId);
       operationalDataByKeyRef.current[key] = data;
@@ -757,7 +768,7 @@ export default function App() {
     const actualDate = targetDate || userContext.selectedDate;
     const actualShiftId = targetShiftId || userContext.selectedShiftId;
     const key = getCooldownKey(tableName, actualDate, actualShiftId);
-    
+
     operationalDataByKeyRef.current[key] = data;
     safeCache.set('pscqube_op_cache_' + key, data, 5 * 60 * 1000); // 5 minutes TTL (aligns with dataService operational TTL)
   }, [userContext.selectedDate, userContext.selectedShiftId, getCooldownKey]);
@@ -830,12 +841,12 @@ export default function App() {
         if (d.proveedoresbolsa) setBagSuppliers(d.proveedoresbolsa);
         if (d.vehiculos) setVehicles(d.vehiculos);
         if (d.parametrosbalanza || d.parametros_balanza) setScaleParameters(d.parametrosbalanza || d.parametros_balanza);
-        
+
         // If direct fetch returned params, ensure they take effect
         if (resScaleParams && resScaleParams.success && Array.isArray(resScaleParams.data) && resScaleParams.data.length > 0) {
           setScaleParameters(resScaleParams.data);
         }
-        
+
         // Get absolute latest users list (bypassing any server-side cache)
         const rawUsers = (resUsers && resUsers.success && Array.isArray(resUsers.data))
           ? resUsers.data
@@ -853,7 +864,7 @@ export default function App() {
             }
             return { ...u, permissions: perms };
           });
-          const sorted = normalized.sort((a, b) => 
+          const sorted = normalized.sort((a, b) =>
             String(a.name || "").localeCompare(String(b.name || ""), "es", { sensitivity: "base" })
           );
           setUsers(sorted);
@@ -923,20 +934,20 @@ export default function App() {
   // Immediate Cache/Snapshot Restore on view or context change (instant UI responsiveness)
   useEffect(() => {
     if (!hasEnteredApp) return;
-    
+
     const date = userContext.selectedDate;
     const shiftId = userContext.selectedShiftId;
     const tables = OPERATIONAL_TABLES_MAP[prodTab] || [];
-    
+
     console.log(`[Immediate Restore] Context changed to Date: ${date}, Shift: ${shiftId}, Tab: ${prodTab}. Restoring snapshots.`);
-    
+
     const restoreSnapshots = async () => {
       for (const tableName of tables) {
         const key = getCooldownKey(tableName, date, shiftId);
-        
+
         // Try memory ref first
         let cachedData = operationalDataByKeyRef.current[key];
-        
+
         // If not in memory, check safeCache (IndexedDB)
         if (cachedData === undefined) {
           const loaded = await safeCache.get('pscqube_op_cache_' + key);
@@ -945,7 +956,7 @@ export default function App() {
             operationalDataByKeyRef.current[key] = cachedData;
           }
         }
-        
+
         if (cachedData !== undefined) {
           console.log(`[Immediate Restore] Found snapshot for ${tableName} (key: ${key}). Restoring.`);
           updateTableState(tableName, cachedData, date, shiftId);
@@ -1023,9 +1034,9 @@ export default function App() {
   }, [userContext.selectedDate, userContext.selectedShiftId, getCooldownKey, updateTableState]);
 
   const refreshOperationalDataForView = useCallback(async (
-    section: AppSection, 
-    tab: ProductivityTab, 
-    bypassCache = false, 
+    section: AppSection,
+    tab: ProductivityTab,
+    bypassCache = false,
     source = "unspecified"
   ) => {
     if (section !== 'PRODUCTIVITY') return;
@@ -1075,7 +1086,7 @@ export default function App() {
       if (document.visibilityState === 'visible') {
         const elapsed = Date.now() - lastOperationalFetchTimeRef.current;
         const tenMinutes = 10 * 60 * 1000;
-        
+
         if (elapsed > tenMinutes) {
           console.log(`[Operational Refresh] Focus restorer detected elapsed time is ${Math.round(elapsed / 1000)}s (> 10 mins). Executing silent operational refresh.`);
           // Clear cooldowns for current view's tables to guarantee fresh fetch
@@ -1114,7 +1125,7 @@ export default function App() {
   }, [userContext.selectedDate, userContext.selectedShiftId, getCooldownKey, fetchTableWithGuards]);
 
   // --- Centralized, Synchronized & Toast-Enabled handlers ---
-  
+
   const handleSaveDispatch = (entry: any) => {
     const exists = dispatchEntries.some(x => x.id === entry.id);
     setDispatchEntries(prev => {
@@ -1188,7 +1199,7 @@ export default function App() {
 
   const handleSaveMultipleStops = async (stopsToSave: MachineStop[]) => {
     if (!stopsToSave || stopsToSave.length === 0) return;
-    
+
     // Optimistically update the client state for immediate visual feedback
     const stopIds = stopsToSave.map(s => s.id);
     const filtered = stops.filter(s => !stopIds.includes(s.id));
@@ -1432,7 +1443,7 @@ export default function App() {
           }
         }
       }
-      
+
       if (successCount === entriesToUpdate.length) {
         addToast("Turno y fecha actualizados para todos los conteos", "success");
         forceRefreshTable("INVENTARIO_FISICOV2");
@@ -1608,15 +1619,15 @@ export default function App() {
       }
     });
   };
-  
-  const selectedShift = useMemo(() => 
+
+  const selectedShift = useMemo(() =>
     masters.shifts.find(s => s.id === userContext.selectedShiftId) || null,
     [masters.shifts, userContext.selectedShiftId]
   );
 
   const currentShift = useMemo(() => getCurrentShift(masters.shifts), [masters.shifts]);
-  
-  const selectedPalletizer = useMemo(() => 
+
+  const selectedPalletizer = useMemo(() =>
     masters.palletizers.find(p => p.id === userContext.selectedPalletizerId) || null,
     [masters.palletizers, userContext.selectedPalletizerId]
   );
@@ -1624,7 +1635,7 @@ export default function App() {
   // KPI calculations
   const kpis = useMemo(() => {
     if (!selectedPalletizer || !selectedShift) return { availability: 0, performance: 0, hsMarcha: 0, totalTons: 0 };
-    const machineStops = stops.filter(s => 
+    const machineStops = stops.filter(s =>
       s &&
       isSameDate(s.date, userContext.selectedDate) &&
       isStopForMachine(s, selectedPalletizer.id, masters) &&
@@ -1639,7 +1650,7 @@ export default function App() {
     const hsShift = selectedShift.durationHours || 8;
     const totalStopMinutes = machineStops.reduce((sum, s) => sum + (Number(s.durationMinutes) || 0), 0);
     const totalStopHours = totalStopMinutes / 60;
-    
+
     const externalStopMinutes = machineStops
       .filter(s => {
         const causeObj = masters.causes.find(c => c.id === s.causeId || c.text === s.causeText);
@@ -1684,7 +1695,7 @@ export default function App() {
               <div className="w-16 h-16 bg-[#ef4444]/15 rounded-full flex items-center justify-center text-[#ef4444] animate-pulse">
                 <RefreshCw size={32} className="animate-spin duration-3000" />
               </div>
-              
+
               <div className="space-y-2">
                 <h3 className="text-xl font-extrabold tracking-tight text-white uppercase">
                   Actualización Requerida
@@ -1719,14 +1730,14 @@ export default function App() {
                   try {
                     clearClientCache();
                     localStorage.removeItem("pscqube_app_version");
-                  } catch (e) {}
+                  } catch (e) { }
                   window.location.reload();
                 }}
                 className="w-full bg-[#ef4444] hover:bg-[#ef4444]/80 text-white py-3.5 px-6 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-lg active:scale-98"
               >
                 Actualizar Ahora
               </button>
-              
+
               <p className="text-[10px] text-[#a0a5b5] uppercase tracking-widest">
                 La aplicación se recargará automáticamente en breve
               </p>
@@ -1749,7 +1760,7 @@ export default function App() {
                 <div className="absolute inset-0 border-4 border-primary/20 rounded-full"></div>
                 <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
               </div>
-              
+
               <div className="space-y-2">
                 <h3 className="text-xl font-black tracking-tight text-white uppercase logo-glow">
                   PSCQUBE
@@ -1780,8 +1791,8 @@ export default function App() {
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.5 }}
           >
-            <WelcomeScreen 
-              onEnter={()  => handleSyncOnEnter()} 
+            <WelcomeScreen
+              onEnter={() => handleSyncOnEnter()}
               onLoginSuccess={(user, email) => {
                 sessionStorage.setItem('pscqube_user_dni', user.dni);
                 sessionStorage.setItem('pscqube_user', JSON.stringify(user));
@@ -1792,245 +1803,245 @@ export default function App() {
             />
           </motion.div>
         ) : (
-        <motion.div 
-          key="app-main"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="min-h-screen relative pb-32 bg-bg text-text-main transition-colors duration-300"
-        >
-          <Header 
-            palletizers={masters.palletizers}
-            selectedId={userContext.selectedPalletizerId}
-            onSelect={id => setUserContext({...userContext, selectedPalletizerId: id})}
-            shifts={masters.shifts}
-            selectedShiftId={userContext.selectedShiftId}
-            onShiftSelect={id => setUserContext({...userContext, selectedShiftId: id})}
-            selectedDate={userContext.selectedDate}
-            onDateChange={date => setUserContext({...userContext, selectedDate: date})}
-            isDark={isDark}
-            toggleTheme={() => setIsDark(!isDark)}
-            currentUser={currentUser}
-            notifications={notifications}
-            readNotificationKeys={readNotificationKeys}
-            onMarkAsRead={handleMarkAsRead}
-            onMarkAllAsRead={handleMarkAllAsRead}
-            onNavigateToChange={() => {
-              setActiveSection('PRODUCTIVITY');
-              setProdTab('CHANGE');
-            }}
-            onRefreshCurrentFilters={handleRefreshCurrentFilters}
-            activeSection={activeSection}
-          />
+          <motion.div
+            key="app-main"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="min-h-screen relative pb-32 bg-bg text-text-main transition-colors duration-300"
+          >
+            <Header
+              palletizers={masters.palletizers}
+              selectedId={userContext.selectedPalletizerId}
+              onSelect={id => setUserContext({ ...userContext, selectedPalletizerId: id })}
+              shifts={masters.shifts}
+              selectedShiftId={userContext.selectedShiftId}
+              onShiftSelect={id => setUserContext({ ...userContext, selectedShiftId: id })}
+              selectedDate={userContext.selectedDate}
+              onDateChange={date => setUserContext({ ...userContext, selectedDate: date })}
+              isDark={isDark}
+              toggleTheme={() => setIsDark(!isDark)}
+              currentUser={currentUser}
+              notifications={notifications}
+              readNotificationKeys={readNotificationKeys}
+              onMarkAsRead={handleMarkAsRead}
+              onMarkAllAsRead={handleMarkAllAsRead}
+              onNavigateToChange={() => {
+                setActiveSection('PRODUCTIVITY');
+                setProdTab('CHANGE');
+              }}
+              onRefreshCurrentFilters={handleRefreshCurrentFilters}
+              activeSection={activeSection}
+            />
 
-          <main className="p-4 md:p-8 max-w-7xl mx-auto pt-4 md:pt-8">
-            <AnimatePresence mode="wait">
-              {activeSection === 'PRODUCTIVITY' && (
-                <motion.div 
-                  key="productivity" 
-                  initial={{ opacity: 0, x: -20 }} 
-                  animate={{ opacity: 1, x: 0 }} 
-                  exit={{ opacity: 0, x: 20 }}
-                  className="space-y-4 md:space-y-6"
-                >
-                  {/* Sub-nav Productivity - Menú Desplegable desde Header */}
-                  <div className="sticky top-16 z-30 bg-bg/80 backdrop-blur-md pt-2 pb-2 mb-6 border-b border-border/40">
-                    {(() => {
-                      const visibleTabs = productivityTabs.filter(t => canView(t.id));
-                      const currentTabObj = visibleTabs.find(t => t.id === prodTab) || visibleTabs[0];
+            <main className="p-4 md:p-8 max-w-7xl mx-auto pt-4 md:pt-8">
+              <AnimatePresence mode="wait">
+                {activeSection === 'PRODUCTIVITY' && (
+                  <motion.div
+                    key="productivity"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    className="space-y-4 md:space-y-6"
+                  >
+                    {/* Sub-nav Productivity - Menú Desplegable desde Header */}
+                    <div className="sticky top-16 z-30 bg-bg/80 backdrop-blur-md pt-2 pb-2 mb-6 border-b border-border/40">
+                      {(() => {
+                        const visibleTabs = productivityTabs.filter(t => canView(t.id));
+                        const currentTabObj = visibleTabs.find(t => t.id === prodTab) || visibleTabs[0];
 
-                      return (
-                        <div className="relative max-w-7xl mx-auto px-1">
-                          {/* Selector Bar Header */}
-                          <div className={cn(
-                            "flex items-center justify-between gap-3 p-3 px-4 rounded-2xl transition-all border shadow-lg ring-1",
-                            isDark 
-                              ? "bg-[#1E293B] border-slate-600/80 ring-white/10 shadow-black/50" 
-                              : "bg-white border-slate-200/90 ring-black/5 shadow-slate-200/50"
-                          )}>
-                            <button
-                              type="button"
-                              onClick={() => setIsProdMenuOpen(!isProdMenuOpen)}
-                              className="flex items-center gap-3 text-left flex-1 min-w-0 hover:opacity-90 transition-opacity focus:outline-none group"
-                            >
-                              <div className={cn(
-                                "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border transition-colors shadow-xs",
-                                isDark 
-                                  ? "bg-primary/30 text-blue-300 border-primary/40 group-hover:bg-primary group-hover:text-white" 
-                                  : "bg-primary/10 text-primary border-primary/20 group-hover:bg-primary group-hover:text-white"
-                              )}>
-                                {currentTabObj?.icon}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className={cn(
-                                    "text-[10px] font-black uppercase tracking-widest",
-                                    isDark ? "text-slate-300" : "text-slate-500"
-                                  )}>
-                                    Funcionalidad Activa
-                                  </span>
-                                  <span className={cn(
-                                    "text-[9px] px-2 py-0.5 rounded-full font-black border",
-                                    isDark ? "bg-primary/30 text-blue-200 border-primary/40" : "bg-primary/10 text-primary border-primary/20"
-                                  )}>
-                                    {visibleTabs.length} disponibles
-                                  </span>
-                                </div>
-                                <p className={cn(
-                                  "text-sm font-black truncate flex items-center gap-1.5",
-                                  isDark ? "text-white" : "text-slate-900"
+                        return (
+                          <div className="relative max-w-7xl mx-auto px-1">
+                            {/* Selector Bar Header */}
+                            <div className={cn(
+                              "flex items-center justify-between gap-3 p-3 px-4 rounded-2xl transition-all border shadow-lg ring-1",
+                              isDark
+                                ? "bg-[#1E293B] border-slate-600/80 ring-white/10 shadow-black/50"
+                                : "bg-white border-slate-200/90 ring-black/5 shadow-slate-200/50"
+                            )}>
+                              <button
+                                type="button"
+                                onClick={() => setIsProdMenuOpen(!isProdMenuOpen)}
+                                className="flex items-center gap-3 text-left flex-1 min-w-0 hover:opacity-90 transition-opacity focus:outline-none group"
+                              >
+                                <div className={cn(
+                                  "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border transition-colors shadow-xs",
+                                  isDark
+                                    ? "bg-primary/30 text-blue-300 border-primary/40 group-hover:bg-primary group-hover:text-white"
+                                    : "bg-primary/10 text-primary border-primary/20 group-hover:bg-primary group-hover:text-white"
                                 )}>
-                                  {currentTabObj?.label}
-                                </p>
-                              </div>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => setIsProdMenuOpen(!isProdMenuOpen)}
-                              className={cn(
-                                "flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all border shadow-sm shrink-0",
-                                isProdMenuOpen
-                                  ? "bg-primary text-white border-primary shadow-primary/30 ring-2 ring-primary/40"
-                                  : isDark
-                                    ? "bg-slate-700/90 hover:bg-slate-600 text-white border-slate-500/80 hover:border-blue-400"
-                                    : "bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300 hover:border-primary/50"
-                              )}
-                            >
-                              <LayoutGrid size={15} />
-                              <span className="hidden sm:inline">Ver Menú</span>
-                              <ChevronDown
-                                size={15}
-                                className={cn("transition-transform duration-200", isProdMenuOpen && "rotate-180")}
-                              />
-                            </button>
-                          </div>
-
-                          {/* Dropdown Menu Panel */}
-                          <AnimatePresence>
-                            {isProdMenuOpen && (
-                              <>
-                                {/* Overlay backdrop for closing on outside click */}
-                                <div
-                                  className="fixed inset-0 z-30"
-                                  onClick={() => setIsProdMenuOpen(false)}
-                                />
-
-                                <motion.div
-                                  initial={{ opacity: 0, y: -10, scale: 0.98 }}
-                                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                                  exit={{ opacity: 0, y: -10, scale: 0.98 }}
-                                  transition={{ duration: 0.15 }}
-                                  className={cn(
-                                    "absolute top-full left-0 right-0 mt-2.5 z-40 rounded-2xl shadow-2xl overflow-hidden p-3.5 md:p-5 max-h-[75vh] overflow-y-auto border backdrop-blur-xl transition-all",
-                                    isDark
-                                      ? "bg-[#141C2A]/95 border-slate-700/90 shadow-black/60"
-                                      : "bg-white/95 border-slate-200 shadow-xl shadow-slate-300/40"
-                                  )}
-                                >
-                                  <div className={cn(
-                                    "flex items-center justify-between pb-3 mb-3.5 border-b px-1",
-                                    isDark ? "border-slate-700/60" : "border-slate-200"
-                                  )}>
-                                    <div className="flex items-center gap-2.5">
-                                      <div className={cn(
-                                        "p-2 rounded-xl border",
-                                        isDark ? "bg-primary/20 text-blue-400 border-primary/30" : "bg-primary/10 text-primary border-primary/20"
-                                      )}>
-                                        <LayoutGrid size={16} />
-                                      </div>
-                                      <div>
-                                        <h4 className={cn(
-                                          "text-xs font-extrabold uppercase tracking-wider",
-                                          isDark ? "text-white" : "text-slate-900"
-                                        )}>
-                                          Funcionalidades de Productividad
-                                        </h4>
-                                        <p className={cn(
-                                          "text-[11px]",
-                                          isDark ? "text-slate-400" : "text-slate-500"
-                                        )}>
-                                          Selecciona el módulo al que deseas ingresar
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => setIsProdMenuOpen(false)}
-                                      className={cn(
-                                        "p-1.5 rounded-lg transition-colors border",
-                                        isDark 
-                                          ? "hover:bg-slate-800 text-slate-400 hover:text-white border-transparent hover:border-slate-700" 
-                                          : "hover:bg-slate-100 text-slate-500 hover:text-slate-900 border-transparent hover:border-slate-200"
-                                      )}
-                                    >
-                                      <X size={16} />
-                                    </button>
+                                  {currentTabObj?.icon}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className={cn(
+                                      "text-[10px] font-black uppercase tracking-widest",
+                                      isDark ? "text-slate-300" : "text-slate-500"
+                                    )}>
+                                      Funcionalidad Activa
+                                    </span>
+                                    <span className={cn(
+                                      "text-[9px] px-2 py-0.5 rounded-full font-black border",
+                                      isDark ? "bg-primary/30 text-blue-200 border-primary/40" : "bg-primary/10 text-primary border-primary/20"
+                                    )}>
+                                      {visibleTabs.length} disponibles
+                                    </span>
                                   </div>
+                                  <p className={cn(
+                                    "text-sm font-black truncate flex items-center gap-1.5",
+                                    isDark ? "text-white" : "text-slate-900"
+                                  )}>
+                                    {currentTabObj?.label}
+                                  </p>
+                                </div>
+                              </button>
 
-                                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-                                    {visibleTabs.map(tab => {
-                                      const isActive = prodTab === tab.id;
-                                      return (
-                                        <button
-                                          key={tab.id}
-                                          type="button"
-                                          onClick={() => {
-                                            setProdTab(tab.id as ProductivityTab);
-                                            setIsProdMenuOpen(false);
-                                          }}
-                                          className={cn(
-                                            "flex items-center gap-3 p-3 rounded-xl border text-left transition-all relative group cursor-pointer",
-                                            isActive
-                                              ? "bg-primary text-white border-primary shadow-md shadow-primary/20 font-bold"
-                                              : isDark
-                                                ? "bg-slate-800/60 hover:bg-slate-800/90 border-slate-700/60 text-slate-100 hover:border-primary/60 hover:shadow-md hover:shadow-black/20"
-                                                : "bg-slate-50 hover:bg-white border-slate-200/80 text-slate-800 hover:border-primary/60 hover:shadow-md hover:shadow-slate-200/80"
-                                          )}
-                                        >
-                                          <div
+                              <button
+                                type="button"
+                                onClick={() => setIsProdMenuOpen(!isProdMenuOpen)}
+                                className={cn(
+                                  "flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all border shadow-sm shrink-0",
+                                  isProdMenuOpen
+                                    ? "bg-primary text-white border-primary shadow-primary/30 ring-2 ring-primary/40"
+                                    : isDark
+                                      ? "bg-slate-700/90 hover:bg-slate-600 text-white border-slate-500/80 hover:border-blue-400"
+                                      : "bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300 hover:border-primary/50"
+                                )}
+                              >
+                                <LayoutGrid size={15} />
+                                <span className="hidden sm:inline">Ver Menú</span>
+                                <ChevronDown
+                                  size={15}
+                                  className={cn("transition-transform duration-200", isProdMenuOpen && "rotate-180")}
+                                />
+                              </button>
+                            </div>
+
+                            {/* Dropdown Menu Panel */}
+                            <AnimatePresence>
+                              {isProdMenuOpen && (
+                                <>
+                                  {/* Overlay backdrop for closing on outside click */}
+                                  <div
+                                    className="fixed inset-0 z-30"
+                                    onClick={() => setIsProdMenuOpen(false)}
+                                  />
+
+                                  <motion.div
+                                    initial={{ opacity: 0, y: -10, scale: 0.98 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                                    transition={{ duration: 0.15 }}
+                                    className={cn(
+                                      "absolute top-full left-0 right-0 mt-2.5 z-40 rounded-2xl shadow-2xl overflow-hidden p-3.5 md:p-5 max-h-[75vh] overflow-y-auto border backdrop-blur-xl transition-all",
+                                      isDark
+                                        ? "bg-[#141C2A]/95 border-slate-700/90 shadow-black/60"
+                                        : "bg-white/95 border-slate-200 shadow-xl shadow-slate-300/40"
+                                    )}
+                                  >
+                                    <div className={cn(
+                                      "flex items-center justify-between pb-3 mb-3.5 border-b px-1",
+                                      isDark ? "border-slate-700/60" : "border-slate-200"
+                                    )}>
+                                      <div className="flex items-center gap-2.5">
+                                        <div className={cn(
+                                          "p-2 rounded-xl border",
+                                          isDark ? "bg-primary/20 text-blue-400 border-primary/30" : "bg-primary/10 text-primary border-primary/20"
+                                        )}>
+                                          <LayoutGrid size={16} />
+                                        </div>
+                                        <div>
+                                          <h4 className={cn(
+                                            "text-xs font-extrabold uppercase tracking-wider",
+                                            isDark ? "text-white" : "text-slate-900"
+                                          )}>
+                                            Funcionalidades de Productividad
+                                          </h4>
+                                          <p className={cn(
+                                            "text-[11px]",
+                                            isDark ? "text-slate-400" : "text-slate-500"
+                                          )}>
+                                            Selecciona el módulo al que deseas ingresar
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => setIsProdMenuOpen(false)}
+                                        className={cn(
+                                          "p-1.5 rounded-lg transition-colors border",
+                                          isDark
+                                            ? "hover:bg-slate-800 text-slate-400 hover:text-white border-transparent hover:border-slate-700"
+                                            : "hover:bg-slate-100 text-slate-500 hover:text-slate-900 border-transparent hover:border-slate-200"
+                                        )}
+                                      >
+                                        <X size={16} />
+                                      </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                                      {visibleTabs.map(tab => {
+                                        const isActive = prodTab === tab.id;
+                                        return (
+                                          <button
+                                            key={tab.id}
+                                            type="button"
+                                            onClick={() => {
+                                              setProdTab(tab.id as ProductivityTab);
+                                              setIsProdMenuOpen(false);
+                                            }}
                                             className={cn(
-                                              "w-8.5 h-8.5 rounded-lg flex items-center justify-center shrink-0 transition-colors border",
+                                              "flex items-center gap-3 p-3 rounded-xl border text-left transition-all relative group cursor-pointer",
                                               isActive
-                                                ? "bg-white/20 text-white border-white/20"
+                                                ? "bg-primary text-white border-primary shadow-md shadow-primary/20 font-bold"
                                                 : isDark
-                                                  ? "bg-primary/20 text-blue-400 border-primary/30 group-hover:bg-primary group-hover:text-white group-hover:border-primary"
-                                                  : "bg-primary/10 text-primary border-primary/20 group-hover:bg-primary group-hover:text-white group-hover:border-primary"
+                                                  ? "bg-slate-800/60 hover:bg-slate-800/90 border-slate-700/60 text-slate-100 hover:border-primary/60 hover:shadow-md hover:shadow-black/20"
+                                                  : "bg-slate-50 hover:bg-white border-slate-200/80 text-slate-800 hover:border-primary/60 hover:shadow-md hover:shadow-slate-200/80"
                                             )}
                                           >
-                                            {tab.icon}
-                                          </div>
-                                          <div className="min-w-0 flex-1 pr-4">
-                                            <span className={cn(
-                                              "text-xs font-bold block truncate",
-                                              isActive
-                                                ? "text-white"
-                                                : isDark
-                                                  ? "text-slate-100 group-hover:text-white"
-                                                  : "text-slate-800 group-hover:text-primary"
-                                            )}>
-                                              {tab.label}
-                                            </span>
-                                          </div>
-                                          {isActive && (
-                                            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white text-primary flex items-center justify-center">
-                                              <Check size={11} strokeWidth={3} />
+                                            <div
+                                              className={cn(
+                                                "w-8.5 h-8.5 rounded-lg flex items-center justify-center shrink-0 transition-colors border",
+                                                isActive
+                                                  ? "bg-white/20 text-white border-white/20"
+                                                  : isDark
+                                                    ? "bg-primary/20 text-blue-400 border-primary/30 group-hover:bg-primary group-hover:text-white group-hover:border-primary"
+                                                    : "bg-primary/10 text-primary border-primary/20 group-hover:bg-primary group-hover:text-white group-hover:border-primary"
+                                              )}
+                                            >
+                                              {tab.icon}
                                             </div>
-                                          )}
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                </motion.div>
-                              </>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      );
-                    })()}
-                  </div>
+                                            <div className="min-w-0 flex-1 pr-4">
+                                              <span className={cn(
+                                                "text-xs font-bold block truncate",
+                                                isActive
+                                                  ? "text-white"
+                                                  : isDark
+                                                    ? "text-slate-100 group-hover:text-white"
+                                                    : "text-slate-800 group-hover:text-primary"
+                                              )}>
+                                                {tab.label}
+                                              </span>
+                                            </div>
+                                            {isActive && (
+                                              <div className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white text-primary flex items-center justify-center">
+                                                <Check size={11} strokeWidth={3} />
+                                              </div>
+                                            )}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </motion.div>
+                                </>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        );
+                      })()}
+                    </div>
 
-                  {prodTab === 'DASHBOARD' && (
-                    <DashboardView 
+                    {prodTab === 'DASHBOARD' && (
+                      <DashboardView
                         masters={masters}
                         selectedShift={selectedShift}
                         selectedDate={userContext.selectedDate}
@@ -2060,60 +2071,60 @@ export default function App() {
                         masters={masters} 
                         currentUser={currentUser}
                         userContext={userContext}
-                    />
-                  )}
-                  {prodTab === 'PAROS' && (
-                    <StopsView 
-                        masters={masters} 
+                      />
+                    )}
+                    {prodTab === 'PAROS' && (
+                      <StopsView
+                        masters={masters}
                         currentUser={currentUser}
                         onSave={handleSaveStop}
                         onDelete={handleDeleteStop}
                         onSaveMultiple={handleSaveMultipleStops}
-                        palletizerId={userContext.selectedPalletizerId} 
-                        shiftId={userContext.selectedShiftId} 
+                        palletizerId={userContext.selectedPalletizerId}
+                        shiftId={userContext.selectedShiftId}
                         selectedDate={userContext.selectedDate}
                         history={stops.filter(s => s && isSameDate(s.date, userContext.selectedDate) && isStopForMachine(s, userContext.selectedPalletizerId, masters) && isStopForShift(s, userContext.selectedShiftId, masters))}
                         allStops={stops}
-                    />
-                  )}
-                  {prodTab === 'PRODUCCION' && (
-                    <ProductionView 
-                        masters={masters} 
+                      />
+                    )}
+                    {prodTab === 'PRODUCCION' && (
+                      <ProductionView
+                        masters={masters}
                         currentUser={currentUser}
                         onSave={handleSaveProductionReport}
                         onDelete={handleDeleteProductionReport}
-                        palletizerId={userContext.selectedPalletizerId} 
-                        shiftId={userContext.selectedShiftId} 
+                        palletizerId={userContext.selectedPalletizerId}
+                        shiftId={userContext.selectedShiftId}
                         selectedDate={userContext.selectedDate}
                         history={productionReports.filter(r => r && String(r.palletizerId || '').trim().toUpperCase() === String(userContext.selectedPalletizerId || '').trim().toUpperCase() && isStopForShift(r, userContext.selectedShiftId, masters) && isSameDate(r.date, userContext.selectedDate))}
                         stops={stops}
                       />
-                  )}
-                  {prodTab === 'DATER' && (
-                    <DaterControlView 
-                        masters={masters} 
+                    )}
+                    {prodTab === 'DATER' && (
+                      <DaterControlView
+                        masters={masters}
                         currentUser={currentUser}
                         onSave={handleSaveDaterControl}
                         onDelete={handleDeleteDaterControl}
                         history={daterControls}
                         selectedShiftId={userContext.selectedShiftId}
                         selectedDate={userContext.selectedDate}
-                    />
-                  )}
-                  {prodTab === 'SCALE' && (
-                    <ScaleControlView 
-                        masters={masters} 
+                      />
+                    )}
+                    {prodTab === 'SCALE' && (
+                      <ScaleControlView
+                        masters={masters}
                         currentUser={currentUser}
                         onSave={handleSaveScaleControl}
                         onDelete={handleDeleteScaleControl}
                         history={scaleControls}
                         selectedShiftId={userContext.selectedShiftId}
                         selectedDate={userContext.selectedDate}
-                    />
-                  )}
-                  {prodTab === 'STOCK' && (
-                    <InventoryView 
-                        masters={masters} 
+                      />
+                    )}
+                    {prodTab === 'STOCK' && (
+                      <InventoryView
+                        masters={masters}
                         currentUser={currentUser}
                         entries={inventoryEntries}
                         productionReports={productionReports}
@@ -2122,11 +2133,11 @@ export default function App() {
                         onBulkUpdate={handleBulkUpdateInventory}
                         selectedShiftId={userContext.selectedShiftId}
                         selectedDate={userContext.selectedDate}
-                    />
-                  )}
-                  {prodTab === 'PALLET_CLASS' && (
-                    <PalletClassificationView 
-                        masters={masters} 
+                      />
+                    )}
+                    {prodTab === 'PALLET_CLASS' && (
+                      <PalletClassificationView
+                        masters={masters}
                         currentUser={currentUser}
                         entries={palletClassifications.filter(e => isStopForShift(e, userContext.selectedShiftId, masters) && isSameDate(e.date, userContext.selectedDate))}
                         allEntries={palletClassifications}
@@ -2135,33 +2146,33 @@ export default function App() {
                         selectedShiftId={userContext.selectedShiftId}
                         selectedDate={userContext.selectedDate}
                         isDark={isDark}
-                    />
-                  )}
-                  {prodTab === 'CHANGE' && (
-                    <ProductChangeView 
-                        masters={masters} 
+                      />
+                    )}
+                    {prodTab === 'CHANGE' && (
+                      <ProductChangeView
+                        masters={masters}
                         currentUser={currentUser}
                         history={productChanges}
                         onSave={handleSaveProductChange}
                         onDelete={handleDeleteProductChange}
                         selectedShiftId={userContext.selectedShiftId}
                         selectedDate={userContext.selectedDate}
-                    />
-                  )}
-                  {prodTab === 'LOADING_LANES' && (
-                    <LoadingLanesView 
-                        masters={masters} 
+                      />
+                    )}
+                    {prodTab === 'LOADING_LANES' && (
+                      <LoadingLanesView
+                        masters={masters}
                         currentUser={currentUser}
                         history={laneStatuses.filter(l => isStopForShift(l, userContext.selectedShiftId, masters) && isSameDate(l.date, userContext.selectedDate))}
                         onSave={handleSaveLaneStatus}
                         onDelete={handleDeleteLaneStatus}
                         selectedShiftId={userContext.selectedShiftId}
                         selectedDate={userContext.selectedDate}
-                    />
-                  )}
-                  {prodTab === 'GASOIL' && (
-                    <FuelView 
-                        masters={masters} 
+                      />
+                    )}
+                    {prodTab === 'GASOIL' && (
+                      <FuelView
+                        masters={masters}
                         currentUser={currentUser}
                         history={fuelLoads.filter(f => (!f.shiftId || isStopForShift(f, userContext.selectedShiftId, masters)) && isSameDate(f.date, userContext.selectedDate))}
                         allFuelLoads={fuelLoads}
@@ -2170,25 +2181,31 @@ export default function App() {
                         selectedShiftId={userContext.selectedShiftId}
                         selectedDate={userContext.selectedDate}
                         isDark={isDark}
-                    />
-                  )}
-                  {prodTab === 'MANTENIMIENTO' && (
-                    <PlaceholderView title="Módulo: MANTENIMIENTO" type="PRODUCTIVITY" />
-                  )}
-                </motion.div>
-              )}
+                      />
+                    )}
+                    {prodTab === 'MANTENIMIENTO' && (
+                      <PlaceholderView title="Módulo: MANTENIMIENTO" type="PRODUCTIVITY" />
+                    )}
+                  </motion.div>
+                )}
 
-              {activeSection === 'SAFETY' && <PlaceholderView title="H&S" type="SAFETY" />}
-              {activeSection === 'ENVIRONMENT' && <PlaceholderView title="Medio Ambiente" type="ENVIRONMENT" />}
-              {activeSection === 'HR' && <PlaceholderView title="Capital Humano" type="HR" />}
-              
-              {activeSection === 'ADMIN' && (
-                <AdminView 
-                    masters={masters} 
+                {activeSection === 'SAFETY' && (
+                  <HSModuleView
                     currentUser={currentUser}
-                    activeTab={adminTab} 
-                    onTabChange={setAdminTab} 
-                    onUserSwitch={dni => setUserContext({...userContext, currentUserDni: dni})}
+                    isDark={isDark}
+                    addToast={addToast}
+                  />
+                )}
+                {activeSection === 'ENVIRONMENT' && <PlaceholderView title="Medio Ambiente" type="ENVIRONMENT" />}
+                {activeSection === 'HR' && <PlaceholderView title="Capital Humano" type="HR" />}
+
+                {activeSection === 'ADMIN' && (
+                  <AdminView
+                    masters={masters}
+                    currentUser={currentUser}
+                    activeTab={adminTab}
+                    onTabChange={setAdminTab}
+                    onUserSwitch={dni => setUserContext({ ...userContext, currentUserDni: dni })}
                     onUpdateMasters={(type, data) => {
                       safeCache.remove('pscqube_maestros_cache');
                       let targetData = data;
@@ -2223,7 +2240,7 @@ export default function App() {
                             permissions: perms
                           };
                         });
-                        const sorted = cleaned.sort((a, b) => 
+                        const sorted = cleaned.sort((a, b) =>
                           String(a.name || "").localeCompare(String(b.name || ""), "es", { sensitivity: "base" })
                         );
                         setUsers(sorted);
@@ -2257,7 +2274,7 @@ export default function App() {
                         PARAMETROS_BALANZA: "PARAMETROS_BALANZAV2"
                       };
                       const suffix = tabSuffixMapping[cleanType];
-                      
+
                       console.log(`[AutoSync] onUpdateMasters invocado. Tipo original: "${type}", Tipo limpio: "${cleanType}", Suffix: "${suffix || 'No encontrado'}"`, targetData);
 
                       if (suffix) {
@@ -2280,61 +2297,61 @@ export default function App() {
                       }
                     }}
                     addToast={addToast}
-                />
-              )}
-            </AnimatePresence>
-          </main>
+                  />
+                )}
+              </AnimatePresence>
+            </main>
 
-          <BottomNav 
-            activeSection={activeSection} 
-            onSectionChange={setActiveSection} 
-            currentUser={currentUser}
-            onLogout={() => setIsLogoutConfirmOpen(true)}
-            isDark={isDark}
-          />
-          
-          {/* Toast Notification Container */}
-          <ToastContainer toasts={toasts} onClose={id => setToasts(prev => prev.filter(t => t.id !== id))} />
+            <BottomNav
+              activeSection={activeSection}
+              onSectionChange={setActiveSection}
+              currentUser={currentUser}
+              onLogout={() => setIsLogoutConfirmOpen(true)}
+              isDark={isDark}
+            />
 
-          {/* Confirmar Cierre de Sesión Modal */}
-          <ConfirmModal
-            isOpen={isLogoutConfirmOpen}
-            onClose={() => setIsLogoutConfirmOpen(false)}
-            onConfirm={async () => {
-              try {
-                const supabase = await getSupabaseClient();
-                if (supabase) {
-                  await supabase.auth.signOut();
+            {/* Toast Notification Container */}
+            <ToastContainer toasts={toasts} onClose={id => setToasts(prev => prev.filter(t => t.id !== id))} />
+
+            {/* Confirmar Cierre de Sesión Modal */}
+            <ConfirmModal
+              isOpen={isLogoutConfirmOpen}
+              onClose={() => setIsLogoutConfirmOpen(false)}
+              onConfirm={async () => {
+                try {
+                  const supabase = await getSupabaseClient();
+                  if (supabase) {
+                    await supabase.auth.signOut();
+                  }
+                } catch (e) {
+                  console.warn("[Logout Supabase SignOut Warning]", e);
                 }
-              } catch (e) {
-                console.warn("[Logout Supabase SignOut Warning]", e);
-              }
-              sessionStorage.clear();
-              await safeCache.remove('pscqube_maestros_cache');
-              safeCache.purgeLegacyLocalStorage();
-              window.location.reload();
-            }}
-            title="Cerrar Sesión"
-            message="¿Está seguro de que desea cerrar su sesión y salir de la aplicación?"
-            confirmLabel="Cerrar Sesión"
-            cancelLabel="Cancelar"
-          />
-        </motion.div>
-      )}
-    </AnimatePresence>
-   </>
+                sessionStorage.clear();
+                await safeCache.remove('pscqube_maestros_cache');
+                safeCache.purgeLegacyLocalStorage();
+                window.location.reload();
+              }}
+              title="Cerrar Sesión"
+              message="¿Está seguro de que desea cerrar su sesión y salir de la aplicación?"
+              confirmLabel="Cerrar Sesión"
+              cancelLabel="Cancelar"
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
 function ProductivitySubTab({ active, icon, label, onClick }: any) {
   return (
-    <button 
+    <button
       onClick={onClick}
       data-active={active}
       className={cn(
         "carousel-tab px-4 py-1.5 rounded-md flex items-center gap-2 transition-all flex-none text-[10px] font-bold uppercase tracking-widest whitespace-nowrap min-w-fit",
-        active 
-          ? "btn-active-highlight" 
+        active
+          ? "btn-active-highlight"
           : "text-text-muted hover:text-text-main hover:bg-bg"
       )}
     >

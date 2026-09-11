@@ -2,7 +2,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 let supabaseInstance: SupabaseClient | null = null;
 
-export async function getSupabaseClient(): Promise<SupabaseClient | null> {
+export function getSupabase(): SupabaseClient | null {
   if (supabaseInstance) return supabaseInstance;
 
   const metaEnv = (import.meta as any).env || {};
@@ -33,4 +33,8 @@ export async function getSupabaseClient(): Promise<SupabaseClient | null> {
     console.error("[Supabase Client Initialization Error]", error);
     return null;
   }
+}
+
+export async function getSupabaseClient(): Promise<SupabaseClient | null> {
+  return getSupabase();
 }
