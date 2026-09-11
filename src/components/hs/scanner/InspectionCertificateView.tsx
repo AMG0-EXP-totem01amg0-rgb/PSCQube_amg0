@@ -292,11 +292,11 @@ export function InspectionCertificateView({
                         <td className="p-3 text-center">
                           {isNoOk ? (
                             <span className="inline-block px-3 py-1 rounded-lg text-xs font-bold bg-rose-600 text-white shadow-xs">
-                              NO OK ❌
+                              MALO ❌
                             </span>
                           ) : (
                             <span className="inline-block px-3 py-1 rounded-lg text-xs font-bold bg-emerald-600 text-white shadow-xs">
-                              OK ✅
+                              BIEN ✅
                             </span>
                           )}
                         </td>
@@ -337,14 +337,16 @@ export function InspectionCertificateView({
                   </div>
 
                   {/* Caja 2: Plan de Acción */}
-                  <div className="p-3 bg-amber-50 rounded-lg border border-amber-300 space-y-1">
-                    <span className="font-black text-amber-800 uppercase text-[9px] tracking-wider block">
-                      PLAN DE ACCIÓN (TAREAS Y SEGUIMIENTO) *
-                    </span>
-                    <p className="text-xs text-slate-800 font-medium">
-                      {fail.actionPlan || 'Realizar el reemplazo de componentes y prueba de estanqueidad por el equipo de mantenimiento.'}
-                    </p>
-                  </div>
+                  {fail.isCriticalFinding && (
+                    <div className="p-3 bg-amber-50 rounded-lg border border-amber-300 space-y-1">
+                      <span className="font-black text-amber-800 uppercase text-[9px] tracking-wider block">
+                        PLAN DE ACCIÓN (TAREAS Y SEGUIMIENTO) *
+                      </span>
+                      <p className="text-xs text-slate-800 font-medium">
+                        {fail.actionPlan || 'Sin resolución registrada por el momento.'}
+                      </p>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

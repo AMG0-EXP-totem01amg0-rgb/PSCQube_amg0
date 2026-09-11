@@ -115,14 +115,6 @@ export function ObjectTypesMaster({ objectTypes, onSave, onDelete }: ObjectTypes
               </p>
             </div>
 
-            <div className="pt-3 border-t border-border flex items-center justify-between text-[11px] text-text-muted">
-              <span className="flex items-center gap-1">
-                <Clock size={14} className="text-primary" /> Frecuencia de Control:
-              </span>
-              <span className="font-bold text-text-main">
-                {getFrequencyLabel(ot.inspectionFrequencyDays)}
-              </span>
-            </div>
           </div>
         ))}
       </div>
@@ -174,56 +166,7 @@ export function ObjectTypesMaster({ objectTypes, onSave, onDelete }: ObjectTypes
                 <span className="text-[10px] text-text-muted mt-0.5 block">Se usará en la autogeneración del QR.</span>
               </div>
 
-              {/* Frecuencia de Control */}
-              <div>
-                <label className="block text-xs font-bold text-text-muted mb-1">
-                  Frecuencia de Control
-                </label>
-                <div className="space-y-2">
-                  <select
-                    value={
-                      [7, 30, 90].includes(editingItem.inspectionFrequencyDays || 30)
-                        ? editingItem.inspectionFrequencyDays
-                        : 'CUSTOM'
-                    }
-                    onChange={e => {
-                      const val = e.target.value;
-                      if (val !== 'CUSTOM') {
-                        setEditingItem({ ...editingItem, inspectionFrequencyDays: parseInt(val) });
-                      } else {
-                        setEditingItem({ ...editingItem, inspectionFrequencyDays: undefined });
-                      }
-                    }}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-bg text-text-main text-xs focus:ring-1 focus:ring-primary outline-hidden cursor-pointer"
-                  >
-                    <option value={7}>7 días</option>
-                    <option value={30}>30 días</option>
-                    <option value={90}>90 días</option>
-                    <option value="CUSTOM">Más días</option>
-                  </select>
 
-                  {![7, 30, 90].includes(editingItem.inspectionFrequencyDays || 0) && (
-                    <div className="flex items-center gap-2 pt-1">
-                      <input
-                        type="number"
-                        required
-                        min={1}
-                        value={editingItem.inspectionFrequencyDays ?? ''}
-                        onChange={e => {
-                          const val = e.target.value;
-                          setEditingItem({
-                            ...editingItem,
-                            inspectionFrequencyDays: val === '' ? undefined : parseInt(val, 10)
-                          });
-                        }}
-                        className="w-full px-3 py-2 rounded-lg border border-border bg-bg text-text-main text-xs font-bold focus:ring-1 focus:ring-primary outline-hidden"
-                        placeholder="Ingrese la cantidad de días..."
-                      />
-                      <span className="text-xs text-text-muted font-bold whitespace-nowrap">días</span>
-                    </div>
-                  )}
-                </div>
-              </div>
 
               <div>
                 <label className="block text-xs font-bold text-text-muted mb-1">Descripción / Criterio Operativo</label>

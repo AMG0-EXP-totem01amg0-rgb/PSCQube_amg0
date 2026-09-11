@@ -23,6 +23,7 @@ export function ScheduledInspectionsFilter({
   const [selectedStatus, setSelectedStatus] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [modalObject, setModalObject] = useState<HSObject | null>(null);
+  const [isSharedView, setIsSharedView] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [isCopied, setIsCopied] = useState(false);
   const itemsPerPage = 10;
@@ -63,8 +64,8 @@ export function ScheduledInspectionsFilter({
           o.qrCode.toUpperCase().trim() === targetIdOrQr.toUpperCase().trim()
       );
       if (found) {
+        setIsSharedView(true);
         setModalObject(found);
-        onSelectObject(found.qrCode);
       }
     }
   }, [objects]);
@@ -334,8 +335,8 @@ export function ScheduledInspectionsFilter({
                     <td className="px-4 py-3 text-center">
                       <button
                         onClick={() => {
+                          setIsSharedView(false);
                           setModalObject(obj);
-                          onSelectObject(obj.qrCode);
                         }}
                         className={`p-1.5 rounded-lg transition-colors cursor-pointer ${selectedObject?.id === obj.id
                           ? 'bg-primary text-white'
@@ -402,7 +403,8 @@ export function ScheduledInspectionsFilter({
             }
           `}</style>
 
-          {/* VISTA EN PANTALLA (Modal Interactivo) */}
+          {/* VISTA EN PANTALLA (Modal Interactivo - Vista Rápida) */}
+          {!isSharedView && (
           <div className="bg-surface border border-border w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden my-8 p-6 space-y-4 no-print">
 
             {/* Cabecera */}
@@ -414,7 +416,7 @@ export function ScheduledInspectionsFilter({
                 <h3 className="text-base font-bold text-text-main">{modalObject.name} ({modalObject.typeName})</h3>
               </div>
               <button
-                onClick={() => setModalObject(null)}
+                onClick={() => { setModalObject(null); setIsSharedView(false); }}
                 className="text-text-muted hover:text-text-main font-bold p-1 cursor-pointer"
               >
                 ✕
@@ -440,70 +442,6 @@ export function ScheduledInspectionsFilter({
                 <p className={`font-black ${modalObject.status === 'OK' ? 'text-emerald-500' : 'text-rose-500'}`}>
                   {modalObject.status === 'OK' ? 'HABILITADO' : 'NO HABILITADO'}
                 </p>
-              </div>
-            </div>
-
-            {/* Checklist de Inspección Activo con Respuestas Dinámicas */}
-            <div className="space-y-2 text-xs">
-              <p className="font-bold text-text-muted uppercase text-[10px] tracking-wider">
-                Checklist de Inspección Activo
-              </p>
-              <div className="space-y-2">
-                {modalAnswers.map((answer, index) => {
-                  const isNoOk = answer.status === 'NO_OK';
-
-                  return (
-                    <div
-                      key={answer.checklistItemId || index}
-                      className={`p-3 rounded-xl border transition-all ${isNoOk ? 'bg-rose-500/5 border-rose-500/30' : 'bg-bg/30 border-border'
-                        }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <p className="font-bold text-text-main flex items-center gap-1.5">
-                            {index + 1}. {answer.checklistItemLabel}
-                            {answer.isCriticalFinding && (
-                              <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-400">
-                                CRÍTICO
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                        <span
-                          className={`font-bold px-2.5 py-0.5 rounded text-[10px] border shrink-0 ${isNoOk
-                            ? 'bg-rose-500/10 text-rose-500 border-rose-500/30'
-                            : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
-                            }`}
-                        >
-                          {isNoOk ? 'NO OK' : 'OK'}
-                        </span>
-                      </div>
-
-                      {/* Despliegue de Hallazgo y Plan de Acción si el ítem resultó NO OK */}
-                      {isNoOk && (
-                        <div className="mt-3 pt-2.5 border-t border-rose-500/20 space-y-2 text-[11px]">
-                          <div>
-                            <span className="font-bold text-rose-500 uppercase text-[9px] tracking-wider block">
-                              Detalle del Hallazgo u Observación:
-                            </span>
-                            <p className="text-text-main font-medium mt-0.5 bg-surface p-2 rounded-lg border border-border">
-                              {answer.observation || 'Sin detalle de observación'}
-                            </p>
-                          </div>
-
-                          <div>
-                            <span className="font-bold text-amber-500 uppercase text-[9px] tracking-wider block">
-                              Plan de Acción (Tareas y Seguimiento):
-                            </span>
-                            <p className="text-text-main font-medium mt-0.5 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
-                              {answer.actionPlan || 'Sin plan de acción redactado'}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
               </div>
             </div>
 
@@ -538,7 +476,7 @@ export function ScheduledInspectionsFilter({
 
               <button
                 type="button"
-                onClick={() => setModalObject(null)}
+                onClick={() => { setModalObject(null); setIsSharedView(false); }}
                 className="px-4 py-1.5 text-xs bg-bg border border-border rounded-lg font-bold text-text-main hover:bg-surface cursor-pointer"
               >
                 Cerrar
@@ -546,9 +484,25 @@ export function ScheduledInspectionsFilter({
             </div>
 
           </div>
+          )}
 
-          {/* VISTA PARA IMPRESIÓN OFICIAL */}
-          <div id="hoja-impresion-oficial" className="hidden bg-white text-black p-6 space-y-6 text-xs font-sans">
+          {/* VISTA PARA IMPRESIÓN OFICIAL / VISTA COMPARTIDA */}
+          <div id="hoja-impresion-oficial" className={`${isSharedView ? 'block w-full max-w-4xl bg-white text-black p-8 rounded-2xl shadow-2xl relative my-8' : 'hidden'} text-xs font-sans`}>
+            {isSharedView && (
+              <button
+                onClick={() => { setModalObject(null); setIsSharedView(false); }}
+                className="absolute top-6 right-6 text-black hover:text-gray-600 font-bold px-3 py-1.5 cursor-pointer no-print text-sm border border-gray-300 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors z-10"
+              >
+                ✕ Cerrar
+              </button>
+            )}
+            
+            {isSharedView && (
+              <div className="bg-[#002244] -mx-8 -mt-8 mb-6 p-6 rounded-t-2xl flex justify-between items-center">
+                <h1 className="text-white font-bold text-xl tracking-wide uppercase">CERTIFICADO DE INSPECCIÓN PROGRAMADA</h1>
+              </div>
+            )}
+            
             <div className="flex justify-between items-start border-b-2 border-gray-300 pb-4">
               <div>
                 <p className="font-bold text-sm text-black">Holcim (Argentina) S.A.</p>
@@ -607,12 +561,14 @@ export function ScheduledInspectionsFilter({
                         <td className={`p-2 font-bold ${isNoOk ? 'text-rose-700' : 'text-emerald-700'}`}>
                           {isNoOk ? (
                             <div className="space-y-1">
-                              <p>NO OK ❌</p>
+                              <p>MALO ❌</p>
                               <p className="text-[10px] text-black font-normal"><strong>Hallazgo:</strong> {ans.observation || '-'}</p>
-                              <p className="text-[10px] text-black font-normal"><strong>Plan de Acción:</strong> {ans.actionPlan || '-'}</p>
+                              {ans.isCriticalFinding && (
+                                <p className="text-[10px] text-black font-normal"><strong>Plan de Acción:</strong> {ans.actionPlan || '-'}</p>
+                              )}
                             </div>
                           ) : (
-                            'OK ✅'
+                            'BIEN ✅'
                           )}
                         </td>
                       </tr>

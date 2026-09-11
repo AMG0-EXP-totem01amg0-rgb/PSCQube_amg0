@@ -43,9 +43,19 @@ export interface HSObject {
   observations?: string;
 }
 
-export interface HSChecklistItem {
+export interface HSChecklistModel {
   id: string;
   objectTypeId: string;
+  name: string;
+  status: 'ACTIVE' | 'INACTIVE';
+  inspectionFrequencyDays?: number;
+  createdAt?: string;
+}
+
+export interface HSChecklistItem {
+  id: string;
+  objectTypeId: string; // Retained for backward compatibility or direct querying
+  checklistModelId?: string; // Nuevo vínculo jerárquico al modelo
   label: string;
   description?: string;
   category: string;

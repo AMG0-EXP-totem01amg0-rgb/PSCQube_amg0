@@ -82,9 +82,6 @@ export function SectorsMaster({ sectors, onSave, onDelete }: SectorsMasterProps)
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-text-main">{sec.name}</h4>
-                    <span className="text-[10px] font-mono font-bold text-text-muted px-1.5 py-0.5 rounded bg-bg border border-border">
-                      {sec.code}
-                    </span>
                   </div>
                 </div>
                 <button
@@ -146,29 +143,16 @@ export function SectorsMaster({ sectors, onSave, onDelete }: SectorsMasterProps)
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-text-muted mb-1">Código Prefijo</label>
-                  <input
-                    type="text"
-                    required
-                    value={editingItem.code || ''}
-                    onChange={e => setEditingItem({ ...editingItem, code: e.target.value.toUpperCase() })}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-bg text-text-main text-xs font-mono focus:ring-1 focus:ring-primary outline-hidden"
-                    placeholder="ENS"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-text-muted mb-1">Responsable</label>
-                  <input
-                    type="text"
-                    required
-                    value={editingItem.responsiblePerson || ''}
-                    onChange={e => setEditingItem({ ...editingItem, responsiblePerson: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-bg text-text-main text-xs focus:ring-1 focus:ring-primary outline-hidden"
-                    placeholder="Nombre y apellido"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-text-muted mb-1">Responsable</label>
+                <input
+                  type="text"
+                  required
+                  value={editingItem.responsiblePerson || ''}
+                  onChange={e => setEditingItem({ ...editingItem, responsiblePerson: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-bg text-text-main text-xs focus:ring-1 focus:ring-primary outline-hidden"
+                  placeholder="Nombre y apellido del responsable"
+                />
               </div>
 
               <div>

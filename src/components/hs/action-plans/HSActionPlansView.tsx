@@ -1,39 +1,30 @@
-import React, { useState } from 'react';
-import { ActionPlanCard } from './ActionPlanCard';
+import React, { useState, useMemo } from 'react';
 import { ActionPlanModal } from './ActionPlanModal';
-import { HSActionPlan, HSActionPlanStatus } from '../types';
-import { Filter, CheckCircle2, Clock, AlertOctagon, X } from 'lucide-react';
+import { HSActionPlan, HSActionPlanStatus, HSInspection, HSObject, HSObjectType } from '../types';
+import { Filter, CheckCircle2, Clock, AlertOctagon, X, ChevronDown, ChevronRight, Layers } from 'lucide-react';
 
 interface HSActionPlansViewProps {
   actionPlans: HSActionPlan[];
-  onUpdateStatus: (id: string, status: HSActionPlanStatus, assignedTo?: string, notes?: string) => void;
+  inspections?: HSInspection[];
+  objects?: HSObject[];
+  objectTypes?: HSObjectType[];
+  onUpdateStatus: (id: string, status: HSActionPlanStatus, assignedTo?: string, notes?: string, dueDate?: string) => void;
 }
 
-export function HSActionPlansView({ actionPlans, onUpdateStatus }: HSActionPlansViewProps) {
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('ALL');
+export function HSActionPlansView({ 
+  actionPlans, 
+  inspections = [], 
+  objects = [], 
+  objectTypes = [], 
+  onUpdateStatus 
+}: HSActionPlansViewProps) {
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('OPEN'); // 'OPEN' is 'Sin Tratamiento'
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>('');
   const [selectedPlanForModal, setSelectedPlanForModal] = useState<HSActionPlan | null>(null);
-
-  // ELEMENTO FICTICIO DE PRUEBA EN RESUELTOS PARA VER LA GRILLA CON MÁS DE UNO
-  const mockResolvedPlan: HSActionPlan = {
-    id: 'MOCK-001',
-    title: 'Reemplazo de Manómetro y Prueba Hidrostática',
-    description: 'Se realizó el cambio de manómetro defectuoso y prueba de presión exitosa.',
-    status: 'RESOLVED',
-    severity: 'MEDIUM',
-    createdAt: '2026-08-12 09:30',
-    dueDate: '2026-08-16',
-    objectId: 'QR-EXT-005',
-    objectName: 'Extintor PQS 10kg - Depósito Central',
-    sectorName: 'Sector Logística',
-    assignedTo: 'Carlos Gómez (Mantenimiento)',
-    resolutionNotes: 'Prueba de presión aprobada. Habilitado para uso.',
-  };
-
-  const allPlansWithMock = [...actionPlans, mockResolvedPlan];
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
   // Filtrado por Fecha
-  const filteredPlansByDate = allPlansWithMock.filter(plan =>
+  const filteredPlansByDate = actionPlans.filter(plan =>
     !selectedDateFilter || plan.createdAt.startsWith(selectedDateFilter)
   );
 
@@ -43,50 +34,137 @@ export function HSActionPlansView({ actionPlans, onUpdateStatus }: HSActionPlans
   const resolvedPlans = filteredPlansByDate.filter(p => p.status === 'RESOLVED' || p.status === 'CLOSED');
 
   // Contadores
-  const criticalCount = allPlansWithMock.filter(p => p.status === 'OPEN').length;
-  const inProgressCount = allPlansWithMock.filter(p => p.status === 'IN_PROGRESS').length;
-  const resolvedCount = allPlansWithMock.filter(p => p.status === 'RESOLVED' || p.status === 'CLOSED').length;
+  const criticalCount = actionPlans.filter(p => p.status === 'OPEN').length;
+  const inProgressCount = actionPlans.filter(p => p.status === 'IN_PROGRESS').length;
+  const resolvedCount = actionPlans.filter(p => p.status === 'RESOLVED' || p.status === 'CLOSED').length;
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups(prev => ({
+      ...prev,
+      [groupId]: !prev[groupId]
+    }));
   };
 
-  const handleDrop = (e: React.DragEvent, targetStatus: HSActionPlanStatus) => {
-    e.preventDefault();
-    const planId = e.dataTransfer.getData('text/plain');
-    if (!planId) return;
+  // Función helper para agrupar planes
+  const groupPlansByObject = (plansToGroup: HSActionPlan[]) => {
+    const groups: Record<string, {
+      objectTypeName: string;
+      items: {
+        objectId: string;
+        objectName: string;
+        sectorName: string;
+        plans: HSActionPlan[];
+        stats: { totalQuestions: number, bad: number, critical: number }
+      }[]
+    }> = {};
 
-    const plan = allPlansWithMock.find(p => p.id === planId);
-    if (!plan) return;
+    plansToGroup.forEach(plan => {
+      const obj = objects.find(o => o.id === plan.objectId);
+      const typeId = obj?.typeId || 'UNKNOWN';
+      const objectType = objectTypes.find(t => t.id === typeId);
+      const objectTypeName = objectType ? objectType.name : 'Otros Elementos';
 
-    if (targetStatus === 'RESOLVED') {
-      const notas = prompt("Describa la solución aplicada para marcar el problema como RESUELTO:", "Elemento reparado/reemplazado y verificado en área.");
-      if (notas !== null) {
-        onUpdateStatus(planId, 'RESOLVED', plan.assignedTo, notas);
+      if (!groups[typeId]) {
+        groups[typeId] = { objectTypeName, items: [] };
       }
-    } else {
-      onUpdateStatus(planId, targetStatus, plan.assignedTo, plan.resolutionNotes);
-    }
+
+      let objectItem = groups[typeId].items.find(item => item.objectId === plan.objectId);
+      
+      if (!objectItem) {
+        let totalQuestions = 0;
+        let badCount = 0;
+        let criticalCount = 0;
+
+        if (plan.inspectionId) {
+          const inspection = inspections.find(i => i.id === plan.inspectionId);
+          if (inspection) {
+            totalQuestions = inspection.answers.length;
+            badCount = inspection.answers.filter(a => a.status === 'NO_OK').length;
+            criticalCount = inspection.answers.filter(a => a.isCriticalFinding && a.status === 'NO_OK').length;
+          }
+        }
+
+        objectItem = {
+          objectId: plan.objectId,
+          objectName: plan.objectName,
+          sectorName: plan.sectorName,
+          plans: [],
+          stats: { totalQuestions, bad: badCount, critical: criticalCount }
+        };
+        groups[typeId].items.push(objectItem);
+      }
+
+      objectItem.plans.push(plan);
+    });
+
+    return groups;
   };
 
-  // Alternar filtro exclusivo al pulsar la tarjeta KPI
-  const handleKpiClick = (filterKey: string) => {
-    if (selectedStatusFilter === filterKey) {
-      setSelectedStatusFilter('ALL');
-    } else {
-      setSelectedStatusFilter(filterKey);
-    }
-  };
+  // Lógica para Agrupación
+  const groupedCriticalPlans = useMemo(() => groupPlansByObject(criticalPlans), [criticalPlans, objects, objectTypes, inspections]);
+  const groupedInProgressPlans = useMemo(() => groupPlansByObject(inProgressPlans), [inProgressPlans, objects, objectTypes, inspections]);
+
+
+  // Componente interno para renderizar las filas de una tabla
+  const renderTableRows = (plans: HSActionPlan[]) => (
+    <table className="w-full text-left text-xs bg-surface">
+      <thead className="bg-bg/50 text-text-muted border-b border-border">
+        <tr>
+          <th className="py-3 px-4 font-black uppercase tracking-wider">Plan / Tarea</th>
+          <th className="py-3 px-4 font-black uppercase tracking-wider">Ubicación</th>
+          <th className="py-3 px-4 font-black uppercase tracking-wider">Responsable</th>
+          <th className="py-3 px-4 font-black uppercase tracking-wider">Fecha Límite</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-border">
+        {plans.map(plan => (
+          <tr 
+            key={plan.id} 
+            onClick={() => setSelectedPlanForModal(plan)}
+            className="hover:bg-bg/40 transition-colors cursor-pointer"
+          >
+            <td className="py-3 px-4">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-text-main line-clamp-1">{plan.title}</span>
+                  {plan.severity === 'CRITICAL' && (
+                    <span className="shrink-0 px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[9px] font-black uppercase tracking-wider">
+                      Crítico
+                    </span>
+                  )}
+                </div>
+                <span className="text-[11px] text-text-muted line-clamp-1">{plan.description}</span>
+              </div>
+            </td>
+            <td className="py-3 px-4 text-text-muted">
+              <span className="block font-medium text-text-main line-clamp-1">{plan.objectName}</span>
+              <span className="text-[10px] line-clamp-1">{plan.sectorName}</span>
+            </td>
+            <td className="py-3 px-4">
+              <span className="inline-flex items-center gap-1.5 text-text-muted font-medium bg-bg px-2 py-1 rounded-md border border-border">
+                {plan.assignedTo || 'Sin asignar'}
+              </span>
+            </td>
+            <td className="py-3 px-4">
+              <span className="inline-flex items-center gap-1.5 font-mono text-text-main font-bold">
+                <Clock size={12} className="text-primary"/> {plan.dueDate || 'No definida'}
+              </span>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
 
   return (
     <div className="space-y-4">
-      {/* 3 Tarjetas Resumen KPI */}
+      {/* 3 Tarjetas Resumen KPI para Navegación Principal */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {/* CRÍTICOS */}
+        {/* SIN TRATAMIENTO (OPEN) */}
         <div
-          onClick={() => handleKpiClick('CRITICAL')}
-          className={`p-3.5 rounded-2xl border cursor-pointer transition-all hover:-translate-y-0.5 flex items-center gap-3 ${selectedStatusFilter === 'CRITICAL'
+          onClick={() => setSelectedStatusFilter('OPEN')}
+          className={`p-3.5 rounded-2xl border cursor-pointer transition-all hover:-translate-y-0.5 flex items-center gap-3 ${selectedStatusFilter === 'OPEN'
               ? 'border-rose-500 bg-rose-500/15 shadow-[0_0_15px_rgba(244,63,94,0.25)] ring-2 ring-rose-500'
               : 'border-rose-500/30 bg-rose-500/5 hover:bg-rose-500/10'
             }`}
@@ -95,14 +173,14 @@ export function HSActionPlansView({ actionPlans, onUpdateStatus }: HSActionPlans
             <AlertOctagon size={20} />
           </div>
           <div>
-            <span className="text-[10px] font-bold text-text-muted uppercase block">Críticos</span>
+            <span className="text-[10px] font-bold text-text-muted uppercase block">Sin Tratamiento</span>
             <span className="text-base font-black text-rose-500">{criticalCount}</span>
           </div>
         </div>
 
         {/* EN PROCESO */}
         <div
-          onClick={() => handleKpiClick('IN_PROGRESS')}
+          onClick={() => setSelectedStatusFilter('IN_PROGRESS')}
           className={`p-3.5 rounded-2xl border cursor-pointer transition-all hover:-translate-y-0.5 flex items-center gap-3 ${selectedStatusFilter === 'IN_PROGRESS'
               ? 'border-amber-500 bg-amber-500/15 shadow-[0_0_15px_rgba(245,158,11,0.25)] ring-2 ring-amber-500'
               : 'border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10'
@@ -119,7 +197,7 @@ export function HSActionPlansView({ actionPlans, onUpdateStatus }: HSActionPlans
 
         {/* RESUELTOS */}
         <div
-          onClick={() => handleKpiClick('RESOLVED')}
+          onClick={() => setSelectedStatusFilter('RESOLVED')}
           className={`p-3.5 rounded-2xl border cursor-pointer transition-all hover:-translate-y-0.5 flex items-center gap-3 ${selectedStatusFilter === 'RESOLVED'
               ? 'border-emerald-500 bg-emerald-500/15 shadow-[0_0_15px_rgba(16,185,129,0.25)] ring-2 ring-emerald-500'
               : 'border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10'
@@ -135,25 +213,23 @@ export function HSActionPlansView({ actionPlans, onUpdateStatus }: HSActionPlans
         </div>
       </div>
 
-      {/* Filtros Avanzados */}
+      {/* Solo mostramos Filtro de Fecha */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-surface border border-border">
         <div className="flex items-center gap-2">
           <Filter size={14} className="text-text-muted" />
-          <span className="text-xs font-bold text-text-main">Filtros Avanzados:</span>
+          <span className="text-xs font-bold text-text-main">
+            Filtrar Planes en estado: <strong className={
+              selectedStatusFilter === 'OPEN' ? 'text-rose-500' :
+              selectedStatusFilter === 'IN_PROGRESS' ? 'text-amber-500' : 'text-emerald-500'
+            }>
+              {selectedStatusFilter === 'OPEN' && 'Sin Tratamiento'}
+              {selectedStatusFilter === 'IN_PROGRESS' && 'En Proceso'}
+              {selectedStatusFilter === 'RESOLVED' && 'Resueltos'}
+            </strong>
+          </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={selectedStatusFilter}
-            onChange={e => setSelectedStatusFilter(e.target.value)}
-            className="px-3 py-1.5 rounded-lg border border-border bg-bg text-text-main text-xs focus:ring-1 focus:ring-primary outline-hidden cursor-pointer"
-          >
-            <option value="ALL">Todos los Estados</option>
-            <option value="CRITICAL">Críticos</option>
-            <option value="IN_PROGRESS">En Proceso</option>
-            <option value="RESOLVED">Resueltos</option>
-          </select>
-
+        <div className="flex items-center">
           <div className="relative flex items-center">
             <input
               type="date"
@@ -175,73 +251,147 @@ export function HSActionPlansView({ actionPlans, onUpdateStatus }: HSActionPlans
         </div>
       </div>
 
-      {/* VISTA A: SI FILTRÓ POR UN ESTADO ESPECÍFICO (Solo muestra las tarjetas de ese estado en Grilla de 3 columnas) */}
-      {selectedStatusFilter !== 'ALL' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in pt-2">
-          {selectedStatusFilter === 'CRITICAL' && criticalPlans.map(plan => (
-            <ActionPlanCard key={plan.id} plan={plan} onOpenModal={setSelectedPlanForModal} />
-          ))}
-          {selectedStatusFilter === 'IN_PROGRESS' && inProgressPlans.map(plan => (
-            <ActionPlanCard key={plan.id} plan={plan} onOpenModal={setSelectedPlanForModal} />
-          ))}
-          {selectedStatusFilter === 'RESOLVED' && resolvedPlans.map(plan => (
-            <ActionPlanCard key={plan.id} plan={plan} onOpenModal={setSelectedPlanForModal} />
-          ))}
-        </div>
-      ) : (
-        /* VISTA B: "TODOS LOS ESTADOS" (Tablero Kanban de 3 Columnas) */
-        <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar animate-fade-in">
 
-          {/* Columna Críticos */}
-          <div
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, 'OPEN')}
-            className="min-w-[320px] w-full flex-1 flex flex-col bg-surface border border-rose-500/20 rounded-2xl p-4 gap-3 shrink-0"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-black text-rose-500 uppercase tracking-wider">Críticos</h3>
-              <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-500 text-[10px] font-bold">{criticalPlans.length}</span>
-            </div>
-            <div className="flex flex-col gap-3 min-h-[150px]">
-              {criticalPlans.map(plan => <ActionPlanCard key={plan.id} plan={plan} onOpenModal={setSelectedPlanForModal} />)}
-              {criticalPlans.length === 0 && <div className="text-xs text-text-muted text-center py-8 border border-dashed border-border rounded-xl">Sin hallazgos críticos</div>}
-            </div>
+      {/* CONTENIDO DE TABLAS SEGÚN ESTADO SELECCIONADO */}
+      <div className="animate-fade-in pt-0">
+        
+        {/* VISTA: SIN TRATAMIENTO (Agrupado) */}
+        {selectedStatusFilter === 'OPEN' && (
+          <div className="space-y-4">
+            {Object.keys(groupedCriticalPlans).length === 0 ? (
+              <div className="p-8 text-center text-text-muted text-xs bg-surface border border-border rounded-xl">
+                No hay planes de acción sin tratamiento para esta fecha.
+              </div>
+            ) : (
+              Object.entries(groupedCriticalPlans).map(([typeId, group]) => (
+                <div key={typeId} className="border border-border rounded-xl overflow-hidden bg-surface shadow-xs">
+                  {/* Cabecera del Tipo de Objeto */}
+                  <div className="bg-bg/80 px-4 py-3 border-b border-border flex items-center gap-2">
+                    <Layers size={16} className="text-primary" />
+                    <h3 className="text-sm font-black text-text-main uppercase tracking-wider">{group.objectTypeName}</h3>
+                  </div>
+
+                  {/* Lista de Objetos con fallas */}
+                  <div className="divide-y divide-border">
+                    {group.items.map(objectItem => {
+                      const isExpanded = expandedGroups[objectItem.objectId];
+                      
+                      return (
+                        <div key={objectItem.objectId} className="flex flex-col">
+                          {/* Fila del Objeto (Expandible) */}
+                          <div 
+                            onClick={() => toggleGroup(objectItem.objectId)}
+                            className="flex items-center justify-between p-3 cursor-pointer hover:bg-bg/40 transition-colors"
+                          >
+                            <div className="flex items-center gap-3">
+                              <button className="p-1 rounded bg-bg border border-border text-text-muted">
+                                {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                              </button>
+                              <div>
+                                <h4 className="text-xs font-bold text-text-main">{objectItem.objectName}</h4>
+                                <span className="text-[10px] text-text-muted">{objectItem.sectorName}</span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 text-[10px] font-bold">
+                              <span className="px-2 py-1 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                                {objectItem.stats.bad} Hallazgos ({objectItem.stats.critical} Críticos)
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Tabla de Tareas (Mostrada si expandido) */}
+                          {isExpanded && (
+                            <div className="border-t border-border bg-bg/20 p-2">
+                              {renderTableRows(objectItem.plans)}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
+        )}
 
-          {/* Columna En Proceso */}
-          <div
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, 'IN_PROGRESS')}
-            className="min-w-[320px] w-full flex-1 flex flex-col bg-surface border border-amber-500/20 rounded-2xl p-4 gap-3 shrink-0"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-black text-amber-500 uppercase tracking-wider">En Proceso</h3>
-              <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 text-[10px] font-bold">{inProgressPlans.length}</span>
-            </div>
-            <div className="flex flex-col gap-3 min-h-[150px]">
-              {inProgressPlans.map(plan => <ActionPlanCard key={plan.id} plan={plan} onOpenModal={setSelectedPlanForModal} />)}
-              {inProgressPlans.length === 0 && <div className="text-xs text-text-muted text-center py-8 border border-dashed border-border rounded-xl">Sin tareas en proceso</div>}
-            </div>
+        {/* VISTA: EN PROCESO (Agrupado) */}
+        {selectedStatusFilter === 'IN_PROGRESS' && (
+          <div className="space-y-4">
+            {Object.keys(groupedInProgressPlans).length === 0 ? (
+              <div className="p-8 text-center text-text-muted text-xs bg-surface border border-border rounded-xl">
+                No hay planes de acción en proceso para esta fecha.
+              </div>
+            ) : (
+              Object.entries(groupedInProgressPlans).map(([typeId, group]) => (
+                <div key={typeId} className="border border-border rounded-xl overflow-hidden bg-surface shadow-xs">
+                  {/* Cabecera del Tipo de Objeto */}
+                  <div className="bg-bg/80 px-4 py-3 border-b border-border flex items-center gap-2">
+                    <Layers size={16} className="text-primary" />
+                    <h3 className="text-sm font-black text-text-main uppercase tracking-wider">{group.objectTypeName}</h3>
+                  </div>
+
+                  {/* Lista de Objetos con fallas */}
+                  <div className="divide-y divide-border">
+                    {group.items.map(objectItem => {
+                      const isExpanded = expandedGroups[objectItem.objectId];
+                      
+                      return (
+                        <div key={objectItem.objectId} className="flex flex-col">
+                          {/* Fila del Objeto (Expandible) */}
+                          <div 
+                            onClick={() => toggleGroup(objectItem.objectId)}
+                            className="flex items-center justify-between p-3 cursor-pointer hover:bg-bg/40 transition-colors"
+                          >
+                            <div className="flex items-center gap-3">
+                              <button className="p-1 rounded bg-bg border border-border text-text-muted">
+                                {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                              </button>
+                              <div>
+                                <h4 className="text-xs font-bold text-text-main">{objectItem.objectName}</h4>
+                                <span className="text-[10px] text-text-muted">{objectItem.sectorName}</span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 text-[10px] font-bold">
+                              <span className="px-2 py-1 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                                {objectItem.plans.length} Tareas Pendientes
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Tabla de Tareas (Mostrada si expandido) */}
+                          {isExpanded && (
+                            <div className="border-t border-border bg-bg/20 p-2">
+                              {renderTableRows(objectItem.plans)}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
+        )}
 
-          {/* Columna Resueltos */}
-          <div
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, 'RESOLVED')}
-            className="min-w-[320px] w-full flex-1 flex flex-col bg-surface border border-emerald-500/30 rounded-2xl p-4 gap-3 shrink-0 bg-emerald-500/5"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-black text-emerald-500 uppercase tracking-wider">Resueltos</h3>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold">{resolvedPlans.length}</span>
-            </div>
-            <div className="flex flex-col gap-3 min-h-[150px]">
-              {resolvedPlans.map(plan => <ActionPlanCard key={plan.id} plan={plan} onOpenModal={setSelectedPlanForModal} />)}
-              {resolvedPlans.length === 0 && <div className="text-xs text-text-muted text-center py-8 border border-dashed border-border rounded-xl">Arrastre una tarjeta aquí</div>}
-            </div>
+        {/* VISTA: RESUELTOS (Sin Agrupar) */}
+        {selectedStatusFilter === 'RESOLVED' && (
+          <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-xs">
+            {resolvedPlans.length > 0 ? (
+              renderTableRows(resolvedPlans)
+            ) : (
+              <div className="p-8 text-center text-text-muted text-xs">
+                No hay planes de acción resueltos para esta fecha.
+              </div>
+            )}
           </div>
+        )}
 
-        </div>
-      )}
+      </div>
+
 
       {/* Modal de edición */}
       {selectedPlanForModal && (

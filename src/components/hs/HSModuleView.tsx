@@ -38,15 +38,23 @@ export default function HSModuleView({ currentUser, isDark, addToast }: HSModule
     inspections,
     actionPlans,
     selectedObject,
+    setSelectedObjectId,
     activeChecklistForSelectedObject,
     selectedObjectInspectionHistory,
     selectObjectByQR,
     submitInspection,
     addOrUpdateObjectType,
+    deleteObjectType,
     addOrUpdateSector,
+    deleteSector,
     addOrUpdateObject,
+    deleteObject,
     toggleChecklistItem,
     addChecklistItem,
+    checklistModels,
+    addChecklistModel,
+    deleteChecklistModel,
+    migrateOrphanedItems,
     updateActionPlanStatus
   } = useHSModule();
 
@@ -136,6 +144,7 @@ export default function HSModuleView({ currentUser, isDark, addToast }: HSModule
         <HSScannerView
           objects={objects}
           selectedObject={selectedObject}
+          checklistModels={checklistModels}
           checklistItems={activeChecklistForSelectedObject}
           allChecklistItems={checklistItems}
           inspectionHistory={selectedObjectInspectionHistory}
@@ -143,6 +152,7 @@ export default function HSModuleView({ currentUser, isDark, addToast }: HSModule
           currentUser={currentUser}
           onSelectQR={selectObjectByQR}
           onSubmitInspection={submitInspection}
+          onClearSelection={() => setSelectedObjectId(null)}
           addToast={addToast}
         />
       )}
@@ -150,6 +160,9 @@ export default function HSModuleView({ currentUser, isDark, addToast }: HSModule
       {activeMainTab === 'ACTION_PLANS' && (
         <HSActionPlansView
           actionPlans={actionPlans}
+          inspections={inspections}
+          objects={objects}
+          objectTypes={objectTypes}
           onUpdateStatus={updateActionPlanStatus}
         />
       )}
@@ -159,12 +172,18 @@ export default function HSModuleView({ currentUser, isDark, addToast }: HSModule
           objectTypes={objectTypes}
           sectors={sectors}
           objects={objects}
+          checklistModels={checklistModels}
           checklistItems={checklistItems}
           onSaveObjectType={addOrUpdateObjectType}
+          onDeleteObjectType={deleteObjectType}
           onSaveSector={addOrUpdateSector}
+          onDeleteSector={deleteSector}
           onSaveObject={addOrUpdateObject}
+          onDeleteObject={deleteObject}
+          onAddChecklistModel={addChecklistModel}
           onToggleChecklistItem={toggleChecklistItem}
           onAddChecklistItem={addChecklistItem}
+          onMigrateOrphanedItems={migrateOrphanedItems}
         />
       )}
     </div>

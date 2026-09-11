@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { getSupabase } from '../../lib/supabaseClient';
 import {
   HSObjectType,
   HSSector,
@@ -8,13 +9,14 @@ import {
   HSActionPlan,
   HSObjectStatus,
   HSActionPlanStatus,
-  HSChecklistAnswerStatus
+  HSChecklistAnswerStatus,
+  HSChecklistModel
 } from './types';
 
-// Mock Data Inicial
-const INITIAL_OBJECT_TYPES: HSObjectType[] = [
+// Tipos de Objeto estándar predefinidos
+export const DEFAULT_OBJECT_TYPES: HSObjectType[] = [
   {
-    id: 'ot-1',
+    id: 'EXT',
     name: 'Extintor PQS / CO2',
     code: 'EXT',
     description: 'Extintores portátiles de polvo químico seco o CO2',
@@ -22,7 +24,7 @@ const INITIAL_OBJECT_TYPES: HSObjectType[] = [
     iconName: 'ShieldAlert'
   },
   {
-    id: 'ot-2',
+    id: 'BOT',
     name: 'Botiquín de Primeros Auxilios',
     code: 'BOT',
     description: 'Estaciones de primeros auxilios fijas y portátiles',
@@ -30,7 +32,7 @@ const INITIAL_OBJECT_TYPES: HSObjectType[] = [
     iconName: 'Cross'
   },
   {
-    id: 'ot-3',
+    id: 'HID',
     name: 'Nicho Hidrante',
     code: 'HID',
     description: 'Gabinete con manguera, lanza y válvula de incendio',
@@ -38,7 +40,7 @@ const INITIAL_OBJECT_TYPES: HSObjectType[] = [
     iconName: 'Flame'
   },
   {
-    id: 'ot-4',
+    id: 'DUCH',
     name: 'Ducha y Lavaojos de Emergencia',
     code: 'DUCH',
     description: 'Estaciones lavaojos y duchas de descontaminación',
@@ -46,7 +48,7 @@ const INITIAL_OBJECT_TYPES: HSObjectType[] = [
     iconName: 'Droplet'
   },
   {
-    id: 'ot-5',
+    id: 'CAM',
     name: 'Camilla de Emergencia',
     code: 'CAM',
     description: 'Camilla rígida con sujetadores y cuello ortopédico',
@@ -55,269 +57,247 @@ const INITIAL_OBJECT_TYPES: HSObjectType[] = [
   }
 ];
 
-const INITIAL_SECTORS: HSSector[] = [
-  {
-    id: 'sec-1',
-    name: 'Sector Ensacado',
-    code: 'ENS',
-    responsiblePerson: 'Carlos Gómez',
-    locationDetails: 'Nave Central - Líneas 1 a 4'
-  },
-  {
-    id: 'sec-2',
-    name: 'Sector Paletizado',
-    code: 'PAL',
-    responsiblePerson: 'Roberto Martínez',
-    locationDetails: 'Nave Sur - Celdas de Paletizado'
-  },
-  {
-    id: 'sec-3',
-    name: 'Sector Molienda y Hornos',
-    code: 'MOL',
-    responsiblePerson: 'Juan Perez',
-    locationDetails: 'Edificio de Procesos - Piso 1 y 2'
-  },
-  {
-    id: 'sec-4',
-    name: 'Almacén de Producto Terminado',
-    code: 'ALM',
-    responsiblePerson: 'Mariana López',
-    locationDetails: 'Depósito General y Playa de Carga'
-  },
-  {
-    id: 'sec-5',
-    name: 'Taller Mantenimiento Central',
-    code: 'MNT',
-    responsiblePerson: 'Esteban Morales',
-    locationDetails: 'Sector Mecánico y Eléctrico'
-  }
-];
-
-const INITIAL_OBJECTS: HSObject[] = [
-  {
-    id: 'obj-1',
-    qrCode: 'QR-EXT-001',
-    name: 'Extintor PQS 10kg - Ensacado L1',
-    typeId: 'ot-1',
-    sectorId: 'sec-1',
-    locationDetail: 'Junto a columna C-12 cerca de Ensacadora 1',
-    status: 'OK',
-    lastInspectedAt: '2026-08-01',
-    lastInspectedBy: 'Carlos Gómez',
-    nextInspectionDue: '2026-08-31',
-    notes: 'Manómetro en rango verde. Precinto intacto.'
-  },
-  {
-    id: 'obj-2',
-    qrCode: 'QR-EXT-002',
-    name: 'Extintor CO2 5kg - Paletizado Celda 2',
-    typeId: 'ot-1',
-    sectorId: 'sec-2',
-    locationDetail: 'Panel principal Celda 2 Paletizadora',
-    status: 'NO_OK',
-    lastInspectedAt: '2026-08-10',
-    lastInspectedBy: 'Roberto Martínez',
-    nextInspectionDue: '2026-08-15',
-    notes: 'Manómetro fuera de rango y manguera agrietada.',
-    observations: 'Sin presión (en rojo) y fisura visible en base de acople.'
-  },
-  {
-    id: 'obj-3',
-    qrCode: 'QR-BOT-001',
-    name: 'Botiquín de Primeros Auxilios - Ensacado',
-    typeId: 'ot-2',
-    sectorId: 'sec-1',
-    locationDetail: 'Oficina de supervisores Ensacado',
-    status: 'NO_OK',
-    lastInspectedAt: '2026-08-05',
-    lastInspectedBy: 'Carlos Gómez',
-    nextInspectionDue: '2026-08-20',
-    notes: 'Falta reposición de insumos básicos.',
-    observations: 'Insumos básicos incompletos (sin gasas ni vendas).'
-  },
-  {
-    id: 'obj-4',
-    qrCode: 'QR-HID-001',
-    name: 'Nicho Hidrante N° 1 - Molienda',
-    typeId: 'ot-3',
-    sectorId: 'sec-3',
-    locationDetail: 'Acceso principal Hornos PB',
-    status: 'OK',
-    lastInspectedAt: '2026-07-28',
-    lastInspectedBy: 'Juan Perez',
-    nextInspectionDue: '2026-08-28',
-    notes: 'Manguera plegada y presurizada correctamente.'
-  },
-  {
-    id: 'obj-5',
-    qrCode: 'QR-DUCH-001',
-    name: 'Ducha Lavaojos - Laboratorio Molienda',
-    typeId: 'ot-4',
-    sectorId: 'sec-3',
-    locationDetail: 'Pasillo externo Lab Química',
-    status: 'PENDING',
-    lastInspectedAt: '2026-07-15',
-    lastInspectedBy: 'Juan Perez',
-    nextInspectionDue: '2026-08-12',
-    notes: 'Inspección periódica pendiente.'
-  }
-];
-
-const INITIAL_CHECKLIST_ITEMS: HSChecklistItem[] = [
-  // Extintores
-  { id: 'cli-1', objectTypeId: 'ot-1', label: 'Acceso y visibilidad despejada', description: 'Sin obstáculos para alcanzar el equipo rápidamente', category: 'Ubicación', isCritical: false, isEnabled: true },
-  { id: 'cli-2', objectTypeId: 'ot-1', label: 'Manómetro en rango de presión correcto', description: 'La aguja debe estar en la zona verde de servicio', category: 'Presión', isCritical: true, isEnabled: true },
-  { id: 'cli-3', objectTypeId: 'ot-1', label: 'Precinto y pasador de seguridad intacto', description: 'Verificar que no haya sido accionado o alterado', category: 'Seguridad', isCritical: true, isEnabled: true },
-  { id: 'cli-4', objectTypeId: 'ot-1', label: 'Manguera y boquilla en buen estado', description: 'Sin fisuras, obstrucciones ni rajaduras', category: 'Estructura', isCritical: false, isEnabled: true },
-  { id: 'cli-5', objectTypeId: 'ot-1', label: 'Tarjeta de inspección vigente', description: 'Con la fecha del último control registrada', category: 'Documentación', isCritical: false, isEnabled: true },
-
-  // Botiquines
-  { id: 'cli-6', objectTypeId: 'ot-2', label: 'Gabinete limpio, cerrado y señalizado', description: 'Identificación clara y libre de suciedad', category: 'Gabinete', isCritical: false, isEnabled: true },
-  { id: 'cli-7', objectTypeId: 'ot-2', label: 'Stock completo de insumos básicos (Gasas, Guantes, Vendas)', description: 'Verificar vencimiento e integridad de empaques', category: 'Insumos', isCritical: true, isEnabled: true },
-  { id: 'cli-8', objectTypeId: 'ot-2', label: 'Antisépticos y solución fisiológica vigentes', description: 'Fechas de caducidad visibles', category: 'Insumos', isCritical: true, isEnabled: true },
-
-  // Nicho Hidrante
-  { id: 'cli-9', objectTypeId: 'ot-3', label: 'Manguera doblada correctamente y sin roturas', description: 'Acomodada en la devanadera o cuna', category: 'Manguera', isCritical: true, isEnabled: true },
-  { id: 'cli-10', objectTypeId: 'ot-3', label: 'Lanza y boquilla conectada', description: 'Rosca limpia y lista para operar', category: 'Accesorios', isCritical: true, isEnabled: true },
-  { id: 'cli-11', objectTypeId: 'ot-3', label: 'Llave de ajuste presente en el gabinete', description: 'Llave tipo Spanner disponible', category: 'Accesorios', isCritical: false, isEnabled: true },
-
-  // Ducha y Lavaojos
-  { id: 'cli-12', objectTypeId: 'ot-4', label: 'Accionamiento suave de palanca y pedal', description: 'Prueba de flujo sin trabas mecánicas', category: 'Funcionamiento', isCritical: true, isEnabled: true },
-  { id: 'cli-13', objectTypeId: 'ot-4', label: 'Flujo y presión de agua constante', description: 'Agua limpia y chorro continuo lavaojos', category: 'Hidráulica', isCritical: true, isEnabled: true },
-  { id: 'cli-14', objectTypeId: 'ot-4', label: 'Drenaje sin obstrucciones', description: 'Rejilla de desagüe limpia', category: 'Infraestructura', isCritical: false, isEnabled: true }
-];
-
-const INITIAL_INSPECTIONS: HSInspection[] = [
-  {
-    id: 'insp-101',
-    objectId: 'obj-2',
-    objectName: 'Extintor CO2 5kg - Paletizado Celda 2',
-    objectQrCode: 'QR-EXT-002',
-    sectorName: 'Sector Paletizado',
-    operatorDni: '20-33445566-7',
-    operatorName: 'Roberto Martínez',
-    date: '2026-08-10 14:30',
-    overallResult: 'NO_CONFORME_CRITICA',
-    comments: 'Se detectó manómetro fuera de presión y manguera fisurada.',
-    actionPlanGenerated: true,
-    answers: [
-      { checklistItemId: 'cli-1', checklistItemLabel: 'Acceso y visibilidad despejada', status: 'OK', isCriticalFinding: false },
-      {
-        checklistItemId: 'cli-2',
-        checklistItemLabel: 'Manómetro en rango de presión correcto',
-        status: 'NO_OK',
-        observation: 'Sin presión (aguja en zona roja por debajo de los 10 bar)',
-        actionPlan: 'Reemplazo inmediato del manómetro y prueba de estanqueidad en taller.',
-        isCriticalFinding: true
-      },
-      { checklistItemId: 'cli-3', checklistItemLabel: 'Precinto y pasador de seguridad intacto', status: 'OK', isCriticalFinding: false },
-      {
-        checklistItemId: 'cli-4',
-        checklistItemLabel: 'Manguera y boquilla en buen estado',
-        status: 'NO_OK',
-        observation: 'Fisura visible en base de acople de manguera',
-        actionPlan: 'Sustitución de manguera por repuesto homologado.',
-        isCriticalFinding: false
-      }
-    ]
-  },
-  {
-    id: 'insp-100',
-    objectId: 'obj-1',
-    objectName: 'Extintor PQS 10kg - Ensacado L1',
-    objectQrCode: 'QR-EXT-001',
-    sectorName: 'Sector Ensacado',
-    operatorDni: '20-11223344-5',
-    operatorName: 'Carlos Gómez',
-    date: '2026-08-01 09:15',
-    overallResult: 'CONFORME',
-    comments: 'Extintor en impecables condiciones operativas.',
-    actionPlanGenerated: false,
-    answers: [
-      { checklistItemId: 'cli-1', checklistItemLabel: 'Acceso y visibilidad despejada', status: 'OK', isCriticalFinding: false },
-      { checklistItemId: 'cli-2', checklistItemLabel: 'Manómetro en rango de presión correcto', status: 'OK', isCriticalFinding: false },
-      { checklistItemId: 'cli-3', checklistItemLabel: 'Precinto y pasador de seguridad intacto', status: 'OK', isCriticalFinding: false },
-      { checklistItemId: 'cli-4', checklistItemLabel: 'Manguera y boquilla en buen estado', status: 'OK', isCriticalFinding: false }
-    ]
-  }
-];
-
-const INITIAL_ACTION_PLANS: HSActionPlan[] = [
-  {
-    id: 'ap-1',
-    inspectionId: 'insp-101',
-    objectId: 'obj-2',
-    objectName: 'Extintor CO2 5kg - Paletizado Celda 2',
-    sectorName: 'Sector Paletizado',
-    checklistItemId: 'cli-2',
-    title: 'Recarga y cambio de manguera de Extintor QR-EXT-002',
-    description: 'El extintor perdió presión total y presenta fisura en la manguera. Requiere reemplazo por extintor de retén y envío a taller.',
-    severity: 'CRITICAL',
-    assignedTo: 'Esteban Morales (Mantenimiento)',
-    dueDate: '2026-08-15',
-    status: 'IN_PROGRESS',
-    resolutionNotes: 'Extintor sustituido temporalmente por equipo de reserva #R-04.',
-    createdAt: '2026-08-10 14:35'
-  },
-  {
-    id: 'ap-2',
-    objectId: 'obj-3',
-    objectName: 'Botiquín de Primeros Auxilios - Ensacado',
-    sectorName: 'Sector Ensacado',
-    checklistItemId: 'cli-7',
-    title: 'Reposición de Insumos Faltantes en Botiquín QR-BOT-001',
-    description: 'Reposición urgente de gasas estériles, curitas y solución antiséptica.',
-    severity: 'MEDIUM',
-    assignedTo: 'Lic. H&S Laura Varela',
-    dueDate: '2026-08-18',
-    status: 'OPEN',
-    createdAt: '2026-08-05 11:00'
-  }
-];
-
 export function useHSModule() {
-  const [objectTypes, setObjectTypes] = useState<HSObjectType[]>(INITIAL_OBJECT_TYPES);
-  const [sectors, setSectors] = useState<HSSector[]>(INITIAL_SECTORS);
-  const [objects, setObjects] = useState<HSObject[]>(INITIAL_OBJECTS);
-  const [checklistItems, setChecklistItems] = useState<HSChecklistItem[]>(INITIAL_CHECKLIST_ITEMS);
-  const [inspections, setInspections] = useState<HSInspection[]>(INITIAL_INSPECTIONS);
-  const [actionPlans, setActionPlans] = useState<HSActionPlan[]>(INITIAL_ACTION_PLANS);
+  const [objectTypes, setObjectTypes] = useState<HSObjectType[]>([]);
+  const [sectors, setSectors] = useState<HSSector[]>([]);
+  const [rawObjects, setRawObjects] = useState<any[]>([]);
+  const [checklistModels, setChecklistModels] = useState<HSChecklistModel[]>([]);
+  const [checklistItems, setChecklistItems] = useState<HSChecklistItem[]>([]);
+  const [inspections, setInspections] = useState<HSInspection[]>([]);
+  const [actionPlans, setActionPlans] = useState<HSActionPlan[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const [selectedObjectId, setSelectedObjectId] = useState<string | null>('obj-1');
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
 
-  // Enriquecer objetos con nombres de tipo y sector
-  const enrichedObjects = useMemo(() => {
-    return objects.map(obj => {
-      const type = objectTypes.find(t => t.id === obj.typeId);
-      const sector = sectors.find(s => s.id === obj.sectorId);
+  const fetchAllData = useCallback(async () => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+
+    setIsLoading(true);
+    try {
+      // 1. Tipos de Objeto
+      const { data: objectTypesData } = await supabase.from('hs_object_types').select('*').order('name');
+      if (objectTypesData) {
+        setObjectTypes(objectTypesData.map((ot: any) => ({
+          id: ot.id,
+          name: ot.name || '',
+          code: ot.code || '',
+          description: ot.description || '',
+          inspectionFrequencyDays: ot.inspection_frequency_days || 30,
+          iconName: ot.icon_name || 'ShieldAlert'
+        })));
+      }
+
+      // 1.5. Sectores
+      const { data: sectorsData } = await supabase.from('sectors').select('*').order('name');
+      if (sectorsData) {
+        // Deduplicar sectores por nombre para evitar repetidos en la UI
+        const uniqueSectors = Array.from(new Map(sectorsData.map(s => [s.name.trim().toLowerCase(), s])).values());
+        setSectors(uniqueSectors.map((s: any) => ({
+          id: s.id,
+          name: s.name || '',
+          code: s.code || '',
+          responsiblePerson: s.responsible_person || '',
+          locationDetails: s.location_details || ''
+        })));
+      }
+
+      // 2. Objetos
+      const { data: objectsData } = await supabase.from('hs_objects').select('*').order('name');
+      if (objectsData) setRawObjects(objectsData);
+
+      // 3. Modelos
+      const { data: modelsData } = await supabase.from('hs_checklist_models').select('*').order('name');
+      if (modelsData) {
+        setChecklistModels(modelsData.map((m: any) => ({
+          id: m.id,
+          objectTypeId: m.object_type_id,
+          name: m.name || '',
+          status: m.status || 'ACTIVE',
+          inspectionFrequencyDays: m.inspection_frequency_days || 30,
+          createdAt: m.created_at
+        })));
+      }
+
+      // 4. Items
+      const { data: itemsData } = await supabase.from('hs_checklist_items').select('*').order('item_order');
+      if (itemsData) {
+        setChecklistItems(itemsData.map((i: any) => ({
+          id: i.id,
+          objectTypeId: i.object_type,
+          checklistModelId: i.checklist_model_id,
+          label: i.description,
+          description: '',
+          category: 'General',
+          isCritical: Boolean(i.is_critical),
+          isEnabled: true
+        })));
+      }
+
+      // 5. Inspecciones
+      const { data: inspectionsData } = await supabase.from('hs_inspections').select('*').order('created_at', { ascending: false });
+      const { data: answersData } = await supabase.from('hs_checklist_answers').select('*');
+      const { data: actionPlansData } = await supabase.from('hs_action_plans').select('inspection_id, title, description, resolution_notes, checklist_item_id');
+
+      if (inspectionsData) {
+        const formattedInspections = inspectionsData.map((i: any) => {
+          const matchedObj = (objectsData || []).find((o: any) => o.id === i.object_id);
+          const iAnswers = (answersData || []).filter((a: any) => a.inspection_id === i.id);
+
+          return {
+            id: i.id,
+            objectId: i.object_id,
+            objectName: matchedObj?.name || 'Activo',
+            objectQrCode: matchedObj?.qr_code || '',
+            sectorName: matchedObj?.sector_name || '',
+            operatorDni: i.operator_dni || '',
+            operatorName: i.operator_name || '',
+            date: i.created_at ? new Date(i.created_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : '',
+            overallResult: (i.resulting_status || 'HABILITADO'),
+            comments: i.comments || '',
+            actionPlanGenerated: i.resulting_status === 'NO HABILITADO' || i.resulting_status === 'NO_CONFORME_CRITICA',
+            answers: iAnswers.map((a: any) => {
+              const matchedItem = (itemsData || []).find((it: any) => it.id === a.checklist_item_id);
+              const label = matchedItem ? matchedItem.description : 'Ítem inspeccionado';
+              const matchedPlan = (actionPlansData || []).find((ap: any) => ap.inspection_id === i.id && (ap.checklist_item_id === a.checklist_item_id || ap.title === label));
+
+              return {
+                checklistItemId: a.checklist_item_id,
+                checklistItemLabel: label,
+                status: (a.status === 'NA' ? 'N_A' : a.status) as HSChecklistAnswerStatus,
+                observation: a.observation || '',
+                actionPlan: matchedPlan ? (matchedPlan.resolution_notes || '') : '',
+                isCriticalFinding: a.status === 'NO_OK'
+              };
+            })
+          };
+        });
+        setInspections(formattedInspections);
+      }
+
+      // 6. Action Plans
+      const { data: plansData } = await supabase.from('hs_action_plans').select('*').order('created_at', { ascending: false });
+      if (plansData) {
+        setActionPlans(plansData.map((p: any) => ({
+          id: p.id,
+          inspectionId: p.inspection_id,
+          objectId: p.object_id,
+          objectName: p.object_name || '',
+          sectorName: p.sector_name || '',
+          title: p.title || '',
+          description: p.description || '',
+          severity: p.severity || 'CRITICAL',
+          assignedTo: p.assigned_to || '',
+          dueDate: p.due_date || '',
+          status: p.status || 'OPEN',
+          resolutionNotes: p.resolution_notes,
+          createdAt: p.created_at ? new Date(p.created_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : '',
+        })));
+      }
+
+    } catch (err) {
+      console.error('[useHSModule] Error al consultar Supabase:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
+
+  const enrichedObjects = useMemo<HSObject[]>(() => {
+    return rawObjects.map(obj => {
+      const type = objectTypes.find(t => t.id === obj.type || t.code === obj.type);
+      const sector = sectors.find(s => s.id === obj.sector_id);
+
+      const objInspections = inspections.filter(i => i.objectId === obj.id);
+      const latestInspection = objInspections[0];
+
+      let computedStatus: HSObjectStatus = 'PENDING';
+      let lastInspectedAt: string | undefined = undefined;
+      let lastInspectedBy: string | undefined = undefined;
+      let observations: string | undefined = undefined;
+
+      if (latestInspection) {
+        const isOk = latestInspection.overallResult === 'HABILITADO' || latestInspection.overallResult === 'CONFORME';
+        computedStatus = isOk ? 'OK' : 'NO_OK';
+        lastInspectedAt = latestInspection.date.substring(0, 10);
+        lastInspectedBy = latestInspection.operatorName;
+        const failedAnswer = latestInspection.answers.find(a => a.status === 'NO_OK');
+        observations = failedAnswer?.observation || latestInspection.comments;
+      }
+
+      let baseDate = Date.now();
+      if (lastInspectedAt) {
+        // lastInspectedAt está en formato DD/MM/YYYY debido a toLocaleString('es-AR')
+        const parts = lastInspectedAt.split('/');
+        if (parts.length === 3) {
+          const day = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10) - 1;
+          const year = parseInt(parts[2], 10);
+          baseDate = new Date(year, month, day).getTime();
+        }
+      }
+      
+      const activeModel = checklistModels.find(m => m.objectTypeId === obj.type && m.status === 'ACTIVE');
+      const freqDays = activeModel?.inspectionFrequencyDays || type?.inspectionFrequencyDays || 30;
+
+      const nextInspectionDue = new Date(baseDate + freqDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
       return {
-        ...obj,
-        typeName: type ? type.name : 'Desconocido',
-        sectorName: sector ? sector.name : 'Sin Sector'
+        id: obj.id,
+        qrCode: obj.qr_code,
+        name: obj.name,
+        typeId: obj.type,
+        typeName: type ? type.name : (obj.type || 'Desconocido'),
+        sectorId: obj.sector_id,
+        sectorName: obj.sector_name || sector?.name || 'Sin Sector',
+        locationDetail: obj.location_detail || '',
+        status: computedStatus,
+        lastInspectedAt,
+        lastInspectedBy,
+        nextInspectionDue,
+        notes: obj.notes || '',
+        observations
       };
     });
-  }, [objects, objectTypes, sectors]);
+  }, [rawObjects, objectTypes, sectors, inspections, checklistModels]);
 
-  // Objeto seleccionado actualmente
   const selectedObject = useMemo(() => {
     if (!selectedObjectId) return null;
     return enrichedObjects.find(o => o.id === selectedObjectId) || null;
-  }, [enrichedObjects, selectedObjectId]);
+  }, [selectedObjectId, enrichedObjects]);
 
-  // Checklist items para el objeto seleccionado
   const activeChecklistForSelectedObject = useMemo(() => {
     if (!selectedObject) return [];
-    return checklistItems.filter(ci => ci.objectTypeId === selectedObject.typeId && ci.isEnabled);
+    
+    const filtered = checklistItems.filter(ci =>
+      (ci.objectTypeId === selectedObject.typeId || ci.objectTypeId === selectedObject.typeName) &&
+      ci.isEnabled
+    );
+    
+    // Deduplicar por label y modelo
+    const uniqueItems: HSChecklistItem[] = [];
+    const seenKeys = new Set();
+    
+    for (const item of filtered) {
+      const key = `${item.checklistModelId || 'no-model'}-${item.label.trim().toLowerCase()}`;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        uniqueItems.push(item);
+      }
+    }
+    
+    return uniqueItems;
   }, [selectedObject, checklistItems]);
 
-  // Historial de inspecciones para el objeto seleccionado
   const selectedObjectInspectionHistory = useMemo(() => {
     if (!selectedObject) return [];
     return inspections.filter(i => i.objectId === selectedObject.id);
-  }, [inspections, selectedObject]);
+  }, [selectedObject, inspections]);
 
-  // Selección por Código QR
-  const selectObjectByQR = useCallback((qrCode: string): boolean => {
+  const selectObjectByQR = useCallback((qrCode: string) => {
     const found = enrichedObjects.find(o => o.qrCode.toUpperCase().trim() === qrCode.toUpperCase().trim());
     if (found) {
       setSelectedObjectId(found.id);
@@ -326,197 +306,249 @@ export function useHSModule() {
     return false;
   }, [enrichedObjects]);
 
-  // Registrar nueva inspección
-  const submitInspection = useCallback((
-    inspectionData: {
-      objectId: string;
-      operatorDni: string;
-      operatorName: string;
-      comments?: string;
-      answers: { checklistItemId: string; status: HSChecklistAnswerStatus; observation?: string; actionPlan?: string }[];
-    }
-  ) => {
+  const submitInspection = useCallback(async (inspectionData: any) => {
+    const supabase = getSupabase();
     const targetObj = enrichedObjects.find(o => o.id === inspectionData.objectId);
-    if (!targetObj) return null;
+    if (!targetObj || !supabase) return null;
 
-    const answersWithDetails = inspectionData.answers.map(ans => {
-      const item = checklistItems.find(c => c.id === ans.checklistItemId);
-      const isCriticalFinding = (ans.status === 'NO_OK') && (item?.isCritical ?? false);
-      return {
-        checklistItemId: ans.checklistItemId,
-        checklistItemLabel: item ? item.label : 'Ítem',
-        status: ans.status,
-        observation: ans.observation,
-        actionPlan: ans.actionPlan,
-        isCriticalFinding
-      };
-    });
+    const hasAnyNoOk = inspectionData.answers.some((a:any) => a.status === 'NO_OK');
+    const overallResult = hasAnyNoOk ? 'NO_CONFORME_CRITICA' : 'CONFORME';
 
-    const hasAnyNoOk = answersWithDetails.some(a => a.status === 'NO_OK');
+    try {
+      const { data: insertedInsp, error: inspError } = await supabase
+        .from('hs_inspections')
+        .insert([{
+          object_id: targetObj.id,
+          operator_dni: inspectionData.operatorDni,
+          operator_name: inspectionData.operatorName,
+          resulting_status: overallResult,
+          comments: inspectionData.comments || null
+        }])
+        .select()
+        .single();
 
-    const overallResult: 'CONFORME' | 'NO_CONFORME_MENOR' | 'NO_CONFORME_CRITICA' = hasAnyNoOk
-      ? 'NO_CONFORME_CRITICA'
-      : 'CONFORME';
-    const newObjectStatus: HSObjectStatus = hasAnyNoOk ? 'NO_OK' : 'OK';
+      if (inspError) return null;
 
-    const newInspectionId = `insp-${Date.now()}`;
-    const dateStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
+      if (inspectionData.answers.length > 0) {
+        const answersToInsert = inspectionData.answers.map((ans:any) => ({
+          inspection_id: insertedInsp.id,
+          checklist_item_id: ans.checklistItemId,
+          status: ans.status === 'N_A' ? 'NA' : ans.status,
+          observation: ans.observation || null
+        }));
+        await supabase.from('hs_checklist_answers').insert(answersToInsert);
+      }
 
-    const newInspection: HSInspection = {
-      id: newInspectionId,
-      objectId: targetObj.id,
-      objectName: targetObj.name,
-      objectQrCode: targetObj.qrCode,
-      sectorName: targetObj.sectorName || 'Sin Sector',
-      operatorDni: inspectionData.operatorDni,
-      operatorName: inspectionData.operatorName,
-      date: dateStr,
-      overallResult,
-      comments: inspectionData.comments,
-      answers: answersWithDetails,
-      actionPlanGenerated: hasAnyNoOk
+      if (hasAnyNoOk) {
+        const sectorObj = sectors.find(s => s.id === targetObj.sectorId);
+        const plansToInsert = inspectionData.answers.filter((a:any) => a.status === 'NO_OK').map((fail:any) => {
+          const matchedItem = checklistItems.find(ci => ci.id === fail.checklistItemId);
+          return {
+            inspection_id: insertedInsp.id,
+            object_id: targetObj.id,
+            object_name: targetObj.name,
+            sector_name: targetObj.sectorName || sectorObj?.name || 'Sin Sector',
+            checklist_item_id: fail.checklistItemId,
+            title: matchedItem?.label || `Hallazgo en inspección`,
+            description: fail.observation,
+            severity: fail.isCriticalFinding ? 'CRITICAL' : 'HIGH',
+            status: 'OPEN',
+            resolution_notes: fail.actionPlan || null,
+            assigned_to: sectorObj?.responsiblePerson || 'Pendiente'
+          };
+        });
+        await supabase.from('hs_action_plans').insert(plansToInsert);
+      }
+
+      await fetchAllData();
+      return insertedInsp;
+    } catch (e) {
+      return null;
+    }
+  }, [enrichedObjects, sectors, fetchAllData]);
+
+  // ABM Funciones
+  const addOrUpdateObjectType = useCallback(async (item: Partial<HSObjectType>) => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+
+    const payload = {
+      name: item.name,
+      code: item.code,
+      description: item.description,
+      inspection_frequency_days: item.inspectionFrequencyDays,
+      icon_name: item.iconName || 'ShieldAlert'
     };
 
-    setInspections(prev => [newInspection, ...prev]);
-
-    // Actualizar estado del objeto
-    const typeObj = objectTypes.find(t => t.id === targetObj.typeId);
-    const freqDays = typeObj ? typeObj.inspectionFrequencyDays : 30;
-    const nextDueDate = new Date(Date.now() + freqDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-    const firstFailed = answersWithDetails.find(a => a.status === 'NO_OK');
-
-    setObjects(prev => prev.map(o => {
-      if (o.id === targetObj.id) {
-        return {
-          ...o,
-          status: newObjectStatus,
-          lastInspectedAt: dateStr.substring(0, 10),
-          lastInspectedBy: inspectionData.operatorName,
-          nextInspectionDue: nextDueDate,
-          notes: inspectionData.comments || o.notes,
-          observations: firstFailed ? firstFailed.observation : o.observations
-        };
-      }
-      return o;
-    }));
-
-    // Generar Plan de Acción automático si hubo hallazgos
-    if (hasAnyNoOk) {
-      const failedAnswers = answersWithDetails.filter(a => a.status === 'NO_OK');
-      const sectorObj = sectors.find(s => s.id === targetObj.sectorId);
-      const responsiblePerson = sectorObj?.responsiblePerson || 'Asignación Pendiente';
-
-      const newPlans: HSActionPlan[] = failedAnswers.map((fail, idx) => ({
-        id: `ap-auto-${Date.now()}-${idx}`,
-        inspectionId: newInspectionId,
-        objectId: targetObj.id,
-        objectName: targetObj.name,
-        sectorName: targetObj.sectorName || 'Sin Sector',
-        checklistItemId: fail.checklistItemId,
-        title: `Hallazgo: ${fail.checklistItemLabel}`,
-        description: `Detalle del Hallazgo: ${fail.observation || 'Sin detalle'}\nPlan de Acción: ${fail.actionPlan || 'Sin plan redactado'}`,
-        severity: fail.isCriticalFinding ? 'CRITICAL' : 'HIGH',
-        assignedTo: responsiblePerson,
-        dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        status: 'OPEN',
-        createdAt: dateStr
-      }));
-
-      setActionPlans(prev => [...newPlans, ...prev]);
-    }
-
-    return newInspection;
-  }, [enrichedObjects, checklistItems, objectTypes, sectors]);
-
-  // ABM Maestros
-  const addOrUpdateObjectType = useCallback((item: Partial<HSObjectType>) => {
+    // Si tiene ID y NO es uno de los hardcodeados generados manualmente por la app
+    // O si lo es, lo actualizamos igual (Supabase lo manejará)
     if (item.id) {
-      setObjectTypes(prev => prev.map(t => t.id === item.id ? { ...t, ...item } as HSObjectType : t));
+      // update
+      await supabase.from('hs_object_types').update(payload).eq('id', item.id);
     } else {
-      const newItem: HSObjectType = {
-        id: `ot-${Date.now()}`,
-        name: item.name || 'Nuevo Tipo',
-        code: item.code || 'TIP',
-        description: item.description || '',
-        inspectionFrequencyDays: item.inspectionFrequencyDays || 30,
-        iconName: item.iconName || 'ShieldCheck'
-      };
-      setObjectTypes(prev => [...prev, newItem]);
+      // insert
+      const idToInsert = item.code || `OT-${Math.floor(Math.random()*10000)}`;
+      await supabase.from('hs_object_types').insert([{
+        id: idToInsert,
+        ...payload
+      }]);
     }
-  }, []);
+    await fetchAllData();
+  }, [fetchAllData]);
 
-  const addOrUpdateSector = useCallback((item: Partial<HSSector>) => {
-    if (item.id) {
-      setSectors(prev => prev.map(s => s.id === item.id ? { ...s, ...item } as HSSector : s));
+  const deleteObjectType = useCallback(async (id: string) => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    await supabase.from('hs_object_types').delete().eq('id', id);
+    await fetchAllData();
+  }, [fetchAllData]);
+  
+  const addOrUpdateSector = useCallback(async (item: Partial<HSSector>) => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    if (item.id && item.id.length > 10) {
+      await supabase.from('sectors').update({ 
+        name: item.name, 
+        code: item.code || '', 
+        responsible_person: item.responsiblePerson || null, 
+        location_details: item.locationDetails || null 
+      }).eq('id', item.id);
     } else {
-      const newItem: HSSector = {
-        id: `sec-${Date.now()}`,
-        name: item.name || 'Nuevo Sector',
-        code: item.code || 'SEC',
-        responsiblePerson: item.responsiblePerson || 'Sin Asignar',
-        locationDetails: item.locationDetails || ''
-      };
-      setSectors(prev => [...prev, newItem]);
+      await supabase.from('sectors').insert([{ 
+        name: item.name, 
+        code: item.code || '', 
+        responsible_person: item.responsiblePerson || null, 
+        location_details: item.locationDetails || null 
+      }]);
     }
-  }, []);
+    await fetchAllData();
+  }, [fetchAllData]);
 
-  const addOrUpdateObject = useCallback((item: Partial<HSObject>) => {
-    if (item.id) {
-      setObjects(prev => prev.map(o => o.id === item.id ? { ...o, ...item } as HSObject : o));
+  const deleteSector = useCallback(async (id: string) => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    await supabase.from('sectors').delete().eq('id', id);
+    await fetchAllData();
+  }, [fetchAllData]);
+
+  const addOrUpdateObject = useCallback(async (item: Partial<HSObject>) => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const sector = sectors.find(s => s.id === item.sectorId);
+    if (item.id && item.id.length > 10) {
+      await supabase.from('hs_objects').update({
+        name: item.name, 
+        qr_code: item.qrCode, 
+        type: item.typeId, 
+        sector_id: item.sectorId, 
+        sector_name: sector?.name,
+        location_detail: item.locationDetail || null,
+        notes: item.notes || null
+      }).eq('id', item.id);
     } else {
-      const newItem: HSObject = {
-        id: `obj-${Date.now()}`,
-        qrCode: item.qrCode || `QR-NEW-${Math.floor(Math.random() * 1000)}`,
-        name: item.name || 'Nuevo Objeto',
-        typeId: item.typeId || objectTypes[0]?.id || 'ot-1',
-        sectorId: item.sectorId || sectors[0]?.id || 'sec-1',
-        locationDetail: item.locationDetail || '',
-        status: 'PENDING',
-        nextInspectionDue: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-      };
-      setObjects(prev => [...prev, newItem]);
+      await supabase.from('hs_objects').insert([{
+        qr_code: item.qrCode, 
+        name: item.name, 
+        type: item.typeId, 
+        sector_id: item.sectorId, 
+        sector_name: sector?.name,
+        location_detail: item.locationDetail || null,
+        notes: item.notes || null
+      }]);
     }
-  }, [objectTypes, sectors]);
+    await fetchAllData();
+  }, [sectors, fetchAllData]);
 
-  // Checklist Items toggle
+  const deleteObject = useCallback(async (id: string) => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    await supabase.from('hs_objects').delete().eq('id', id);
+    await fetchAllData();
+  }, [fetchAllData]);
+
+  const migrateOrphanedItems = useCallback(async (modelId: string, objectTypeId: string) => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    try {
+      await supabase
+        .from('hs_checklist_items')
+        .update({ checklist_model_id: modelId })
+        .eq('object_type', objectTypeId)
+        .is('checklist_model_id', null);
+      await fetchAllData();
+    } catch (err) {
+      console.error('[useHSModule] Error migrating items:', err);
+    }
+  }, [fetchAllData]);
+
   const toggleChecklistItem = useCallback((id: string, isEnabled: boolean) => {
     setChecklistItems(prev => prev.map(ci => ci.id === id ? { ...ci, isEnabled } : ci));
   }, []);
 
-  const addChecklistItem = useCallback((item: Partial<HSChecklistItem>) => {
-    const newItem: HSChecklistItem = {
-      id: `cli-${Date.now()}`,
-      objectTypeId: item.objectTypeId || 'ot-1',
-      label: item.label || 'Nuevo Ítem',
-      description: item.description || '',
-      category: item.category || 'General',
-      isCritical: item.isCritical ?? false,
-      isEnabled: true
-    };
-    setChecklistItems(prev => [...prev, newItem]);
-  }, []);
+  const addChecklistModel = useCallback(async (item: Partial<HSChecklistModel>) => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    if (item.id && item.id.length > 10) {
+      await supabase.from('hs_checklist_models').update({ 
+        name: item.name, 
+        status: item.status,
+        inspection_frequency_days: item.inspectionFrequencyDays 
+      }).eq('id', item.id);
+    } else {
+      await supabase.from('hs_checklist_models').insert([{ 
+        object_type_id: item.objectTypeId, 
+        name: item.name, 
+        status: item.status || 'ACTIVE',
+        inspection_frequency_days: item.inspectionFrequencyDays || 30
+      }]);
+    }
+    await fetchAllData();
+  }, [fetchAllData]);
 
-  // Planes de Acción status update
-  const updateActionPlanStatus = useCallback((id: string, status: HSActionPlanStatus, assignedTo?: string, notes?: string) => {
-    setActionPlans(prev => prev.map(ap => {
-      if (ap.id === id) {
-        return {
-          ...ap,
-          status,
-          assignedTo: assignedTo || ap.assignedTo,
-          resolutionNotes: notes !== undefined ? notes : ap.resolutionNotes,
-          resolvedAt: status === 'RESOLVED' || status === 'CLOSED' ? new Date().toISOString().substring(0, 16) : ap.resolvedAt
-        };
-      }
-      return ap;
-    }));
-  }, []);
+  const deleteChecklistModel = useCallback(async (id: string) => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    await supabase.from('hs_checklist_models').delete().eq('id', id);
+    await fetchAllData();
+  }, [fetchAllData]);
+
+  const addChecklistItem = useCallback(async (item: Partial<HSChecklistItem>) => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const sameTypeCount = checklistItems.filter(ci => (item.checklistModelId ? ci.checklistModelId === item.checklistModelId : ci.objectTypeId === item.objectTypeId)).length;
+    await supabase.from('hs_checklist_items').insert([{
+      object_type: item.objectTypeId || 'EXT',
+      checklist_model_id: item.checklistModelId || null,
+      description: item.label || 'Nuevo Ítem',
+      item_order: sameTypeCount + 1,
+      is_critical: item.isCritical ?? false
+    }]);
+    await fetchAllData();
+  }, [checklistItems, fetchAllData]);
+
+  const deleteChecklistItem = useCallback(async (id: string) => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    await supabase.from('hs_checklist_items').delete().eq('id', id);
+    await fetchAllData();
+  }, [fetchAllData]);
+
+  const updateActionPlanStatus = useCallback(async (id: string, status: HSActionPlanStatus, assignedTo?: string, notes?: string, dueDate?: string) => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const updatePayload: any = { status, updated_at: new Date().toISOString() };
+    if (assignedTo !== undefined) updatePayload.assigned_to = assignedTo;
+    if (notes !== undefined) updatePayload.resolution_notes = notes;
+    if (dueDate !== undefined) updatePayload.due_date = dueDate;
+    await supabase.from('hs_action_plans').update(updatePayload).eq('id', id);
+    await fetchAllData();
+  }, [fetchAllData]);
 
   return {
     objectTypes,
     sectors,
     objects: enrichedObjects,
+    checklistModels,
     checklistItems,
     inspections,
     actionPlans,
@@ -528,10 +560,19 @@ export function useHSModule() {
     selectObjectByQR,
     submitInspection,
     addOrUpdateObjectType,
+    deleteObjectType,
     addOrUpdateSector,
+    deleteSector,
     addOrUpdateObject,
+    deleteObject,
     toggleChecklistItem,
     addChecklistItem,
-    updateActionPlanStatus
+    deleteChecklistItem,
+    addChecklistModel,
+    deleteChecklistModel,
+    migrateOrphanedItems,
+    updateActionPlanStatus,
+    fetchAllData,
+    isLoading
   };
 }

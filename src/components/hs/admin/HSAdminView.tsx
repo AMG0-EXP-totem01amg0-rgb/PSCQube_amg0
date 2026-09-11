@@ -4,18 +4,24 @@ import { ObjectTypesMaster } from './ObjectTypesMaster';
 import { ObjectsMaster } from './ObjectsMaster';
 import { SectorsMaster } from './SectorsMaster';
 import { ChecklistConfigurator } from './ChecklistConfigurator';
-import { HSObjectType, HSSector, HSObject, HSChecklistItem } from '../types';
+import { HSObjectType, HSSector, HSObject, HSChecklistItem, HSChecklistModel } from '../types';
 
 interface HSAdminViewProps {
   objectTypes: HSObjectType[];
   sectors: HSSector[];
   objects: HSObject[];
+  checklistModels: HSChecklistModel[];
   checklistItems: HSChecklistItem[];
   onSaveObjectType: (item: Partial<HSObjectType>) => void;
   onSaveSector: (item: Partial<HSSector>) => void;
   onSaveObject: (item: Partial<HSObject>) => void;
+  onAddChecklistModel: (item: Partial<HSChecklistModel>) => void;
   onToggleChecklistItem: (id: string, isEnabled: boolean) => void;
   onAddChecklistItem: (item: Partial<HSChecklistItem>) => void;
+  onMigrateOrphanedItems?: (modelId: string, objectTypeId: string) => void;
+  onDeleteSector?: (id: string) => void;
+  onDeleteObject?: (id: string) => void;
+  onDeleteObjectType?: (id: string) => void;
 }
 
 type AdminSubTab = 'SECTORS' | 'TYPES' | 'OBJECTS' | 'CHECKLISTS';
@@ -24,12 +30,18 @@ export function HSAdminView({
   objectTypes,
   sectors,
   objects,
+  checklistModels,
   checklistItems,
   onSaveObjectType,
   onSaveSector,
   onSaveObject,
+  onAddChecklistModel,
   onToggleChecklistItem,
-  onAddChecklistItem
+  onAddChecklistItem,
+  onMigrateOrphanedItems,
+  onDeleteSector,
+  onDeleteObject,
+  onDeleteObjectType
 }: HSAdminViewProps) {
   // Orden jerárquico: Sectores primero
   const [activeTab, setActiveTab] = useState<AdminSubTab>('SECTORS');
@@ -73,6 +85,7 @@ export function HSAdminView({
           <SectorsMaster
             sectors={sectors}
             onSave={onSaveSector}
+            onDelete={onDeleteSector}
           />
         )}
 
@@ -80,6 +93,7 @@ export function HSAdminView({
           <ObjectTypesMaster
             objectTypes={objectTypes}
             onSave={onSaveObjectType}
+            onDelete={onDeleteObjectType}
           />
         )}
 
@@ -89,15 +103,19 @@ export function HSAdminView({
             objectTypes={objectTypes}
             sectors={sectors}
             onSave={onSaveObject}
+            onDelete={onDeleteObject}
           />
         )}
 
         {activeTab === 'CHECKLISTS' && (
           <ChecklistConfigurator
             objectTypes={objectTypes}
+            checklistModels={checklistModels}
             checklistItems={checklistItems}
             onToggleItem={onToggleChecklistItem}
             onAddItem={onAddChecklistItem}
+            onAddModel={onAddChecklistModel}
+            onMigrateOrphanedItems={onMigrateOrphanedItems}
           />
         )}
       </div>
