@@ -24,15 +24,17 @@ export function ActiveChecklistForm({
   onSubmit,
   onClearSelection
 }: ActiveChecklistFormProps) {
-  const [answers, setAnswers] = useState<Record<string, { status: HSChecklistAnswerStatus; observation: string; actionPlan: string }>>(
+  const [answers, setAnswers] = useState<Record<string, { status: HSChecklistAnswerStatus; observation: string; actionPlan: string; hasPhoto?: boolean }>>(
     () => {
-      const initial: Record<string, { status: HSChecklistAnswerStatus; observation: string; actionPlan: string }> = {};
+      const initial: Record<string, { status: HSChecklistAnswerStatus; observation: string; actionPlan: string; hasPhoto?: boolean }> = {};
       checklistItems.forEach(ci => {
-        initial[ci.id] = { status: 'N_A', observation: '', actionPlan: '' };
+        initial[ci.id] = { status: 'N_A', observation: '', actionPlan: '', hasPhoto: false };
       });
       return initial;
     }
   );
+
+  const [showGeneralComments, setShowGeneralComments] = useState(false);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [generalComments, setGeneralComments] = useState('');
@@ -41,7 +43,7 @@ export function ActiveChecklistForm({
 
   // Estado del Modal de Incidencia (MALO)
   const [showModal, setShowModal] = useState(false);
-  const [modalData, setModalData] = useState({ observation: '', actionPlan: '' });
+  const [modalData, setModalData] = useState({ observation: '', actionPlan: '', hasPhoto: false });
 
   const total = checklistItems.length;
   const currentItem = checklistItems[currentIndex];
@@ -63,7 +65,8 @@ export function ActiveChecklistForm({
       const currentAns = answers[itemId];
       setModalData({
         observation: currentAns.observation || '',
-        actionPlan: currentAns.actionPlan || ''
+        actionPlan: currentAns.actionPlan || '',
+        hasPhoto: currentAns.hasPhoto || false
       });
       setShowModal(true);
     }
@@ -74,9 +77,11 @@ export function ActiveChecklistForm({
     setAnswers(prev => ({
       ...prev,
       [currentItem.id]: {
+        ...prev[currentItem.id],
         status: 'NO_OK',
         observation: modalData.observation,
-        actionPlan: modalData.actionPlan
+        actionPlan: modalData.actionPlan,
+        hasPhoto: modalData.hasPhoto
       }
     }));
     setShowModal(false);
@@ -99,11 +104,12 @@ export function ActiveChecklistForm({
     e.preventDefault();
     setIsSubmitting(true);
 
-    const formattedAnswers = (Object.entries(answers) as [string, { status: HSChecklistAnswerStatus; observation: string; actionPlan: string }][]).map(([checklistItemId, val]) => ({
+    const formattedAnswers = (Object.entries(answers) as [string, { status: HSChecklistAnswerStatus; observation: string; actionPlan: string; hasPhoto?: boolean }][]).map(([checklistItemId, val]) => ({
       checklistItemId,
       status: val.status,
       observation: val.observation,
-      actionPlan: val.actionPlan
+      actionPlan: val.actionPlan,
+      hasPhoto: val.hasPhoto
     }));
 
     await onSubmit({
@@ -126,7 +132,7 @@ export function ActiveChecklistForm({
   const hasUnansweredItems = checklistItems.some(ci => answers[ci.id]?.status === 'N_A');
   const isSubmitDisabled = isSubmitting || hasUnansweredItems;
 
-  const currentAnswer = answers[currentItem.id] || { status: 'N_A', observation: '', actionPlan: '' };
+  const currentAnswer = answers[currentItem.id] || { status: 'N_A', observation: '', actionPlan: '', hasPhoto: false };
 
   return (
     <div className="relative">
@@ -216,6 +222,27 @@ export function ActiveChecklistForm({
               </button>
             </div>
             
+            {/* Botón de Foto para Críticos o Malos */}
+            {(currentItem.isCritical || currentAnswer.status === 'NO_OK') && (
+              <div className="pt-2 flex justify-start">
+                <button
+                  type="button"
+                  onClick={() => setAnswers(prev => ({
+                    ...prev,
+                    [currentItem.id]: { ...prev[currentItem.id], hasPhoto: !prev[currentItem.id].hasPhoto }
+                  }))}
+                  className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    currentAnswer.hasPhoto
+                      ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                      : 'border-border bg-bg text-text-main hover:bg-surface'
+                  }`}
+                >
+                  <Camera size={14} className={currentAnswer.hasPhoto ? '' : 'text-primary'} />
+                  {currentAnswer.hasPhoto ? 'EVIDENCIA ADJUNTADA' : 'ADJUNTAR FOTO (EVIDENCIA)'}
+                </button>
+              </div>
+            )}
+            
             {/* Si ya respondió MALO y el modal está cerrado, mostramos un resumen */}
             {currentAnswer.status === 'NO_OK' && (
               <div className="p-3 bg-rose-500/5 border border-rose-500/20 rounded-xl space-y-2 mt-4 animate-fade-in">
@@ -231,30 +258,39 @@ export function ActiveChecklistForm({
           {/* Comentarios Generales y Finalizar (Solo en la última pregunta) */}
           {isLastQuestion && (
             <div className="p-4 rounded-2xl border border-border bg-surface space-y-4 animate-fade-in">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <label className="text-xs font-bold text-text-main flex items-center gap-1.5">
-                  <MessageSquare size={14} className="text-primary" /> Observaciones Generales (Opcional)
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setHasPhotoEvidence(!hasPhotoEvidence)}
-                  className={`text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1 cursor-pointer transition-colors ${
-                    hasPhotoEvidence
-                      ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                      : 'text-primary hover:bg-primary/10 border border-primary/20'
-                  }`}
-                >
-                  <Camera size={12} />
-                  {hasPhotoEvidence ? 'FOTO ADJUNTADA' : 'ADJUNTAR FOTO'}
-                </button>
-              </div>
-              <textarea
-                rows={3}
-                value={generalComments}
-                onChange={e => setGeneralComments(e.target.value)}
-                placeholder="Ingrese notas finales, contexto adicional o recomendaciones generales..."
-                className="w-full px-3 py-2 rounded-xl border border-border bg-bg text-text-main text-xs focus:ring-2 focus:ring-primary/50 outline-hidden resize-none"
-              />
+              {!showGeneralComments ? (
+                 <button
+                   type="button"
+                   onClick={() => setShowGeneralComments(true)}
+                   className="w-full py-3 rounded-xl border border-dashed border-primary/40 bg-primary/5 text-primary text-xs font-bold hover:bg-primary/10 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                 >
+                   <MessageSquare size={16} /> AGREGAR OBSERVACIONES GENERALES (OPCIONAL)
+                 </button>
+              ) : (
+                <div className="space-y-3 animate-fade-in">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <label className="text-xs font-bold text-text-main flex items-center gap-1.5">
+                      <MessageSquare size={14} className="text-primary" /> Observaciones Generales
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        type="button" 
+                        onClick={() => setShowGeneralComments(false)}
+                        className="text-[10px] text-text-muted hover:text-text-main font-bold cursor-pointer"
+                      >
+                        Ocultar
+                      </button>
+                    </div>
+                  </div>
+                  <textarea
+                    rows={3}
+                    value={generalComments}
+                    onChange={e => setGeneralComments(e.target.value)}
+                    placeholder="Ingrese notas finales, contexto adicional o recomendaciones generales..."
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-bg text-text-main text-xs focus:ring-2 focus:ring-primary/50 outline-hidden resize-none"
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -331,10 +367,15 @@ export function ActiveChecklistForm({
               <div>
                 <button
                   type="button"
-                  className="text-[10px] font-bold px-3 py-1.5 rounded-lg border border-border bg-bg text-text-main flex items-center gap-1.5 hover:bg-border transition-colors cursor-pointer"
+                  onClick={() => setModalData(prev => ({ ...prev, hasPhoto: !prev.hasPhoto }))}
+                  className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    modalData.hasPhoto
+                      ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                      : 'border-border bg-bg text-text-main hover:bg-border'
+                  }`}
                 >
-                  <Camera size={14} className="text-primary" />
-                  Capturar Foto de la Incidencia (Opcional)
+                  <Camera size={14} className={modalData.hasPhoto ? '' : 'text-primary'} />
+                  {modalData.hasPhoto ? 'FOTO ADJUNTADA' : 'Capturar Foto de la Incidencia (Opcional)'}
                 </button>
               </div>
 

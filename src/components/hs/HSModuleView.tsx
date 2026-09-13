@@ -154,6 +154,7 @@ export default function HSModuleView({ currentUser, isDark, addToast }: HSModule
           onSubmitInspection={submitInspection}
           onClearSelection={() => setSelectedObjectId(null)}
           addToast={addToast}
+          onViewCertificate={setSharedInspectionParam}
         />
       )}
 

@@ -25,6 +25,7 @@ interface HSScannerViewProps {
   }) => void;
   onClearSelection: () => void;
   addToast?: (message: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
+  onViewCertificate?: (inspectionId: string) => void;
 }
 
 export function HSScannerView({
@@ -39,7 +40,8 @@ export function HSScannerView({
   onSelectQR,
   onSubmitInspection,
   onClearSelection,
-  addToast
+  addToast,
+  onViewCertificate
 }: HSScannerViewProps) {
   const [activeSubTab, setActiveSubTab] = useState<'CHECKLIST' | 'HISTORY'>('CHECKLIST');
   const [isChecklistUnlocked, setIsChecklistUnlocked] = useState(false);
@@ -82,6 +84,36 @@ export function HSScannerView({
     await onSubmitInspection(data);
     if (addToast) {
       addToast('Inspección registrada con éxito', 'success');
+    }
+  };
+
+  // FUNCIÓN PARA FORMATEAR FECHA A DD/MM/AAAA HH:mm
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '-';
+    if (dateString.includes('/') && dateString.includes(':')) return dateString;
+
+    try {
+      const d = new Date(dateString);
+      if (isNaN(d.getTime())) {
+        const parts = dateString.split('T')[0].split('-');
+        if (parts.length >= 3) return `${parts[2].substring(0,2)}/${parts[1]}/${parts[0]}`;
+        return dateString;
+      }
+      
+      if (!dateString.includes('T') && !dateString.includes(' ') && !dateString.includes(':')) {
+        const parts = dateString.split('-');
+        if (parts.length >= 3) return `${parts[2].substring(0,2)}/${parts[1]}/${parts[0]}`;
+      }
+      
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      
+      return `${day}/${month}/${year} ${hours}:${minutes}`;
+    } catch {
+      return dateString;
     }
   };
 
@@ -166,6 +198,7 @@ export function HSScannerView({
         checklistItems={allChecklistItems.length > 0 ? allChecklistItems : checklistItems}
         selectedObject={selectedObject}
         onSelectObject={onSelectQR}
+        onViewCertificate={onViewCertificate}
       />
 
       {/* Flujo de Inicio de Inspección */}
@@ -220,7 +253,7 @@ export function HSScannerView({
                   </div>
                   <div>
                     <span className="text-text-muted font-bold block mb-1">Última Inspección:</span>
-                    <span className="text-text-main">{selectedObject.lastInspectedAt || 'Sin registros'}</span>
+                    <span className="text-text-main">{selectedObject.lastInspectedAt ? formatDate(selectedObject.lastInspectedAt) : 'Sin registros'}</span>
                   </div>
                   <div>
                     <span className="text-text-muted font-bold block mb-1">Estado Actual:</span>
