@@ -61,7 +61,7 @@ export function QRScannerSimulator({ objects, selectedObject, onSelectQR }: QRSc
               Escanear o Identificar Equipo
             </h4>
             <p className="text-[11px] text-text-muted">
-              Escanee con la cámara de su celular o ingrese el código QR del extintor/botiquín
+              Escanee con la cámara de su celular o ingrese el código QR
             </p>
           </div>
         </div>
@@ -127,8 +127,8 @@ export function QRScannerSimulator({ objects, selectedObject, onSelectQR }: QRSc
                 type="button"
                 onClick={() => handleQuickSelect(obj.qrCode)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all whitespace-nowrap cursor-pointer ${isSelected
-                    ? 'bg-primary text-white shadow-xs'
-                    : 'bg-bg text-text-muted hover:text-text-main border border-border'
+                  ? 'bg-primary text-white shadow-xs'
+                  : 'bg-bg text-text-muted hover:text-text-main border border-border'
                   }`}
               >
                 {obj.qrCode} ({obj.typeName})

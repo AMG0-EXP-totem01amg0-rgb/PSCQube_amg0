@@ -152,7 +152,7 @@ export function useHSModule() {
             sectorName: matchedObj?.sector_name || '',
             operatorDni: i.operator_dni || '',
             operatorName: i.operator_name || '',
-            date: i.created_at ? new Date(i.created_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : '',
+            date: i.created_at || '',
             overallResult: (i.resulting_status || 'HABILITADO'),
             comments: i.comments || '',
             actionPlanGenerated: i.resulting_status === 'NO HABILITADO' || i.resulting_status === 'NO_CONFORME_CRITICA',
@@ -222,7 +222,7 @@ export function useHSModule() {
       if (latestInspection) {
         const isOk = latestInspection.overallResult === 'HABILITADO' || latestInspection.overallResult === 'CONFORME';
         computedStatus = isOk ? 'OK' : 'NO_OK';
-        lastInspectedAt = latestInspection.date.substring(0, 10);
+        lastInspectedAt = latestInspection.date;
         lastInspectedBy = latestInspection.operatorName;
         const failedAnswer = latestInspection.answers.find(a => a.status === 'NO_OK');
         observations = failedAnswer?.observation || latestInspection.comments;
@@ -230,13 +230,17 @@ export function useHSModule() {
 
       let baseDate = Date.now();
       if (lastInspectedAt) {
-        // lastInspectedAt está en formato DD/MM/YYYY debido a toLocaleString('es-AR')
-        const parts = lastInspectedAt.split('/');
-        if (parts.length === 3) {
-          const day = parseInt(parts[0], 10);
-          const month = parseInt(parts[1], 10) - 1;
-          const year = parseInt(parts[2], 10);
-          baseDate = new Date(year, month, day).getTime();
+        const parsedDate = new Date(lastInspectedAt);
+        if (!isNaN(parsedDate.getTime())) {
+          baseDate = parsedDate.getTime();
+        } else {
+          const parts = lastInspectedAt.split('/');
+          if (parts.length >= 3) {
+            const day = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1;
+            const year = parseInt(parts[2].substring(0, 4), 10);
+            baseDate = new Date(year, month, day).getTime();
+          }
         }
       }
       

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Filter, ChevronLeft, ChevronRight, Eye, AlertTriangle, CheckCircle2, RefreshCw, Share2, Check } from 'lucide-react';
+import { Filter, ChevronLeft, ChevronRight, Eye, AlertTriangle, CheckCircle2, RefreshCw, Share2, Check, History } from 'lucide-react';
 import { HSObject, HSInspection, HSChecklistItem } from '../types';
 
 interface ScheduledInspectionsFilterProps {
@@ -8,6 +8,7 @@ interface ScheduledInspectionsFilterProps {
   checklistItems?: HSChecklistItem[];
   selectedObject: HSObject | null;
   onSelectObject: (qrCode: string) => void;
+  onViewCertificate?: (inspectionId: string) => void;
 }
 
 export function ScheduledInspectionsFilter({
@@ -15,7 +16,8 @@ export function ScheduledInspectionsFilter({
   inspections = [],
   checklistItems = [],
   selectedObject,
-  onSelectObject
+  onSelectObject,
+  onViewCertificate
 }: ScheduledInspectionsFilterProps) {
   const [selectedSector, setSelectedSector] = useState<string>('');
   const [selectedInspector, setSelectedInspector] = useState<string>('');
@@ -23,6 +25,8 @@ export function ScheduledInspectionsFilter({
   const [selectedStatus, setSelectedStatus] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [modalObject, setModalObject] = useState<HSObject | null>(null);
+  const [historyObject, setHistoryObject] = useState<HSObject | null>(null);
+  const [selectedInspectionId, setSelectedInspectionId] = useState<string | null>(null);
   const [isSharedView, setIsSharedView] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [isCopied, setIsCopied] = useState(false);
@@ -32,18 +36,7 @@ export function ScheduledInspectionsFilter({
     if (!modalObject) return;
     const shareUrl = `${window.location.origin}${window.location.pathname}?inspection=${modalObject.id}`;
 
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `Inspección - ${modalObject.name}`,
-          text: `Resumen de inspección para ${modalObject.name} (${modalObject.qrCode}) - Estado: ${modalObject.status === 'OK' ? 'HABILITADO' : 'NO HABILITADO'}`,
-          url: shareUrl,
-        });
-        return;
-      } catch (err) {
-        // User cancelled or share failed, fallback to clipboard
-      }
-    }
+
 
     try {
       await navigator.clipboard.writeText(shareUrl);
@@ -70,14 +63,34 @@ export function ScheduledInspectionsFilter({
     }
   }, [objects]);
 
-  // FUNCIÓN PARA FORMATEAR FECHA A DD/MM/AAAA
+  // FUNCIÓN PARA FORMATEAR FECHA A DD/MM/AAAA HH:mm
   const formatDate = (dateString?: string) => {
     if (!dateString) return '-';
-    const parts = dateString.split('-');
-    if (parts.length === 3) {
-      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    if (dateString.includes('/') && dateString.includes(':')) return dateString;
+
+    try {
+      const d = new Date(dateString);
+      if (isNaN(d.getTime())) {
+        const parts = dateString.split('T')[0].split('-');
+        if (parts.length >= 3) return `${parts[2].substring(0, 2)}/${parts[1]}/${parts[0]}`;
+        return dateString;
+      }
+
+      if (!dateString.includes('T') && !dateString.includes(' ') && !dateString.includes(':')) {
+        const parts = dateString.split('-');
+        if (parts.length >= 3) return `${parts[2].substring(0, 2)}/${parts[1]}/${parts[0]}`;
+      }
+
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+
+      return `${day}/${month}/${year} ${hours}:${minutes}`;
+    } catch {
+      return dateString;
     }
-    return dateString;
   };
 
   // Cascading lists
@@ -111,7 +124,11 @@ export function ScheduledInspectionsFilter({
     if (selectedSector) result = result.filter(o => o.sectorName === selectedSector);
     if (selectedInspector) result = result.filter(o => o.lastInspectedBy === selectedInspector);
     if (selectedType) result = result.filter(o => o.typeName === selectedType);
-    if (selectedDate) result = result.filter(o => o.lastInspectedAt && o.lastInspectedAt.startsWith(selectedDate));
+    if (selectedDate) {
+      const [year, month, day] = selectedDate.split('-');
+      const formattedFilterDate = `${day}/${month}/${year}`;
+      result = result.filter(o => o.lastInspectedAt && o.lastInspectedAt.startsWith(formattedFilterDate));
+    }
     if (selectedStatus) {
       if (selectedStatus === 'OK') result = result.filter(o => o.status === 'OK');
       else if (selectedStatus === 'NO_OK') result = result.filter(o => o.status !== 'OK');
@@ -139,17 +156,20 @@ export function ScheduledInspectionsFilter({
   };
 
   // Inspección actual para el objeto del modal
-  const latestInspection = useMemo(() => {
+  const activeInspection = useMemo(() => {
+    if (selectedInspectionId) {
+      return inspections.find(i => i.id === selectedInspectionId) || null;
+    }
     if (!modalObject) return null;
     return inspections.find(i => i.objectId === modalObject.id) || null;
-  }, [modalObject, inspections]);
+  }, [modalObject, inspections, selectedInspectionId]);
 
   // Respuestas a mostrar en el modal
   const modalAnswers = useMemo(() => {
     if (!modalObject) return [];
 
-    if (latestInspection && latestInspection.answers && latestInspection.answers.length > 0) {
-      return latestInspection.answers;
+    if (activeInspection && activeInspection.answers && activeInspection.answers.length > 0) {
+      return activeInspection.answers;
     }
 
     // Fallback: Si no hay inspección previa registrada, generamos lista dinámica con los checklist items del objeto
@@ -189,7 +209,7 @@ export function ScheduledInspectionsFilter({
         isCriticalFinding: item.isCritical
       };
     });
-  }, [modalObject, latestInspection, checklistItems]);
+  }, [modalObject, activeInspection, checklistItems]);
 
   return (
     <div className="space-y-4">
@@ -307,7 +327,7 @@ export function ScheduledInspectionsFilter({
           <table className="w-full text-left text-xs whitespace-nowrap">
             <thead className="bg-bg text-[10px] uppercase text-text-muted font-bold border-b border-border">
               <tr>
-                <th className="px-4 py-3">FECHA INSP.</th>
+                <th className="px-4 py-3">FECHA INSP/ HS.</th>
                 <th className="px-4 py-3">PUNTO DE INSPECCIÓN</th>
                 <th className="px-4 py-3">SECTOR</th>
                 <th className="px-4 py-3">INSPECTOR</th>
@@ -322,7 +342,7 @@ export function ScheduledInspectionsFilter({
                     key={obj.id}
                     className={`transition-colors ${selectedObject?.id === obj.id ? 'bg-primary/5' : 'hover:bg-bg/50'}`}
                   >
-                    <td className="px-4 py-3 font-mono text-text-muted">{obj.lastInspectedAt || '-'}</td>
+                    <td className="px-4 py-3 font-mono text-text-muted">{obj.lastInspectedAt ? formatDate(obj.lastInspectedAt) : '-'}</td>
                     <td className="px-4 py-3 font-bold text-text-main flex items-center gap-2">
                       <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-bg border border-border text-text-muted">
                         {obj.qrCode}
@@ -332,9 +352,17 @@ export function ScheduledInspectionsFilter({
                     <td className="px-4 py-3 text-text-muted">{obj.sectorName}</td>
                     <td className="px-4 py-3 text-text-muted">{obj.lastInspectedBy || '-'}</td>
                     <td className="px-4 py-3">{getStatusBadge(obj.status)}</td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-4 py-3 flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => setHistoryObject(obj)}
+                        className={`p-1.5 rounded-lg transition-colors cursor-pointer bg-amber-500/10 text-amber-500 hover:bg-amber-500/20`}
+                        title="Ver historial de inspecciones"
+                      >
+                        <History size={16} />
+                      </button>
                       <button
                         onClick={() => {
+                          setSelectedInspectionId(null);
                           setIsSharedView(false);
                           setModalObject(obj);
                         }}
@@ -405,85 +433,82 @@ export function ScheduledInspectionsFilter({
 
           {/* VISTA EN PANTALLA (Modal Interactivo - Vista Rápida) */}
           {!isSharedView && (
-          <div className="bg-surface border border-border w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden my-8 p-6 space-y-4 no-print">
+            <div className="bg-surface border border-border w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden my-8 p-6 space-y-4 no-print">
 
-            {/* Cabecera */}
-            <div className="flex justify-between items-center border-b border-border pb-3">
-              <div>
-                <span className="text-[10px] font-mono font-bold text-primary">
-                  {latestInspection ? latestInspection.id.toUpperCase() : `INSP-${modalObject.qrCode}`}
-                </span>
-                <h3 className="text-base font-bold text-text-main">{modalObject.name} ({modalObject.typeName})</h3>
+              {/* Cabecera */}
+              <div className="flex justify-between items-center border-b border-border pb-3">
+                <div>
+                  <span className="text-[10px] font-mono font-bold text-primary">
+                    {activeInspection ? activeInspection.id.toUpperCase() : `INSP-${modalObject.qrCode}`}
+                  </span>
+                  <h3 className="text-base font-bold text-text-main">{modalObject.name} ({modalObject.typeName})</h3>
+                </div>
+                <button
+                  onClick={() => { setModalObject(null); setIsSharedView(false); }}
+                  className="text-text-muted hover:text-text-main font-bold p-1 cursor-pointer"
+                >
+                  ✕
+                </button>
               </div>
-              <button
-                onClick={() => { setModalObject(null); setIsSharedView(false); }}
-                className="text-text-muted hover:text-text-main font-bold p-1 cursor-pointer"
-              >
-                ✕
-              </button>
+
+              {/* Datos Principales */}
+              <div className="grid grid-cols-2 gap-3 text-xs bg-bg/40 p-3 rounded-xl border border-border">
+                <div>
+                  <strong className="text-text-muted">Área/Sector:</strong>
+                  <p className="font-semibold text-text-main">{modalObject.sectorName}</p>
+                </div>
+                <div>
+                  <strong className="text-text-muted">Inspector:</strong>
+                  <p className="font-semibold text-text-main">{activeInspection?.operatorName || modalObject.lastInspectedBy || '-'}</p>
+                </div>
+                <div>
+                  <strong className="text-text-muted">Fecha/Hora:</strong>
+                  <p className="font-semibold text-text-main">{formatDate(activeInspection ? activeInspection.date : modalObject.lastInspectedAt)}</p>
+                </div>
+                <div>
+                  <strong className="text-text-muted">Estado:</strong>
+                  <p className={`font-black ${activeInspection ? (activeInspection.overallResult === 'HABILITADO' || activeInspection.overallResult === 'CONFORME' ? 'text-emerald-500' : 'text-rose-500') : (modalObject.status === 'OK' ? 'text-emerald-500' : 'text-rose-500')}`}>
+                    {activeInspection ? (activeInspection.overallResult === 'HABILITADO' || activeInspection.overallResult === 'CONFORME' ? 'HABILITADO' : 'NO HABILITADO') : (modalObject.status === 'OK' ? 'HABILITADO' : 'NO HABILITADO')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Bloque Final de Firma del Inspector */}
+              <div className="pt-3 border-t border-border flex items-center justify-between text-[11px] text-text-muted">
+                <div>
+                  <span className="font-bold text-text-main block text-[10px] uppercase tracking-wider">FIRMA / VALIDACIÓN DEL INSPECTOR</span>
+                  <p className="font-serif italic text-text-main text-xs mt-0.5">
+                    {activeInspection?.operatorName || modalObject.lastInspectedBy || 'Operario de Planta'}
+                  </p>
+                </div>
+                <div className="text-right">
+                </div>
+              </div>
+
+              {/* Pie del Modal */}
+              <div className="pt-3 border-t border-border flex justify-between items-center">
+                <button
+                  type="button"
+                  onClick={handleShare}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs rounded-lg font-bold transition-all cursor-pointer ${isCopied
+                    ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/30'
+                    : 'bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20'
+                    }`}
+                >
+                  {isCopied ? <Check size={14} /> : <Share2 size={14} />}
+                  <span>{isCopied ? '¡Enlace Copiado!' : 'Compartir'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setModalObject(null); setIsSharedView(false); }}
+                  className="px-4 py-1.5 text-xs bg-bg border border-border rounded-lg font-bold text-text-main hover:bg-surface cursor-pointer"
+                >
+                  Cerrar
+                </button>
+              </div>
+
             </div>
-
-            {/* Datos Principales */}
-            <div className="grid grid-cols-2 gap-3 text-xs bg-bg/40 p-3 rounded-xl border border-border">
-              <div>
-                <strong className="text-text-muted">Área/Sector:</strong>
-                <p className="font-semibold text-text-main">{modalObject.sectorName}</p>
-              </div>
-              <div>
-                <strong className="text-text-muted">Inspector:</strong>
-                <p className="font-semibold text-text-main">{modalObject.lastInspectedBy || latestInspection?.operatorName || '-'}</p>
-              </div>
-              <div>
-                <strong className="text-text-muted">Fecha:</strong>
-                <p className="font-semibold text-text-main">{formatDate(modalObject.lastInspectedAt)}</p>
-              </div>
-              <div>
-                <strong className="text-text-muted">Estado:</strong>
-                <p className={`font-black ${modalObject.status === 'OK' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                  {modalObject.status === 'OK' ? 'HABILITADO' : 'NO HABILITADO'}
-                </p>
-              </div>
-            </div>
-
-            {/* Bloque Final de Firma del Inspector */}
-            <div className="pt-3 border-t border-border flex items-center justify-between text-[11px] text-text-muted">
-              <div>
-                <span className="font-bold text-text-main block text-[10px] uppercase tracking-wider">FIRMA / VALIDACIÓN DIGITAL INSPECTOR:</span>
-                <p className="font-serif italic text-text-main text-xs mt-0.5">
-                  {modalObject.lastInspectedBy || latestInspection?.operatorName || 'Operario de Planta'}
-                </p>
-              </div>
-              <div className="text-right">
-                <span className="font-mono text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20">
-                  VERIFICADO • HOLCIM
-                </span>
-              </div>
-            </div>
-
-            {/* Pie del Modal */}
-            <div className="pt-3 border-t border-border flex justify-between items-center">
-              <button
-                type="button"
-                onClick={handleShare}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs rounded-lg font-bold transition-all cursor-pointer ${isCopied
-                  ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/30'
-                  : 'bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20'
-                  }`}
-              >
-                {isCopied ? <Check size={14} /> : <Share2 size={14} />}
-                <span>{isCopied ? '¡Enlace Copiado!' : 'Compartir'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setModalObject(null); setIsSharedView(false); }}
-                className="px-4 py-1.5 text-xs bg-bg border border-border rounded-lg font-bold text-text-main hover:bg-surface cursor-pointer"
-              >
-                Cerrar
-              </button>
-            </div>
-
-          </div>
           )}
 
           {/* VISTA PARA IMPRESIÓN OFICIAL / VISTA COMPARTIDA */}
@@ -496,13 +521,13 @@ export function ScheduledInspectionsFilter({
                 ✕ Cerrar
               </button>
             )}
-            
+
             {isSharedView && (
               <div className="bg-[#002244] -mx-8 -mt-8 mb-6 p-6 rounded-t-2xl flex justify-between items-center">
                 <h1 className="text-white font-bold text-xl tracking-wide uppercase">CERTIFICADO DE INSPECCIÓN PROGRAMADA</h1>
               </div>
             )}
-            
+
             <div className="flex justify-between items-start border-b-2 border-gray-300 pb-4">
               <div>
                 <p className="font-bold text-sm text-black">Holcim (Argentina) S.A.</p>
@@ -517,20 +542,20 @@ export function ScheduledInspectionsFilter({
             <div className="border-2 border-black divide-y-2 divide-black">
               <div className="grid grid-cols-2 divide-x-2 divide-black p-2 bg-gray-50">
                 <div className="space-y-1">
-                  <p><strong>IDINSPECCIÓN:</strong> {latestInspection ? latestInspection.id : `INSP-${modalObject.qrCode}`}</p>
+                  <p><strong>IDINSPECCIÓN:</strong> {activeInspection ? activeInspection.id : `INSP-${modalObject.qrCode}`}</p>
                   <p><strong>N° ACTIVO / QR:</strong> {modalObject.qrCode}</p>
                 </div>
                 <div className="space-y-1 pl-2">
-                  <p><strong>FECHA:</strong> {formatDate(modalObject.lastInspectedAt)}</p>
+                  <p><strong>FECHA:</strong> {formatDate(activeInspection ? activeInspection.date : modalObject.lastInspectedAt)}</p>
                   <p><strong>CENTRO:</strong> MALAGUEÑO</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 divide-x-2 divide-black p-2 bg-gray-50">
                 <div className="space-y-1">
-                  <p><strong>INSPECTOR:</strong> {modalObject.lastInspectedBy || latestInspection?.operatorName || 'OPERARIO PLANTA'}</p>
+                  <p><strong>INSPECTOR:</strong> {activeInspection?.operatorName || modalObject.lastInspectedBy || 'OPERARIO PLANTA'}</p>
                   <p><strong>TIPO DE INSPECCIÓN:</strong> {modalObject.typeName}</p>
-                  <p><strong>ESTADO FINAL:</strong> {modalObject.status === 'OK' ? 'HABILITADO ✅' : 'NO HABILITADO ❌'}</p>
+                  <p><strong>ESTADO FINAL:</strong> {activeInspection ? (activeInspection.overallResult === 'HABILITADO' || activeInspection.overallResult === 'CONFORME' ? 'HABILITADO ✅' : 'NO HABILITADO ❌') : (modalObject.status === 'OK' ? 'HABILITADO ✅' : 'NO HABILITADO ❌')}</p>
                 </div>
                 <div className="space-y-1 pl-2">
                   <p><strong>PUNTO DE INSPECCIÓN:</strong> {modalObject.name}</p>
@@ -561,14 +586,14 @@ export function ScheduledInspectionsFilter({
                         <td className={`p-2 font-bold ${isNoOk ? 'text-rose-700' : 'text-emerald-700'}`}>
                           {isNoOk ? (
                             <div className="space-y-1">
-                              <p>MALO ❌</p>
+                              <p>MALO </p>
                               <p className="text-[10px] text-black font-normal"><strong>Hallazgo:</strong> {ans.observation || '-'}</p>
                               {ans.isCriticalFinding && (
                                 <p className="text-[10px] text-black font-normal"><strong>Plan de Acción:</strong> {ans.actionPlan || '-'}</p>
                               )}
                             </div>
                           ) : (
-                            'BIEN ✅'
+                            'BIEN '
                           )}
                         </td>
                       </tr>
@@ -586,6 +611,104 @@ export function ScheduledInspectionsFilter({
             </div>
           </div>
 
+        </div>
+      )}
+      {/* MODAL DE HISTORIAL DE INSPECCIONES */}
+      {historyObject && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-surface border border-border w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden my-8 p-6 space-y-4">
+            <div className="flex justify-between items-center border-b border-border pb-3">
+              <div>
+                <h3 className="text-base font-bold text-text-main flex items-center gap-2">
+                  <History size={18} className="text-amber-500" /> Historial de Inspecciones
+                </h3>
+                <p className="text-xs text-text-muted mt-0.5">
+                  <strong className="text-primary">{historyObject.name}</strong> ({historyObject.qrCode}) - {historyObject.typeName}
+                </p>
+              </div>
+              <button
+                onClick={() => setHistoryObject(null)}
+                className="text-text-muted hover:text-text-main font-bold p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="max-h-[60vh] overflow-y-auto rounded-xl border border-border bg-bg/50">
+              <table className="w-full text-left text-xs whitespace-nowrap">
+                <thead className="bg-bg text-[10px] uppercase text-text-muted font-bold border-b border-border sticky top-0">
+                  <tr>
+                    <th className="px-4 py-3">FECHA Y HORA</th>
+                    <th className="px-4 py-3">INSPECTOR</th>
+                    <th className="px-4 py-3">RESULTADO GENERAL</th>
+                    <th className="px-4 py-3">DETALLE INSPECCIÓN</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {(() => {
+                    const objInspections = inspections.filter(i => i.objectId === historyObject.id);
+                    if (objInspections.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={4} className="px-4 py-8 text-center text-text-muted">
+                            No hay inspecciones registradas para este activo.
+                          </td>
+                        </tr>
+                      );
+                    }
+                    return objInspections.map(insp => {
+                      const isOk = insp.overallResult === 'HABILITADO' || insp.overallResult === 'CONFORME';
+                      const statusDisplay = isOk ? 'HABILITADO' : 'NO HABILITADO';
+                      return (
+                        <tr
+                          key={insp.id}
+                          className="hover:bg-bg transition-colors cursor-pointer"
+                          title="Clic para ver detalle de la inspección"
+                          onClick={() => {
+                            if (onViewCertificate) {
+                              onViewCertificate(insp.id);
+                            } else {
+                              setSelectedInspectionId(insp.id);
+                              setModalObject(historyObject);
+                              setIsSharedView(false);
+                              setHistoryObject(null);
+                            }
+                          }}
+                        >
+                          <td className="px-4 py-3 font-mono text-text-muted">{formatDate(insp.date)}</td>
+                          <td className="px-4 py-3 font-medium text-text-main">{insp.operatorName || '-'}</td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex px-2 py-1 rounded text-[10px] font-bold ${isOk
+                              ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                              : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'
+                              }`}>
+                              {isOk ? '✅ ' : '❌ '}
+                              {statusDisplay}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="text-[10px] text-text-muted truncate max-w-xs" title={insp.comments}>
+                              {insp.comments || 'Ver detalle de la inspección...'}
+                            </p>
+                          </td>
+                        </tr>
+                      )
+                    });
+                  })()}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="pt-3 border-t border-border flex justify-end">
+              <button
+                type="button"
+                onClick={() => setHistoryObject(null)}
+                className="px-5 py-1.5 text-xs bg-bg border border-border rounded-lg font-bold text-text-main hover:bg-surface cursor-pointer transition-colors"
+              >
+                Cerrar Historial
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

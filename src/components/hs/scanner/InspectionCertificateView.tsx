@@ -19,38 +19,68 @@ export function InspectionCertificateView({
 }: InspectionCertificateViewProps) {
   const [isCopied, setIsCopied] = useState(false);
 
-  // Buscar objeto por id o qrCode
+  // 1. Buscar si el inspectionParam es un ID directo de inspección
+  const targetInspection = useMemo(() => {
+    if (!inspectionParam) return null;
+    return inspections.find(i => i.id === inspectionParam) || null;
+  }, [inspectionParam, inspections]);
+
+  // 2. Buscar objeto por id de inspección, o por id/qrCode si se pasó el objeto
   const targetObject = useMemo(() => {
+    if (targetInspection) {
+      return objects.find(o => o.id === targetInspection.objectId) || null;
+    }
     if (!inspectionParam) return null;
     const cleanParam = inspectionParam.trim().toUpperCase();
     return objects.find(
       o => o.id.toUpperCase() === cleanParam ||
         o.qrCode.toUpperCase().trim() === cleanParam
-    ) || objects[0] || null;
-  }, [inspectionParam, objects]);
+    ) || null;
+  }, [inspectionParam, objects, targetInspection]);
 
-  // Buscar inspección asociada
-  const latestInspection = useMemo(() => {
+  // 3. Inspección activa a mostrar
+  const activeInspection = useMemo(() => {
+    if (targetInspection) return targetInspection;
     if (!targetObject) return null;
     return inspections.find(i => i.objectId === targetObject.id) || null;
-  }, [targetObject, inspections]);
+  }, [targetInspection, targetObject, inspections]);
 
-  // Formateador de fecha DD/MM/AAAA
+  // Formateador de fecha DD/MM/AAAA HH:mm
   const formatDate = (dateString?: string) => {
     if (!dateString) return '-';
-    const parts = dateString.split('-');
-    if (parts.length === 3) {
-      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    if (dateString.includes('/') && dateString.includes(':')) return dateString;
+
+    try {
+      const d = new Date(dateString);
+      if (isNaN(d.getTime())) {
+        const parts = dateString.split('T')[0].split('-');
+        if (parts.length >= 3) return `${parts[2].substring(0,2)}/${parts[1]}/${parts[0]}`;
+        return dateString;
+      }
+      
+      if (!dateString.includes('T') && !dateString.includes(' ') && !dateString.includes(':')) {
+        const parts = dateString.split('-');
+        if (parts.length >= 3) return `${parts[2].substring(0,2)}/${parts[1]}/${parts[0]}`;
+      }
+      
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      
+      return `${day}/${month}/${year} ${hours}:${minutes}`;
+    } catch {
+      return dateString;
     }
-    return dateString;
   };
 
   // Respuestas del checklist
   const answersList = useMemo(() => {
     if (!targetObject) return [];
 
-    if (latestInspection && latestInspection.answers && latestInspection.answers.length > 0) {
-      return latestInspection.answers;
+    if (activeInspection && activeInspection.answers && activeInspection.answers.length > 0) {
+      return activeInspection.answers;
     }
 
     const relevantItems = checklistItems.filter(c => c.objectTypeId === targetObject.typeId);
@@ -87,7 +117,7 @@ export function InspectionCertificateView({
         isCriticalFinding: item.isCritical
       };
     });
-  }, [targetObject, latestInspection, checklistItems]);
+  }, [targetObject, activeInspection, checklistItems]);
 
   const isHabilitado = targetObject?.status === 'OK';
   const hasFailedAnswers = answersList.some(a => a.status === 'NO_OK');
@@ -103,9 +133,18 @@ export function InspectionCertificateView({
     }
   };
 
+  if (objects.length === 0 || inspections.length === 0) {
+    return (
+      <div className="w-full flex flex-col items-center justify-center p-12 space-y-4">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-sm font-medium text-slate-500">Cargando certificado...</p>
+      </div>
+    );
+  }
+
   if (!targetObject) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+      <div className="w-full flex items-center justify-center p-8">
         <div className="bg-white p-8 rounded-2xl max-w-md w-full text-center space-y-4 shadow-2xl">
           <AlertTriangle size={48} className="mx-auto text-amber-500" />
           <h2 className="text-lg font-bold text-slate-800">Inspección no encontrada</h2>
@@ -124,7 +163,7 @@ export function InspectionCertificateView({
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 py-6 px-4 font-sans text-slate-800 animate-fade-in">
+    <div className="w-full font-sans text-slate-800 animate-fade-in py-6">
       <style>{`
         @media print {
           .no-print { display: none !important; }
@@ -140,25 +179,16 @@ export function InspectionCertificateView({
       `}</style>
 
       {/* Barra Superior Flotante de Acciones */}
-      <div className="max-w-4xl mx-auto mb-4 flex items-center justify-between no-print bg-slate-800/90 border border-slate-700/80 p-3 rounded-2xl shadow-lg backdrop-blur-md">
+      <div className="max-w-4xl mx-auto mb-6 flex items-center justify-between no-print bg-surface border border-border p-3 rounded-2xl shadow-xs">
         <button
           onClick={onClose}
-          className="flex items-center gap-2 px-3.5 py-2 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold transition-all cursor-pointer"
+          className="flex items-center gap-2 px-4 py-2 text-xs bg-bg hover:bg-surface border border-border text-text-main rounded-xl font-bold transition-all cursor-pointer"
         >
           <ArrowLeft size={16} /> Volver al Sistema
         </button>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleCopyLink}
-            className={`flex items-center gap-1.5 px-3.5 py-2 text-xs rounded-xl font-bold transition-all cursor-pointer ${isCopied
-              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-              : 'bg-slate-700 hover:bg-slate-600 text-white'
-              }`}
-          >
-            {isCopied ? <Check size={14} /> : <Share2 size={14} />}
-            <span>{isCopied ? '¡Enlace Copiado!' : 'Copiar Enlace'}</span>
-          </button>
+
 
           <button
             onClick={() => window.print()}
@@ -178,9 +208,7 @@ export function InspectionCertificateView({
         <div className="bg-blue-900 text-white p-6 border-b-4 border-blue-600 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="bg-emerald-500 text-white font-black text-xs px-2 py-0.5 rounded tracking-widest">
-                HOLCIM
-              </span>
+
               <span className="text-xs text-blue-200 font-semibold tracking-wide">
                 Holcim (Argentina) S.A.
               </span>
@@ -198,7 +226,7 @@ export function InspectionCertificateView({
               N° Certificado / ID
             </span>
             <span className="font-mono text-sm font-black bg-blue-950/60 text-blue-100 px-3 py-1 rounded-lg border border-blue-700/60 inline-block mt-0.5">
-              {latestInspection ? latestInspection.id.toUpperCase() : `INSP-${targetObject.qrCode}`}
+              {activeInspection ? activeInspection.id.toUpperCase() : `INSP-${targetObject.qrCode}`}
             </span>
           </div>
         </div>
@@ -234,24 +262,32 @@ export function InspectionCertificateView({
 
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Inspector Responsable</span>
-                <p className="font-bold text-slate-900 mt-0.5">{targetObject.lastInspectedBy || latestInspection?.operatorName || 'Operario de Planta'}</p>
+                <p className="font-bold text-slate-900 mt-0.5">{targetObject.lastInspectedBy || activeInspection?.operatorName || 'Operario de Planta'}</p>
               </div>
 
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Fecha de Inspección</span>
-                <p className="font-bold text-slate-900 mt-0.5">{formatDate(targetObject.lastInspectedAt)}</p>
+                <p className="font-bold text-slate-900 mt-0.5">{formatDate(activeInspection ? activeInspection.date : targetObject.lastInspectedAt)}</p>
               </div>
 
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-col justify-center">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Estado de Habilitación</span>
                 <div className="mt-1">
-                  {isHabilitado ? (
+                  {activeInspection ? (activeInspection.overallResult === 'HABILITADO' || activeInspection.overallResult === 'CONFORME' ? (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
-                      HABILITADO ✅
+                      HABILITADO
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-800 border border-rose-300">
-                      NO HABILITADO ❌
+                      NO HABILITADO
+                    </span>
+                  )) : isHabilitado ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      HABILITADO
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-800 border border-rose-300">
+                      NO HABILITADO
                     </span>
                   )}
                 </div>
@@ -292,11 +328,11 @@ export function InspectionCertificateView({
                         <td className="p-3 text-center">
                           {isNoOk ? (
                             <span className="inline-block px-3 py-1 rounded-lg text-xs font-bold bg-rose-600 text-white shadow-xs">
-                              MALO ❌
+                              MALO
                             </span>
                           ) : (
                             <span className="inline-block px-3 py-1 rounded-lg text-xs font-bold bg-emerald-600 text-white shadow-xs">
-                              BIEN ✅
+                              BIEN
                             </span>
                           )}
                         </td>
@@ -309,7 +345,7 @@ export function InspectionCertificateView({
           </div>
 
           {/* DETALLE DEL HALLAZGO Y PLAN DE ACCIÓN (Si hay items NO OK o NO HABILITADO) */}
-          {(hasFailedAnswers || !isHabilitado) && (
+          {(hasFailedAnswers || (activeInspection && activeInspection.overallResult !== 'HABILITADO' && activeInspection.overallResult !== 'CONFORME') || (!activeInspection && !isHabilitado)) && (
             <div className="space-y-3">
               <h3 className="text-xs font-black uppercase tracking-wider text-rose-800 border-b border-rose-200 pb-1">
                 3. Hallazgos y Plan de Acción Requerido
@@ -356,7 +392,7 @@ export function InspectionCertificateView({
           <div className="pt-6 border-t-2 border-slate-300 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
             <div className="space-y-1">
               <div className="w-56 border-b-2 border-slate-800 pb-1 font-serif italic text-base text-slate-900 font-bold">
-                {targetObject.lastInspectedBy || latestInspection?.operatorName || 'Operario de Planta'}
+                {activeInspection?.operatorName || targetObject.lastInspectedBy || 'Operario de Planta'}
               </div>
               <p className="text-[10px] font-black uppercase tracking-wider text-slate-600">
                 FIRMA / VALIDACIÓN DEL INSPECTOR
@@ -367,10 +403,7 @@ export function InspectionCertificateView({
             </div>
 
             <div className="text-left sm:text-right space-y-1">
-              <div className="inline-flex items-center gap-1.5 bg-blue-50 border border-blue-200 text-blue-800 px-3 py-1.5 rounded-xl font-mono text-[10px] font-bold">
-                <ShieldCheck size={14} className="text-blue-700" />
-                <span>CERTIFICADO VERIFICADO • HOLCIM</span>
-              </div>
+
             </div>
           </div>
 
