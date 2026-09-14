@@ -58,7 +58,8 @@ export default function HSModuleView({ currentUser, isDark, addToast }: HSModule
     addChecklistModel,
     deleteChecklistModel,
     migrateOrphanedItems,
-    updateActionPlanStatus
+    updateActionPlanStatus,
+    isLoading
   } = useHSModule();
 
   const activeActionPlansCount = actionPlans.filter(p => p.status === 'OPEN' || p.status === 'IN_PROGRESS').length;
@@ -70,6 +71,7 @@ export default function HSModuleView({ currentUser, isDark, addToast }: HSModule
         objects={objects}
         inspections={inspections}
         checklistItems={checklistItems}
+        isLoading={isLoading}
         onClose={() => {
           window.history.pushState({}, '', window.location.pathname);
           setSharedInspectionParam(null);

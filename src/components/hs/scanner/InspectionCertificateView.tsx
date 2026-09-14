@@ -9,6 +9,7 @@ interface InspectionCertificateViewProps {
   checklistItems: HSChecklistItem[];
   onClose: () => void;
   onNewInspectionRequest?: () => void;
+  isLoading?: boolean;
 }
 
 export function InspectionCertificateView({
@@ -17,7 +18,8 @@ export function InspectionCertificateView({
   inspections,
   checklistItems,
   onClose,
-  onNewInspectionRequest
+  onNewInspectionRequest,
+  isLoading
 }: InspectionCertificateViewProps) {
   const [isCopied, setIsCopied] = useState(false);
 
@@ -135,7 +137,9 @@ export function InspectionCertificateView({
     }
   };
 
-  if (objects.length === 0 || inspections.length === 0) {
+  const isDataLoading = isLoading !== undefined ? isLoading : (objects.length === 0 && inspections.length === 0);
+
+  if (isDataLoading) {
     return (
       <div className="w-full flex flex-col items-center justify-center p-12 space-y-4">
         <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>

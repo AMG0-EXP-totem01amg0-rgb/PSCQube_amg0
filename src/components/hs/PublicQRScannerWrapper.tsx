@@ -21,7 +21,8 @@ export function PublicQRScannerWrapper({ inspectionId, addToast }: PublicQRScann
     checklistItems,
     selectedObject,
     selectObjectByQR,
-    submitInspection
+    submitInspection,
+    isLoading
   } = useHSModule();
 
   const handleNewInspectionClick = () => {
@@ -74,6 +75,7 @@ export function PublicQRScannerWrapper({ inspectionId, addToast }: PublicQRScann
             objects={objects}
             inspections={inspections}
             checklistItems={checklistItems}
+            isLoading={isLoading}
             onClose={() => {
               window.location.href = window.location.pathname;
             }}
