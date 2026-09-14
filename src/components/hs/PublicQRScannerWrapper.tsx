@@ -114,16 +114,16 @@ export function PublicQRScannerWrapper({ inspectionId, addToast }: PublicQRScann
                inspections={inspections}
                checklistItems={checklistItems}
                onSelectQR={selectObjectByQR}
-               onSubmitInspection={submitInspection}
+               onSubmitInspection={async (data) => {
+                 await submitInspection(data);
+                 addToast("Inspección registrada con éxito.", "success");
+                 setStep('SUMMARY');
+               }}
                onClearSelection={() => setStep('SUMMARY')}
                pendingChecklistQr={sessionStorage.getItem('pending_checklist_qr')}
                addToast={addToast}
                onPendingChecklistHandled={() => {
                   sessionStorage.removeItem('pending_checklist_qr');
-                  addToast("Inspección registrada con éxito.", "success");
-                  // Volver al resumen (idealmente recargar o forzar re-fetch si es necesario, 
-                  // pero inspections del hook debería actualizarse vía el callback addInspection si usa context/cache)
-                  setStep('SUMMARY');
                }}
              />
            </div>
