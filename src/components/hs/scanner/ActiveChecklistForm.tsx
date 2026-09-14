@@ -159,7 +159,7 @@ export function ActiveChecklistForm({
 
         {/* Barra de Progreso */}
         <div className="space-y-2">
-          <div className="flex justify-between text-xs font-bold text-white">
+          <div className="flex justify-between text-xs font-bold text-text-main dark:text-white">
             <span>Pregunta {currentIndex + 1} de {total}</span>
             <span>{Math.round(((checklistItems.filter(ci => answers[ci.id]?.status !== 'N_A').length) / total) * 100)}% Completado</span>
           </div>
@@ -173,7 +173,7 @@ export function ActiveChecklistForm({
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Tarjeta de Pregunta Actual */}
-          <div className="p-6 rounded-2xl border border-border bg-bg/50 shadow-inner space-y-5 animate-fade-in">
+          <div className="p-6 rounded-2xl border border-border bg-black/5 dark:bg-white/5 shadow-inner space-y-5 animate-fade-in">
             <div className="flex items-start gap-4">
               <span className="shrink-0 w-8 h-8 rounded-full bg-primary text-white font-black flex items-center justify-center text-sm shadow-md">
                 {currentIndex + 1}
@@ -262,7 +262,7 @@ export function ActiveChecklistForm({
                  <button
                    type="button"
                    onClick={() => setShowGeneralComments(true)}
-                   className="w-full py-3 px-2 rounded-xl border border-dashed border-primary/40 bg-primary/5 text-white text-xs font-bold hover:bg-primary/10 transition-colors flex flex-col sm:flex-row items-center justify-center gap-2 cursor-pointer text-center whitespace-normal"
+                   className="w-full py-3 px-2 rounded-xl border border-dashed border-border bg-surface text-text-main text-xs font-bold hover:bg-bg transition-colors flex flex-col sm:flex-row items-center justify-center gap-2 cursor-pointer text-center whitespace-normal"
                  >
                    <MessageSquare size={16} /> AGREGAR OBSERVACIONES GENERALES (OPCIONAL)
                  </button>
@@ -322,7 +322,7 @@ export function ActiveChecklistForm({
                 type="button"
                 onClick={() => setCurrentIndex(prev => Math.min(total - 1, prev + 1))}
                 disabled={currentAnswer.status === 'N_A'}
-                className="px-6 py-2 bg-primary/10 text-primary hover:bg-primary/20 text-xs font-bold rounded-xl transition-colors flex items-center gap-1 disabled:opacity-40 cursor-pointer"
+                className="px-6 py-2 bg-surface border border-border text-text-main hover:bg-bg text-xs font-bold rounded-xl transition-colors flex items-center gap-1 disabled:opacity-40 cursor-pointer"
               >
                 Siguiente <ChevronRight size={16} />
               </button>

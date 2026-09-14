@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Filter, ChevronLeft, ChevronRight, Eye, AlertTriangle, CheckCircle2, RefreshCw, Share2, Check, History } from 'lucide-react';
+import { Filter, ChevronLeft, ChevronRight, ChevronDown, Eye, AlertTriangle, CheckCircle2, RefreshCw, Share2, Check, History } from 'lucide-react';
 import { HSObject, HSInspection, HSChecklistItem } from '../types';
 
 interface ScheduledInspectionsFilterProps {
@@ -9,6 +9,7 @@ interface ScheduledInspectionsFilterProps {
   selectedObject: HSObject | null;
   onSelectObject: (qrCode: string) => void;
   onViewCertificate?: (inspectionId: string) => void;
+  onNewInspectionClick?: () => void;
 }
 
 export function ScheduledInspectionsFilter({
@@ -17,7 +18,8 @@ export function ScheduledInspectionsFilter({
   checklistItems = [],
   selectedObject,
   onSelectObject,
-  onViewCertificate
+  onViewCertificate,
+  onNewInspectionClick
 }: ScheduledInspectionsFilterProps) {
   const [selectedSector, setSelectedSector] = useState<string>('');
   const [selectedInspector, setSelectedInspector] = useState<string>('');
@@ -28,9 +30,16 @@ export function ScheduledInspectionsFilter({
   const [historyObject, setHistoryObject] = useState<HSObject | null>(null);
   const [selectedInspectionId, setSelectedInspectionId] = useState<string | null>(null);
   const [isSharedView, setIsSharedView] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
   const [isCopied, setIsCopied] = useState(false);
-  const itemsPerPage = 10;
+  
+  // Estado para expansión de tipos de objetos (acordeón)
+  const [expandedTypes, setExpandedTypes] = useState<string[]>([]);
+  
+  const toggleType = (typeName: string) => {
+    setExpandedTypes(prev => 
+      prev.includes(typeName) ? prev.filter(t => t !== typeName) : [...prev, typeName]
+    );
+  };
 
   const handleShare = async () => {
     if (!modalObject) return;
@@ -115,7 +124,6 @@ export function ScheduledInspectionsFilter({
     setSelectedType('');
     setSelectedStatus('');
     setSelectedDate('');
-    setCurrentPage(1);
   };
 
   // Filter Objects
@@ -136,9 +144,10 @@ export function ScheduledInspectionsFilter({
     return result;
   }, [objects, selectedSector, selectedInspector, selectedType, selectedStatus, selectedDate]);
 
-  // Pagination
-  const totalPages = Math.ceil(filteredObjects.length / itemsPerPage);
-  const paginatedObjects = filteredObjects.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  // Derivar los tipos de objetos únicos dentro de los resultados filtrados para agrupar
+  const filteredTypes = useMemo(() => {
+    return Array.from(new Set(filteredObjects.map(o => o.typeName).filter(Boolean))) as string[];
+  }, [filteredObjects]);
 
   const getStatusBadge = (status: string) => {
     if (status === 'OK') {
@@ -172,49 +181,13 @@ export function ScheduledInspectionsFilter({
       return activeInspection.answers;
     }
 
-    // Fallback: Si no hay inspección previa registrada, generamos lista dinámica con los checklist items del objeto
-    const relevantItems = checklistItems.filter(c => c.objectTypeId === modalObject.typeId);
-
-    if (relevantItems.length > 0) {
-      return relevantItems.map(item => {
-        const isNoOk = modalObject.status !== 'OK' && item.isCritical;
-        return {
-          checklistItemId: item.id,
-          checklistItemLabel: item.label,
-          status: (isNoOk ? 'NO_OK' : 'OK') as any,
-          observation: isNoOk ? (modalObject.observations || modalObject.notes || 'Detalle del hallazgo registrado') : '',
-          actionPlan: isNoOk ? 'Plan de acción para mantenimiento y reemplazo de componentes.' : '',
-          isCriticalFinding: item.isCritical
-        };
-      });
-    }
-
-    // Fallback por defecto si tampoco hay items de checklist cargados
-    const defaultLabels = [
-      { id: 'cli-1', label: 'Acceso y visibilidad despejada', isCritical: false },
-      { id: 'cli-2', label: 'Manómetro en rango de presión correcto', isCritical: true },
-      { id: 'cli-3', label: 'Precinto y pasador de seguridad intacto', isCritical: true },
-      { id: 'cli-4', label: 'Manguera y boquilla en buen estado', isCritical: false },
-      { id: 'cli-5', label: 'Tarjeta de inspección vigente', isCritical: false }
-    ];
-
-    return defaultLabels.map((item, idx) => {
-      const isNoOk = modalObject.status !== 'OK' && idx === 1;
-      return {
-        checklistItemId: item.id,
-        checklistItemLabel: item.label,
-        status: (isNoOk ? 'NO_OK' : 'OK') as any,
-        observation: isNoOk ? (modalObject.observations || 'Manguera agrietada y manómetro fuera de presión') : '',
-        actionPlan: isNoOk ? 'Realizar el reemplazo de componentes y prueba de calibración por mantenimiento.' : '',
-        isCriticalFinding: item.isCritical
-      };
-    });
-  }, [modalObject, activeInspection, checklistItems]);
+    return [];
+  }, [modalObject, activeInspection]);
 
   return (
     <div className="space-y-4">
       {/* Panel de Filtros */}
-      <div className="p-4 rounded-2xl border border-white/10 bg-surface/50 backdrop-blur-md shadow-lg space-y-4">
+      <div className="p-4 rounded-2xl border border-border bg-surface shadow-2xl relative space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-3">
           <div className="flex items-center gap-2">
             <Filter size={18} className="text-primary" />
@@ -240,7 +213,6 @@ export function ScheduledInspectionsFilter({
                 setSelectedSector(e.target.value);
                 setSelectedInspector('');
                 setSelectedType('');
-                setCurrentPage(1);
               }}
               className="w-full px-3 py-1.5 text-xs font-medium bg-bg border border-border rounded-lg text-text-main focus:ring-1 focus:ring-primary outline-hidden"
             >
@@ -257,7 +229,6 @@ export function ScheduledInspectionsFilter({
               onChange={(e) => {
                 setSelectedInspector(e.target.value);
                 setSelectedType('');
-                setCurrentPage(1);
               }}
               className="w-full px-3 py-1.5 text-xs font-medium bg-bg border border-border rounded-lg text-text-main focus:ring-1 focus:ring-primary outline-hidden"
             >
@@ -273,7 +244,6 @@ export function ScheduledInspectionsFilter({
               value={selectedType}
               onChange={(e) => {
                 setSelectedType(e.target.value);
-                setCurrentPage(1);
               }}
               className="w-full px-3 py-1.5 text-xs font-medium bg-bg border border-border rounded-lg text-text-main focus:ring-1 focus:ring-primary outline-hidden"
             >
@@ -289,7 +259,6 @@ export function ScheduledInspectionsFilter({
               value={selectedStatus}
               onChange={(e) => {
                 setSelectedStatus(e.target.value);
-                setCurrentPage(1);
               }}
               className="w-full px-3 py-1.5 text-xs font-medium bg-bg border border-border rounded-lg text-text-main focus:ring-1 focus:ring-primary outline-hidden"
             >
@@ -307,7 +276,6 @@ export function ScheduledInspectionsFilter({
               value={selectedDate}
               onChange={(e) => {
                 setSelectedDate(e.target.value);
-                setCurrentPage(1);
               }}
               className="w-full px-3 py-1.5 text-xs font-medium bg-bg border border-border rounded-lg text-text-main focus:ring-1 focus:ring-primary outline-hidden"
             />
@@ -315,17 +283,37 @@ export function ScheduledInspectionsFilter({
         </div>
       </div>
 
+      {/* Estilo para la animación del acordeón */}
+      <style>{`
+        @keyframes accordion-down {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-accordion {
+          animation: accordion-down 0.2s ease-out forwards;
+        }
+      `}</style>
+
       {/* Resultados de la Búsqueda */}
-      <div className="p-4 rounded-2xl border border-white/10 bg-surface/50 backdrop-blur-md shadow-lg space-y-3">
+      <div className="p-4 rounded-2xl border border-border bg-surface shadow-2xl relative space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h4 className="text-xs font-black uppercase tracking-wider text-text-main">
             Resultados de la Búsqueda <span className="text-text-muted font-normal capitalize ml-1">(Mostrando {filteredObjects.length} registros)</span>
           </h4>
+          {onNewInspectionClick && (
+            <button
+              onClick={onNewInspectionClick}
+              className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg shadow-md hover:bg-primary/90 transition-all flex items-center gap-2 cursor-pointer"
+            >
+              <CheckCircle2 size={16} />
+              Nueva Inspección
+            </button>
+          )}
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-border">
+        <div className="overflow-x-auto rounded-xl border border-border max-h-[500px] overflow-y-auto scrollbar-thin">
           <table className="w-full text-left text-xs whitespace-nowrap">
-            <thead className="bg-bg text-[10px] uppercase text-text-muted font-bold border-b border-border">
+            <thead className="bg-black/5 dark:bg-white/5 text-[10px] uppercase text-text-muted font-bold border-b border-border sticky top-0 z-10 backdrop-blur-md">
               <tr>
                 <th className="px-4 py-3">FECHA INSP/ HS.</th>
                 <th className="px-4 py-3">PUNTO DE INSPECCIÓN</th>
@@ -336,47 +324,78 @@ export function ScheduledInspectionsFilter({
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {paginatedObjects.length > 0 ? (
-                paginatedObjects.map(obj => (
-                  <tr
-                    key={obj.id}
-                    className={`transition-colors ${selectedObject?.id === obj.id ? 'bg-primary/5' : 'hover:bg-bg/50'}`}
-                  >
-                    <td className="px-4 py-3 font-mono text-text-muted">{obj.lastInspectedAt ? formatDate(obj.lastInspectedAt) : '-'}</td>
-                    <td className="px-4 py-3 font-bold text-text-main flex items-center gap-2">
-                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-bg border border-border text-text-muted">
-                        {obj.qrCode}
-                      </span>
-                      {obj.typeName}
-                    </td>
-                    <td className="px-4 py-3 text-text-muted">{obj.sectorName}</td>
-                    <td className="px-4 py-3 text-text-muted">{obj.lastInspectedBy || '-'}</td>
-                    <td className="px-4 py-3">{getStatusBadge(obj.status)}</td>
-                    <td className="px-4 py-3 flex items-center justify-center gap-2">
-                      <button
-                        onClick={() => setHistoryObject(obj)}
-                        className={`p-1.5 rounded-lg transition-colors cursor-pointer bg-amber-500/10 text-amber-500 hover:bg-amber-500/20`}
-                        title="Ver historial de inspecciones"
+              {filteredObjects.length > 0 ? (
+                filteredTypes.map(typeName => {
+                  const typeObjects = filteredObjects.filter(obj => obj.typeName === typeName);
+                  const isExpanded = expandedTypes.includes(typeName);
+
+                  return (
+                    <React.Fragment key={typeName}>
+                      {/* Fila agrupador del Tipo */}
+                      <tr 
+                        className="bg-bg/80 dark:bg-black/20 cursor-pointer hover:bg-bg transition-colors"
+                        onClick={() => toggleType(typeName)}
                       >
-                        <History size={16} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedInspectionId(null);
-                          setIsSharedView(false);
-                          setModalObject(obj);
-                        }}
-                        className={`p-1.5 rounded-lg transition-colors cursor-pointer ${selectedObject?.id === obj.id
-                          ? 'bg-primary text-white'
-                          : 'bg-primary/10 text-primary hover:bg-primary/20'
-                          }`}
-                        title="Ver detalles"
-                      >
-                        <Eye size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                        <td colSpan={6} className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            {isExpanded ? (
+                              <ChevronDown size={16} className="text-primary dark:text-primary-light" />
+                            ) : (
+                              <ChevronRight size={16} className="text-primary dark:text-primary-light" />
+                            )}
+                            <span className="text-[11px] font-black uppercase tracking-wider text-primary dark:text-primary-light">
+                              {typeName}
+                            </span>
+                            <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                              {typeObjects.length}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                      {/* Puntos de Inspección */}
+                      {isExpanded && typeObjects.map(obj => (
+                        <tr
+                          key={obj.id}
+                          className={`animate-accordion transition-colors ${selectedObject?.id === obj.id ? 'bg-primary/5' : 'hover:bg-bg/50'}`}
+                        >
+                          <td className="px-4 py-3 font-mono text-text-muted">{obj.lastInspectedAt ? formatDate(obj.lastInspectedAt) : '-'}</td>
+                          <td className="px-4 py-3 font-bold text-text-main flex items-center gap-2">
+                            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-bg border border-border text-text-muted">
+                              {obj.qrCode}
+                            </span>
+                            {obj.name}
+                          </td>
+                          <td className="px-4 py-3 text-text-muted">{obj.sectorName}</td>
+                          <td className="px-4 py-3 text-text-muted">{obj.lastInspectedBy || '-'}</td>
+                          <td className="px-4 py-3">{getStatusBadge(obj.status)}</td>
+                          <td className="px-4 py-3 flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => setHistoryObject(obj)}
+                              className={`p-1.5 rounded-lg transition-colors cursor-pointer bg-amber-500/10 text-amber-500 hover:bg-amber-500/20`}
+                              title="Ver historial de inspecciones"
+                            >
+                              <History size={16} />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedInspectionId(null);
+                                setIsSharedView(false);
+                                setModalObject(obj);
+                              }}
+                              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${selectedObject?.id === obj.id
+                                ? 'bg-primary text-white'
+                                : 'bg-primary/10 text-primary hover:bg-primary/20'
+                                }`}
+                              title="Ver detalles"
+                            >
+                              <Eye size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-text-muted">
@@ -387,34 +406,11 @@ export function ScheduledInspectionsFilter({
             </tbody>
           </table>
         </div>
-
-        {/* Paginación */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between pt-2 text-[10px] text-text-muted">
-            <span>Página {currentPage} de {totalPages}</span>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="p-1.5 rounded-lg border border-border hover:bg-bg disabled:opacity-50 cursor-pointer"
-              >
-                <ChevronLeft size={14} />
-              </button>
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="p-1.5 rounded-lg border border-border hover:bg-bg disabled:opacity-50 cursor-pointer"
-              >
-                <ChevronRight size={14} />
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* MODAL DE DETALLE DE INSPECCIÓN */}
       {modalObject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
 
           <style>{`
             @media print {
@@ -452,7 +448,7 @@ export function ScheduledInspectionsFilter({
               </div>
 
               {/* Datos Principales */}
-              <div className="grid grid-cols-2 gap-3 text-xs bg-bg/40 p-3 rounded-xl border border-border">
+              <div className="grid grid-cols-2 gap-3 text-xs bg-black/5 dark:bg-white/5 p-3 rounded-xl border border-border">
                 <div>
                   <strong className="text-text-muted">Área/Sector:</strong>
                   <p className="font-semibold text-text-main">{modalObject.sectorName}</p>
@@ -470,6 +466,38 @@ export function ScheduledInspectionsFilter({
                   <p className={`font-black ${activeInspection ? (activeInspection.overallResult === 'HABILITADO' || activeInspection.overallResult === 'CONFORME' ? 'text-emerald-500' : 'text-rose-500') : (modalObject.status === 'OK' ? 'text-emerald-500' : 'text-rose-500')}`}>
                     {activeInspection ? (activeInspection.overallResult === 'HABILITADO' || activeInspection.overallResult === 'CONFORME' ? 'HABILITADO' : 'NO HABILITADO') : (modalObject.status === 'OK' ? 'HABILITADO' : 'NO HABILITADO')}
                   </p>
+                </div>
+              </div>
+
+              {/* Hallazgos de la Inspección */}
+              <div className="space-y-2">
+                <h4 className="text-[11px] font-bold uppercase text-text-muted mb-2 border-b border-border pb-1">Resultados de la Inspección</h4>
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-2 scrollbar-thin">
+                  {modalAnswers.length > 0 ? (
+                    modalAnswers.map((ans, idx) => (
+                      <div key={idx} className="text-[11px] flex flex-col gap-1 p-2.5 rounded-lg bg-bg border border-border/50">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-text-main pr-2 truncate">
+                            {idx + 1}. {ans.checklistItemLabel}
+                            {ans.isCriticalFinding && <span className="ml-2 text-rose-500 font-bold text-[9px]">(CRÍTICO)</span>}
+                          </span>
+                          <span className={`font-black shrink-0 ${ans.status === 'NO_OK' ? 'text-rose-500' : 'text-emerald-500'}`}>
+                            {ans.status === 'NO_OK' ? 'MALO' : 'BIEN'}
+                          </span>
+                        </div>
+                        {ans.status === 'NO_OK' && ans.observation && (
+                          <div className="mt-1 p-1.5 rounded bg-rose-500/5 border border-rose-500/10 text-[10px] text-text-muted">
+                            <span className="font-bold text-rose-500/70 block mb-0.5">Observación:</span>
+                            {ans.observation}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-4 text-center text-text-muted text-xs italic bg-bg rounded-xl border border-border/50">
+                      Este punto aún no ha sido inspeccionado.
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -576,29 +604,37 @@ export function ScheduledInspectionsFilter({
                   </tr>
                 </thead>
                 <tbody className="divide-y border-black">
-                  {modalAnswers.map((ans, idx) => {
-                    const isNoOk = ans.status === 'NO_OK';
-                    return (
-                      <tr key={idx} className="border-b border-black">
-                        <td className="p-2 border-r-2 border-black">
-                          {idx + 1}. {ans.checklistItemLabel} {ans.isCriticalFinding ? '(CRÍTICO)' : ''}
-                        </td>
-                        <td className={`p-2 font-bold ${isNoOk ? 'text-rose-700' : 'text-emerald-700'}`}>
-                          {isNoOk ? (
-                            <div className="space-y-1">
-                              <p>MALO </p>
-                              <p className="text-[10px] text-black font-normal"><strong>Hallazgo:</strong> {ans.observation || '-'}</p>
-                              {ans.isCriticalFinding && (
-                                <p className="text-[10px] text-black font-normal"><strong>Plan de Acción:</strong> {ans.actionPlan || '-'}</p>
-                              )}
-                            </div>
-                          ) : (
-                            'BIEN '
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {modalAnswers.length > 0 ? (
+                    modalAnswers.map((ans, idx) => {
+                      const isNoOk = ans.status === 'NO_OK';
+                      return (
+                        <tr key={idx} className="border-b border-black">
+                          <td className="p-2 border-r-2 border-black">
+                            {idx + 1}. {ans.checklistItemLabel} {ans.isCriticalFinding ? '(CRÍTICO)' : ''}
+                          </td>
+                          <td className={`p-2 font-bold ${isNoOk ? 'text-rose-700' : 'text-emerald-700'}`}>
+                            {isNoOk ? (
+                              <div className="space-y-1">
+                                <p>MALO </p>
+                                <p className="text-[10px] text-black font-normal"><strong>Hallazgo:</strong> {ans.observation || '-'}</p>
+                                {ans.isCriticalFinding && (
+                                  <p className="text-[10px] text-black font-normal"><strong>Plan de Acción:</strong> {ans.actionPlan || '-'}</p>
+                                )}
+                              </div>
+                            ) : (
+                              'BIEN '
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr className="border-b border-black">
+                      <td colSpan={2} className="p-4 text-center font-bold text-gray-500">
+                        Sin datos de inspección registrados.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -615,7 +651,7 @@ export function ScheduledInspectionsFilter({
       )}
       {/* MODAL DE HISTORIAL DE INSPECCIONES */}
       {historyObject && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
           <div className="bg-surface border border-border w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden my-8 p-6 space-y-4">
             <div className="flex justify-between items-center border-b border-border pb-3">
               <div>
@@ -634,9 +670,9 @@ export function ScheduledInspectionsFilter({
               </button>
             </div>
 
-            <div className="max-h-[60vh] overflow-y-auto rounded-xl border border-border bg-bg/50">
+            <div className="max-h-[60vh] overflow-y-auto rounded-xl border border-border bg-surface">
               <table className="w-full text-left text-xs whitespace-nowrap">
-                <thead className="bg-bg text-[10px] uppercase text-text-muted font-bold border-b border-border sticky top-0">
+                <thead className="bg-black/5 dark:bg-white/5 text-[10px] uppercase text-text-muted font-bold border-b border-border sticky top-0">
                   <tr>
                     <th className="px-4 py-3">FECHA Y HORA</th>
                     <th className="px-4 py-3">INSPECTOR</th>

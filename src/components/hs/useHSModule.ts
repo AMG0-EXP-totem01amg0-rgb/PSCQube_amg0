@@ -19,41 +19,31 @@ export const DEFAULT_OBJECT_TYPES: HSObjectType[] = [
     id: 'EXT',
     name: 'Extintor PQS / CO2',
     code: 'EXT',
-    description: 'Extintores portátiles de polvo químico seco o CO2',
-    inspectionFrequencyDays: 30,
-    iconName: 'ShieldAlert'
+    description: 'Extintores portátiles de polvo químico seco o CO2'
   },
   {
     id: 'BOT',
     name: 'Botiquín de Primeros Auxilios',
     code: 'BOT',
-    description: 'Estaciones de primeros auxilios fijas y portátiles',
-    inspectionFrequencyDays: 15,
-    iconName: 'Cross'
+    description: 'Estaciones de primeros auxilios fijas y portátiles'
   },
   {
     id: 'HID',
     name: 'Nicho Hidrante',
     code: 'HID',
-    description: 'Gabinete con manguera, lanza y válvula de incendio',
-    inspectionFrequencyDays: 30,
-    iconName: 'Flame'
+    description: 'Gabinete con manguera, lanza y válvula de incendio'
   },
   {
     id: 'DUCH',
     name: 'Ducha y Lavaojos de Emergencia',
     code: 'DUCH',
-    description: 'Estaciones lavaojos y duchas de descontaminación',
-    inspectionFrequencyDays: 7,
-    iconName: 'Droplet'
+    description: 'Estaciones lavaojos y duchas de descontaminación'
   },
   {
     id: 'CAM',
     name: 'Camilla de Emergencia',
     code: 'CAM',
-    description: 'Camilla rígida con sujetadores y cuello ortopédico',
-    inspectionFrequencyDays: 30,
-    iconName: 'Activity'
+    description: 'Camilla rígida con sujetadores y cuello ortopédico'
   }
 ];
 
@@ -82,9 +72,7 @@ export function useHSModule() {
           id: ot.id,
           name: ot.name || '',
           code: ot.code || '',
-          description: ot.description || '',
-          inspectionFrequencyDays: ot.inspection_frequency_days || 30,
-          iconName: ot.icon_name || 'ShieldAlert'
+          description: ot.description || ''
         })));
       }
 
@@ -127,7 +115,7 @@ export function useHSModule() {
           objectTypeId: i.object_type,
           checklistModelId: i.checklist_model_id,
           label: i.description,
-          description: '',
+          description: i.detailed_description || '',
           category: 'General',
           isCritical: Boolean(i.is_critical),
           isEnabled: true
@@ -245,7 +233,7 @@ export function useHSModule() {
       }
       
       const activeModel = checklistModels.find(m => m.objectTypeId === obj.type && m.status === 'ACTIVE');
-      const freqDays = activeModel?.inspectionFrequencyDays || type?.inspectionFrequencyDays || 30;
+      const freqDays = activeModel?.inspectionFrequencyDays || 30;
 
       const nextInspectionDue = new Date(baseDate + freqDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
@@ -379,9 +367,7 @@ export function useHSModule() {
     const payload = {
       name: item.name,
       code: item.code,
-      description: item.description,
-      inspection_frequency_days: item.inspectionFrequencyDays,
-      icon_name: item.iconName || 'ShieldAlert'
+      description: item.description
     };
 
     // Si tiene ID y NO es uno de los hardcodeados generados manualmente por la app
@@ -519,14 +505,24 @@ export function useHSModule() {
   const addChecklistItem = useCallback(async (item: Partial<HSChecklistItem>) => {
     const supabase = getSupabase();
     if (!supabase) return;
-    const sameTypeCount = checklistItems.filter(ci => (item.checklistModelId ? ci.checklistModelId === item.checklistModelId : ci.objectTypeId === item.objectTypeId)).length;
-    await supabase.from('hs_checklist_items').insert([{
-      object_type: item.objectTypeId || 'EXT',
-      checklist_model_id: item.checklistModelId || null,
-      description: item.label || 'Nuevo Ítem',
-      item_order: sameTypeCount + 1,
-      is_critical: item.isCritical ?? false
-    }]);
+    
+    if (item.id && item.id.length > 10) {
+      await supabase.from('hs_checklist_items').update({
+        description: item.label,
+        detailed_description: item.description,
+        is_critical: item.isCritical ?? false
+      }).eq('id', item.id);
+    } else {
+      const sameTypeCount = checklistItems.filter(ci => (item.checklistModelId ? ci.checklistModelId === item.checklistModelId : ci.objectTypeId === item.objectTypeId)).length;
+      await supabase.from('hs_checklist_items').insert([{
+        object_type: item.objectTypeId || 'EXT',
+        checklist_model_id: item.checklistModelId || null,
+        description: item.label || 'Nuevo Ítem',
+        detailed_description: item.description || '',
+        item_order: sameTypeCount + 1,
+        is_critical: item.isCritical ?? false
+      }]);
+    }
     await fetchAllData();
   }, [checklistItems, fetchAllData]);
 

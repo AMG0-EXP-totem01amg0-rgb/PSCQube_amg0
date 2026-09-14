@@ -13,8 +13,6 @@ export interface HSObjectType {
   name: string;
   code: string;
   description: string;
-  inspectionFrequencyDays: number;
-  iconName: string;
   activeChecklistItemsCount?: number;
 }
 

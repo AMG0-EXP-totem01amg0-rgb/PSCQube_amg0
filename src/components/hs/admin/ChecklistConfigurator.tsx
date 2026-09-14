@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, CheckSquare, AlertTriangle, ToggleLeft, ToggleRight, ListChecks, FileText, ChevronRight, Edit2 } from 'lucide-react';
+import { Plus, CheckSquare, AlertTriangle, ToggleLeft, ToggleRight, ListChecks, FileText, ChevronRight, ChevronDown, Edit2 } from 'lucide-react';
 import { HSChecklistItem, HSObjectType, HSChecklistModel } from '../types';
 
 interface ChecklistConfiguratorProps {
@@ -21,8 +21,11 @@ export function ChecklistConfigurator({
   onAddModel,
   onMigrateOrphanedItems
 }: ChecklistConfiguratorProps) {
-  const [selectedTypeId, setSelectedTypeId] = useState<string>(objectTypes[0]?.id || '');
+  const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
+  
+  // Expanded types for Nivel 1 accordion
+  const [expandedTypes, setExpandedTypes] = useState<string[]>([]);
   
   const [isModelModalOpen, setIsModelModalOpen] = useState(false);
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
@@ -32,6 +35,7 @@ export function ChecklistConfigurator({
     inspectionFrequencyDays: 30 
   });
   const [newItem, setNewItem] = useState<{
+    id?: string;
     label: string;
     description: string;
     isCritical: boolean;
@@ -52,12 +56,14 @@ export function ChecklistConfigurator({
 
   const orphanedItems = checklistItems.filter(ci => ci.objectTypeId === selectedTypeId && !ci.checklistModelId);
 
-  const handleSelectType = (id: string) => {
-    setSelectedTypeId(id);
-    setSelectedModelId(null); // Reset model selection when type changes
+  const handleToggleType = (id: string) => {
+    setExpandedTypes(prev => 
+      prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
+    );
   };
 
-  const handleOpenNewModel = () => {
+  const handleOpenNewModel = (typeId: string) => {
+    setSelectedTypeId(typeId);
     setEditingModel({ name: '', inspectionFrequencyDays: 30 });
     setIsModelModalOpen(true);
   };
@@ -76,7 +82,7 @@ export function ChecklistConfigurator({
     onAddModel({
       id: editingModel.id,
       name: editingModel.name,
-      objectTypeId: selectedTypeId,
+      objectTypeId: selectedTypeId!,
       status: 'ACTIVE',
       inspectionFrequencyDays: editingModel.inspectionFrequencyDays
     });
@@ -92,12 +98,23 @@ export function ChecklistConfigurator({
     setIsItemModalOpen(true);
   };
 
+  const handleOpenEditItem = (item: HSChecklistItem) => {
+    setNewItem({
+      id: item.id,
+      label: item.label,
+      description: item.description || '',
+      isCritical: item.isCritical
+    });
+    setIsItemModalOpen(true);
+  };
+
   const handleSubmitItem = (e: React.FormEvent) => {
     e.preventDefault();
     onAddItem({
+      id: newItem.id,
       ...newItem,
       category: 'General',
-      objectTypeId: selectedTypeId,
+      objectTypeId: selectedTypeId!,
       checklistModelId: selectedModelId || undefined
     });
     setIsItemModalOpen(false);
@@ -116,193 +133,245 @@ export function ChecklistConfigurator({
         </div>
       </div>
 
-      {/* Nivel 1: Selector de Tipo de Objeto */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-border scrollbar-thin">
-        {objectTypes.map(ot => {
-          const isSelected = ot.id === selectedTypeId;
-          const modelsCount = checklistModels.filter(m => m.objectTypeId === ot.id).length;
-          return (
-            <button
-              key={ot.id}
-              onClick={() => handleSelectType(ot.id)}
-              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 border ${isSelected
-                ? 'bg-primary text-white border-primary shadow-sm'
-                : 'bg-surface text-text-muted hover:text-text-main border-border hover:border-primary/40'
-                }`}
-            >
-              <ListChecks size={14} />
-              <span>{ot.name}</span>
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${isSelected ? 'bg-white/20 text-white' : 'bg-bg text-text-muted'
-                }`}>
-                {modelsCount}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      {/* Estilo para la animación del acordeón */}
+      <style>{`
+        @keyframes accordion-down {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-accordion {
+          animation: accordion-down 0.2s ease-out forwards;
+        }
+      `}</style>
 
+      {/* Nivel 1: Lista de Tipos de Objeto (Acordeón) */}
       <div className="space-y-4">
-        {/* Nivel 2: Encabezado de Modelos */}
-        <div className="flex items-center justify-between pt-2">
-          <h4 className="text-xs font-black uppercase text-text-main">Modelos de {selectedObjectType?.name}</h4>
-          <button
-            onClick={handleOpenNewModel}
-            className="inline-flex items-center gap-1.5 px-2 py-1.5 bg-primary/10 text-primary border border-primary/20 text-xs font-bold rounded-lg shadow-sm hover:bg-primary/20 transition-all cursor-pointer"
-          >
-            <Plus size={14} />
-            Nuevo Modelo
-          </button>
-        </div>
-        
-        {filteredModels.length === 0 ? (
-          <div className="p-6 text-center bg-surface rounded-xl border border-border text-text-muted text-xs">
-            No hay modelos configurados.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filteredModels.map(model => {
-              const isSelected = model.id === selectedModelId;
-              const modelItems = checklistItems.filter(ci => ci.checklistModelId === model.id);
-              const itemsCount = modelItems.length;
-
-              return (
-                <div key={model.id} className={`border rounded-xl transition-all overflow-hidden ${isSelected ? 'border-primary ring-1 ring-primary/20 bg-primary/5' : 'border-border bg-bg/50'}`}>
-                  {/* Model Header (Accordion Trigger) */}
-                  <div
-                    onClick={() => setSelectedModelId(isSelected ? null : model.id)}
-                    className={`w-full text-left p-4 flex items-center justify-between gap-3 cursor-pointer ${isSelected ? 'border-b border-primary/10' : 'hover:border-primary/40'}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${isSelected ? 'bg-primary text-white' : 'bg-surface border border-border text-text-muted'}`}>
-                        <FileText size={16} />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className={`text-xs font-bold ${isSelected ? 'text-primary' : 'text-text-main'}`}>{model.name}</h4>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenEditModel(model);
-                            }}
-                            className="p-1 text-text-muted hover:text-primary transition-colors rounded hover:bg-bg"
-                            title="Editar Modelo"
-                          >
-                            <Edit2 size={12} />
-                          </button>
-                        </div>
-                        <p className="text-[10px] text-text-muted">{itemsCount} ítems configurados • Vence cada {model.inspectionFrequencyDays || 30} días</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold text-text-muted">{model.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}</span>
-                        <button
-                          type="button"
-                          role="switch"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onAddModel({ ...model, status: model.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' });
-                          }}
-                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${model.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-border'}`}
-                        >
-                          <span
-                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${model.status === 'ACTIVE' ? 'translate-x-4' : 'translate-x-0'}`}
-                          />
-                        </button>
-                      </div>
-                      <ChevronRight size={16} className={`transition-transform duration-200 ${isSelected ? 'rotate-90 text-primary' : 'text-text-muted'}`} />
-                    </div>
+        {objectTypes.map(ot => {
+          const isTypeExpanded = expandedTypes.includes(ot.id);
+          const typeModels = checklistModels.filter(m => m.objectTypeId === ot.id);
+          const modelsCount = typeModels.length;
+          
+          return (
+            <div key={ot.id} className={`border rounded-xl transition-all overflow-hidden ${isTypeExpanded ? 'border-primary/50 ring-1 ring-primary/10 bg-primary/5' : 'border-border bg-surface hover:border-primary/30'}`}>
+              
+              {/* Type Header (Accordion Trigger) */}
+              <div
+                onClick={() => handleToggleType(ot.id)}
+                className="w-full text-left p-4 flex items-center justify-between gap-3 cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${isTypeExpanded ? 'bg-primary text-white' : 'bg-bg border border-border text-text-muted'}`}>
+                    <ListChecks size={18} />
                   </div>
-
-                  {/* Accordion Content (Items) */}
-                  {isSelected && (
-                    <div className="p-4 bg-surface space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-xs font-black uppercase text-text-main">Ítems a inspeccionar</h4>
-                        <button
-                          onClick={handleOpenNewItem}
-                          className="inline-flex items-center gap-1.5 px-2 py-1.5 bg-primary text-white border border-primary text-xs font-bold rounded-lg shadow-sm hover:bg-primary/90 transition-all cursor-pointer"
-                        >
-                          <Plus size={14} />
-                          Agregar Ítem
-                        </button>
-                      </div>
-
-                      {orphanedItems.length > 0 && onMigrateOrphanedItems && (
-                        <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between gap-4">
-                          <div className="flex items-center gap-2">
-                            <AlertTriangle size={16} className="text-amber-500" />
-                            <span className="text-xs text-amber-600 font-medium">Hay {orphanedItems.length} ítems antiguos sin modelo asignado.</span>
-                          </div>
-                          <button
-                            onClick={() => onMigrateOrphanedItems(model.id, selectedTypeId)}
-                            className="px-3 py-1.5 bg-amber-500 text-white text-[10px] font-bold rounded-lg shadow-sm hover:bg-amber-600 transition-colors whitespace-nowrap"
-                          >
-                            Asignar a este Modelo
-                          </button>
-                        </div>
-                      )}
-
-                      <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 scrollbar-thin">
-                        {modelItems.length === 0 ? (
-                          <div className="p-8 text-center bg-bg/50 rounded-xl border border-border text-text-muted text-xs">
-                            No hay ítems configurados para este modelo.
-                          </div>
-                        ) : (
-                          modelItems.map(item => (
-                            <div
-                              key={item.id}
-                              className={`p-3 rounded-xl border transition-all flex flex-col gap-3 ${item.isEnabled
-                                ? 'bg-surface border-border'
-                                : 'bg-bg/40 border-border/50 opacity-60'
-                                }`}
-                            >
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="flex items-start gap-3 flex-1">
-                                  <div className={`p-1.5 rounded-md mt-0.5 shrink-0 ${item.isCritical ? 'bg-rose-500/10 text-rose-500' : 'bg-primary/10 text-primary'
-                                    }`}>
-                                    {item.isCritical ? <AlertTriangle size={14} /> : <CheckSquare size={14} />}
-                                  </div>
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <h4 className="text-xs font-bold text-text-main leading-tight">{item.label}</h4>
-                                      {item.isCritical && (
-                                        <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20">
-                                          Crítico
-                                        </span>
-                                      )}
-                                    </div>
-                                    {item.description && (
-                                      <p className="text-[10px] text-text-muted mt-1">{item.description}</p>
-                                    )}
-                                  </div>
-                                </div>
-                                
-                                <div className="flex items-center gap-2 shrink-0 pt-1">
-                                  <span className="text-[10px] font-bold text-text-muted hidden sm:inline">{item.isEnabled ? 'Activo' : 'Inactivo'}</span>
-                                  <button
-                                    type="button"
-                                    role="switch"
-                                    onClick={() => onToggleItem(item.id, !item.isEnabled)}
-                                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${item.isEnabled ? 'bg-emerald-500' : 'bg-border'}`}
-                                  >
-                                    <span
-                                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${item.isEnabled ? 'translate-x-4' : 'translate-x-0'}`}
-                                    />
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
+                  <div>
+                    <h4 className={`text-sm font-bold ${isTypeExpanded ? 'text-primary' : 'text-text-main'}`}>
+                      {ot.name}
+                    </h4>
+                    <p className="text-[11px] text-text-muted mt-0.5">
+                      {modelsCount} {modelsCount === 1 ? 'modelo configurado' : 'modelos configurados'}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!isTypeExpanded) handleToggleType(ot.id);
+                      handleOpenNewModel(ot.id);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-primary/10 text-primary border border-primary/20 text-xs font-bold rounded-lg shadow-sm hover:bg-primary/20 transition-all cursor-pointer"
+                  >
+                    <Plus size={14} />
+                    <span className="hidden sm:inline">Nuevo Modelo</span>
+                  </button>
+                  {isTypeExpanded ? (
+                    <ChevronDown size={18} className="text-primary" />
+                  ) : (
+                    <ChevronRight size={18} className="text-text-muted" />
                   )}
                 </div>
-              );
-            })}
-          </div>
-        )}
+              </div>
+
+              {/* Nivel 2: Modelos (Acordeón Content) */}
+              {isTypeExpanded && (
+                <div className="p-4 bg-bg/50 border-t border-border/50 animate-accordion space-y-3">
+                  {typeModels.length === 0 ? (
+                    <div className="p-6 text-center bg-surface rounded-xl border border-border text-text-muted text-xs shadow-xs">
+                      No hay modelos configurados para este tipo.
+                    </div>
+                  ) : (
+                    typeModels.map(model => {
+                      const isModelExpanded = model.id === selectedModelId;
+                      const modelItems = checklistItems.filter(ci => ci.checklistModelId === model.id);
+                      const itemsCount = modelItems.length;
+                      
+                      // Items that belong to this type but have no model
+                      const typeOrphanedItems = checklistItems.filter(ci => ci.objectTypeId === ot.id && !ci.checklistModelId);
+
+                      return (
+                        <div key={model.id} className={`border rounded-xl transition-all overflow-hidden shadow-xs ${isModelExpanded ? 'border-primary bg-surface' : 'border-border bg-surface'}`}>
+                          
+                          {/* Model Header */}
+                          <div
+                            onClick={() => {
+                              setSelectedTypeId(ot.id);
+                              setSelectedModelId(isModelExpanded ? null : model.id);
+                            }}
+                            className={`w-full text-left p-3.5 flex items-center justify-between gap-3 cursor-pointer ${isModelExpanded ? 'border-b border-primary/10' : 'hover:border-primary/40'}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`p-1.5 rounded-lg ${isModelExpanded ? 'bg-primary/20 text-primary' : 'bg-bg border border-border text-text-muted'}`}>
+                                <FileText size={14} />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h5 className={`text-xs font-bold ${isModelExpanded ? 'text-primary' : 'text-text-main'}`}>{model.name}</h5>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedTypeId(ot.id);
+                                      handleOpenEditModel(model);
+                                    }}
+                                    className="p-1 text-text-muted hover:text-primary transition-colors rounded hover:bg-bg/80"
+                                    title="Editar Modelo"
+                                  >
+                                    <Edit2 size={12} />
+                                  </button>
+                                </div>
+                                <p className="text-[10px] text-text-muted">{itemsCount} ítems configurados • Vence cada {model.inspectionFrequencyDays || 30} días</p>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold text-text-muted hidden sm:inline">{model.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}</span>
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onAddModel({ ...model, status: model.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' });
+                                  }}
+                                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${model.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-border'}`}
+                                >
+                                  <span
+                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${model.status === 'ACTIVE' ? 'translate-x-4' : 'translate-x-0'}`}
+                                  />
+                                </button>
+                              </div>
+                              {isModelExpanded ? (
+                                <ChevronDown size={16} className="text-primary" />
+                              ) : (
+                                <ChevronRight size={16} className="text-text-muted" />
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Nivel 3: Items (Accordion Content) */}
+                          {isModelExpanded && (
+                            <div className="p-4 bg-bg/30 animate-accordion space-y-4">
+                              <div className="flex items-center justify-between">
+                                <h6 className="text-[11px] font-black uppercase text-text-main">Ítems de Inspección</h6>
+                                <button
+                                  onClick={() => {
+                                    setSelectedTypeId(ot.id);
+                                    handleOpenNewItem();
+                                  }}
+                                  className="inline-flex items-center gap-1.5 px-2 py-1.5 bg-primary text-white border border-primary text-[10px] font-bold rounded-lg shadow-sm hover:bg-primary/90 transition-all cursor-pointer"
+                                >
+                                  <Plus size={12} />
+                                  Agregar Ítem
+                                </button>
+                              </div>
+
+                              {typeOrphanedItems.length > 0 && onMigrateOrphanedItems && (
+                                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between gap-4">
+                                  <div className="flex items-center gap-2">
+                                    <AlertTriangle size={16} className="text-amber-500" />
+                                    <span className="text-[11px] text-amber-600 font-medium">Hay {typeOrphanedItems.length} ítems antiguos sin modelo asignado en este tipo.</span>
+                                  </div>
+                                  <button
+                                    onClick={() => onMigrateOrphanedItems(model.id, ot.id)}
+                                    className="px-3 py-1.5 bg-amber-500 text-white text-[10px] font-bold rounded-lg shadow-sm hover:bg-amber-600 transition-colors whitespace-nowrap"
+                                  >
+                                    Asignar a este Modelo
+                                  </button>
+                                </div>
+                              )}
+
+                              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 scrollbar-thin">
+                                {modelItems.length === 0 ? (
+                                  <div className="p-6 text-center bg-surface rounded-xl border border-border text-text-muted text-[11px] shadow-xs">
+                                    No hay ítems configurados para este modelo.
+                                  </div>
+                                ) : (
+                                  modelItems.map(item => (
+                                    <div
+                                      key={item.id}
+                                      className={`p-3 rounded-xl border transition-all flex flex-col gap-3 ${item.isEnabled
+                                        ? 'bg-surface border-border shadow-xs'
+                                        : 'bg-bg/60 border-border/50 opacity-60'
+                                        }`}
+                                    >
+                                      <div className="flex items-start justify-between gap-4">
+                                        <div className="flex items-start gap-3 flex-1">
+                                          <div className={`p-1.5 rounded-md mt-0.5 shrink-0 ${item.isCritical ? 'bg-rose-500/10 text-rose-500' : 'bg-primary/10 text-primary'
+                                            }`}>
+                                            {item.isCritical ? <AlertTriangle size={14} /> : <CheckSquare size={14} />}
+                                          </div>
+                                          <div className="flex-1">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                              <h6 className="text-[11px] font-bold text-text-main leading-tight">{item.label}</h6>
+                                              {item.isCritical && (
+                                                <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                                                  Crítico
+                                                </span>
+                                              )}
+                                            </div>
+                                            {item.description && (
+                                              <p className="text-[10px] text-text-muted mt-1">{item.description}</p>
+                                            )}
+                                          </div>
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-2 shrink-0 pt-1">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleOpenEditItem(item)}
+                                            className="p-1 text-text-muted hover:text-primary transition-colors rounded hover:bg-bg/80"
+                                            title="Editar Ítem"
+                                          >
+                                            <Edit2 size={14} />
+                                          </button>
+                                          <span className="text-[9px] font-bold text-text-muted hidden sm:inline">{item.isEnabled ? 'Activo' : 'Inactivo'}</span>
+                                          <button
+                                            type="button"
+                                            role="switch"
+                                            onClick={() => onToggleItem(item.id, !item.isEnabled)}
+                                            className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${item.isEnabled ? 'bg-emerald-500' : 'bg-border'}`}
+                                          >
+                                            <span
+                                              className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${item.isEnabled ? 'translate-x-3' : 'translate-x-0'}`}
+                                            />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Modal Agregar Modelo */}
@@ -364,7 +433,7 @@ export function ChecklistConfigurator({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="w-full max-w-md bg-surface border border-border rounded-2xl p-6 shadow-2xl space-y-4">
             <h3 className="text-sm font-black uppercase tracking-wider text-text-main">
-              Nuevo Ítem en: {selectedModel?.name}
+              {newItem.id ? 'Editar Ítem en:' : 'Nuevo Ítem en:'} {selectedModel?.name}
             </h3>
 
             <form onSubmit={handleSubmitItem} className="space-y-3">
@@ -416,7 +485,7 @@ export function ChecklistConfigurator({
                   type="submit"
                   className="px-4 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90 transition-colors"
                 >
-                  Agregar Ítem
+                  {newItem.id ? 'Guardar Cambios' : 'Agregar Ítem'}
                 </button>
               </div>
             </form>

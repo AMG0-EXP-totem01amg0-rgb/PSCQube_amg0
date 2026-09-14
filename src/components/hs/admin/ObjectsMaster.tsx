@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, QrCode, MapPin, Edit2, Search, Filter, Printer, Trash2, AlertTriangle, X } from 'lucide-react';
+import { Plus, QrCode, MapPin, Edit2, Search, Filter, Printer, Trash2, AlertTriangle, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { HSObject, HSObjectType, HSSector } from '../types';
 
 interface ObjectsMasterProps {
@@ -14,6 +14,9 @@ export function ObjectsMaster({ objects, objectTypes, sectors, onSave, onDelete 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSectorFilter, setSelectedSectorFilter] = useState('');
   const [selectedTypeFilter, setSelectedTypeFilter] = useState('');
+
+  // Estado para expansión de tipos de objetos (acordeón)
+  const [expandedTypes, setExpandedTypes] = useState<string[]>([]);
 
   const [isOpenModal, setIsOpenModal] = useState(false);
   const [editingItem, setEditingItem] = useState<Partial<HSObject> | null>(null);
@@ -42,6 +45,12 @@ export function ObjectsMaster({ objects, objectTypes, sectors, onSave, onDelete 
     const sameTypeCount = objects.filter(o => o.typeId === typeId).length + 1;
     const paddedIndex = sameTypeCount.toString().padStart(3, '0');
     return `${prefix}-${paddedIndex}`;
+  };
+
+  const toggleType = (typeId: string) => {
+    setExpandedTypes(prev => 
+      prev.includes(typeId) ? prev.filter(id => id !== typeId) : [...prev, typeId]
+    );
   };
 
   const handleOpenNew = () => {
@@ -141,13 +150,20 @@ export function ObjectsMaster({ objects, objectTypes, sectors, onSave, onDelete 
             display: none !important;
           }
         }
+        @keyframes accordion-down {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-accordion {
+          animation: accordion-down 0.2s ease-out forwards;
+        }
       `}</style>
 
       {/* Encabezado */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-black uppercase tracking-wider text-text-main">
-            Objetos con QR
+            Puntos de Inspección
           </h3>
           <p className="text-xs text-text-muted mt-0.5">
             Registro, vinculación a sectores e impresión de identificadores QR para activos.
@@ -158,7 +174,7 @@ export function ObjectsMaster({ objects, objectTypes, sectors, onSave, onDelete 
           className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary text-white text-xs font-bold rounded-lg shadow hover:bg-primary/90 transition-all cursor-pointer shrink-0"
         >
           <Plus size={16} />
-          Nuevo Objeto QR
+          Nuevo Punto de Inspección
         </button>
       </div>
 
@@ -220,55 +236,89 @@ export function ObjectsMaster({ objects, objectTypes, sectors, onSave, onDelete 
             {filteredObjects.length === 0 ? (
               <tr>
                 <td colSpan={5} className="p-6 text-center text-text-muted">
-                  No se encontraron objetos registrados con los filtros aplicados.
+                  No se encontraron puntos de inspección con los filtros aplicados.
                 </td>
               </tr>
             ) : (
-              filteredObjects.map(obj => (
-                <tr key={obj.id} className="hover:bg-bg/40 transition-colors">
-                  <td className="p-3 font-mono font-bold text-primary">
-                    <button
-                      onClick={() => setQrModalItem(obj)}
-                      className="inline-flex items-center gap-1.5 hover:underline cursor-pointer"
-                      title="Haga clic para ver/imprimir la etiqueta QR"
+              objectTypes.map(type => {
+                const typeObjects = filteredObjects.filter(obj => obj.typeId === type.id);
+                if (typeObjects.length === 0) return null;
+                const isExpanded = expandedTypes.includes(type.id);
+
+                return (
+                  <React.Fragment key={type.id}>
+                    {/* Fila de agrupación por Tipo de Objeto */}
+                    <tr 
+                      className="bg-bg/80 dark:bg-black/20 cursor-pointer hover:bg-bg transition-colors"
+                      onClick={() => toggleType(type.id)}
                     >
-                      <QrCode size={14} />
-                      {obj.qrCode}
-                    </button>
-                  </td>
-                  <td className="p-3 font-bold text-text-main">
-                    {obj.name}
-                    {obj.locationDetail && (
-                      <span className="block text-[10px] font-normal text-text-muted mt-0.5">
-                        <MapPin size={10} className="inline mr-0.5" />
-                        {obj.locationDetail}
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-3 text-text-muted">
-                    {obj.typeName || objectTypes.find(t => t.id === obj.typeId)?.name || 'Sin tipo'}
-                  </td>
-                  <td className="p-3 text-text-muted">
-                    {obj.sectorName || sectors.find(s => s.id === obj.sectorId)?.name || 'Sin sector'}
-                  </td>
-                  <td className="p-3 text-right space-x-1">
-                    <button
-                      onClick={() => handleOpenEdit(obj)}
-                      className="p-1 text-text-muted hover:text-primary rounded hover:bg-bg transition-colors cursor-pointer"
-                      title="Editar Objeto"
-                    >
-                      <Edit2 size={14} />
-                    </button>
-                    <button
-                      onClick={() => setDeletingId(obj.id)}
-                      className="p-1 text-text-muted hover:text-rose-500 rounded hover:bg-bg transition-colors cursor-pointer"
-                      title="Eliminar Objeto"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </td>
-                </tr>
-              ))
+                      <td colSpan={5} className="p-3">
+                        <div className="flex items-center gap-2">
+                          {isExpanded ? (
+                            <ChevronDown size={16} className="text-primary dark:text-primary-light" />
+                          ) : (
+                            <ChevronRight size={16} className="text-primary dark:text-primary-light" />
+                          )}
+                          <span className="text-[11px] font-black uppercase tracking-wider text-primary dark:text-primary-light">
+                            {type.name}
+                          </span>
+                          <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                            {typeObjects.length}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                    {/* Objetos del Tipo (sólo si está expandido) */}
+                    {isExpanded && typeObjects.map(obj => (
+                      <tr key={obj.id} className="animate-accordion hover:bg-bg/40 transition-colors">
+                        <td className="p-3 font-mono font-bold text-primary dark:text-white">
+                          <button
+                            onClick={() => setQrModalItem(obj)}
+                            className="inline-flex items-center gap-1.5 hover:underline cursor-pointer"
+                            title="Haga clic para ver/imprimir la etiqueta QR"
+                          >
+                            <QrCode size={14} />
+                            {obj.qrCode}
+                          </button>
+                        </td>
+                        <td className="p-3 font-bold text-text-main">
+                          {obj.name}
+                          {obj.locationDetail && (
+                            <span className="block text-[10px] font-normal text-text-muted mt-0.5">
+                              <MapPin size={10} className="inline mr-0.5" />
+                              {obj.locationDetail}
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3 text-text-muted">
+                          {obj.typeName || type.name}
+                        </td>
+                        <td className="p-3 text-text-muted">
+                          {obj.sectorName || sectors.find(s => s.id === obj.sectorId)?.name || 'Sin sector'}
+                        </td>
+                        <td className="p-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleOpenEdit(obj)}
+                              className="p-1.5 text-text-muted hover:text-primary rounded hover:bg-bg transition-colors cursor-pointer"
+                              title="Editar Punto de Inspección"
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                            <button
+                              onClick={() => setDeletingId(obj.id)}
+                              className="p-1.5 text-text-muted hover:text-rose-500 rounded hover:bg-bg transition-colors cursor-pointer"
+                              title="Eliminar Punto de Inspección"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -343,14 +393,14 @@ export function ObjectsMaster({ objects, objectTypes, sectors, onSave, onDelete 
           <div className="w-full max-w-lg bg-surface border border-border rounded-2xl p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <h3 className="text-sm font-black uppercase tracking-wider text-text-main">
-                {editingItem.id ? 'Editar Objeto' : 'Nuevo Objeto'}
+                {editingItem.id ? 'Editar Punto de Inspección' : 'Nuevo Punto de Inspección'}
               </h3>
               {editingItem.id && (
                 <button
                   type="button"
                   onClick={() => setDeletingId(editingItem.id!)}
                   className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
-                  title="Eliminar Objeto"
+                  title="Eliminar Punto de Inspección"
                 >
                   <Trash2 size={16} />
                 </button>
@@ -444,7 +494,7 @@ export function ObjectsMaster({ objects, objectTypes, sectors, onSave, onDelete 
                   type="submit"
                   className="px-4 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90 transition-colors cursor-pointer"
                 >
-                  Guardar Objeto
+                  Guardar Punto de Inspección
                 </button>
               </div>
             </form>
@@ -461,7 +511,7 @@ export function ObjectsMaster({ objects, objectTypes, sectors, onSave, onDelete 
             </div>
 
             <div>
-              <h4 className="text-sm font-bold text-text-main">¿Eliminar Objeto QR?</h4>
+              <h4 className="text-sm font-bold text-text-main">¿Eliminar Punto de Inspección?</h4>
               <p className="text-xs text-text-muted mt-1">
                 Esta acción dará de baja la etiqueta física y su historial del sistema.
               </p>

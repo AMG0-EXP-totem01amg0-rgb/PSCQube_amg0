@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Edit2, ShieldAlert, CheckCircle2, Clock, Trash2, AlertTriangle } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Plus, Edit2, ShieldAlert, CheckCircle2, Clock, Trash2, AlertTriangle, Search } from 'lucide-react';
 import { HSObjectType } from '../types';
 
 interface ObjectTypesMasterProps {
@@ -11,6 +11,7 @@ interface ObjectTypesMasterProps {
 export function ObjectTypesMaster({ objectTypes, onSave, onDelete }: ObjectTypesMasterProps) {
   const [isOpenModal, setIsOpenModal] = useState(false);
   const [editingItem, setEditingItem] = useState<Partial<HSObjectType> | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Estado para el cartel de confirmación sin 'localhost'
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
@@ -19,9 +20,7 @@ export function ObjectTypesMaster({ objectTypes, onSave, onDelete }: ObjectTypes
     setEditingItem({
       name: '',
       code: '',
-      description: '',
-      inspectionFrequencyDays: 30,
-      iconName: 'ShieldCheck'
+      description: ''
     });
     setIsConfirmingDelete(false);
     setIsOpenModal(true);
@@ -51,13 +50,15 @@ export function ObjectTypesMaster({ objectTypes, onSave, onDelete }: ObjectTypes
     }
   };
 
-  const getFrequencyLabel = (days?: number) => {
-    if (days === undefined || days === null) return 'No definida';
-    if (days === 7) return '7 días';
-    if (days === 30) return '30 días';
-    if (days === 90) return '90 días';
-    return `${days} días`;
-  };
+  const filteredObjectTypes = useMemo(() => {
+    if (!searchQuery.trim()) return objectTypes;
+    const query = searchQuery.toLowerCase();
+    return objectTypes.filter(ot => 
+      ot.name.toLowerCase().includes(query) || 
+      ot.code.toLowerCase().includes(query) ||
+      (ot.description?.toLowerCase() || '').includes(query)
+    );
+  }, [objectTypes, searchQuery]);
 
   return (
     <div className="space-y-4">
@@ -79,44 +80,65 @@ export function ObjectTypesMaster({ objectTypes, onSave, onDelete }: ObjectTypes
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {objectTypes.map(ot => (
-          <div
-            key={ot.id}
-            className="p-4 rounded-xl border border-border bg-surface hover:border-primary/40 transition-all flex flex-col justify-between"
-          >
-            <div>
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                    <ShieldAlert size={18} />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-text-main">{ot.name}</h4>
-                    <span className="text-[10px] font-mono font-bold text-primary px-1.5 py-0.5 rounded bg-primary/10 border border-primary/20">
-                      Prefijo: {ot.code}
-                    </span>
-                  </div>
-                </div>
+      <div className="relative mb-4">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={16} />
+        <input
+          type="text"
+          placeholder="Buscar tipos de objeto por nombre, prefijo o descripción..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-9 pr-4 py-2 bg-surface border border-border rounded-xl text-sm text-text-main focus:ring-2 focus:ring-primary/50 outline-hidden"
+        />
+      </div>
 
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => handleOpenEdit(ot)}
-                    className="p-1 text-text-muted hover:text-primary rounded hover:bg-bg transition-colors cursor-pointer"
-                    title="Editar Tipo"
-                  >
-                    <Edit2 size={14} />
-                  </button>
-                </div>
-              </div>
-
-              <p className="text-xs text-text-muted mb-3 line-clamp-2">
-                {ot.description || 'Sin descripción asignada.'}
-              </p>
-            </div>
-
-          </div>
-        ))}
+      <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-sm">
+        <div className="overflow-x-auto max-h-[500px]">
+          <table className="w-full text-left border-collapse relative">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-surface border-b border-border shadow-sm">
+                <th className="px-4 py-3 text-[10px] font-black text-text-muted uppercase tracking-wider bg-black/5 dark:bg-white/5">Tipo de Objeto</th>
+                <th className="px-4 py-3 text-[10px] font-black text-text-muted uppercase tracking-wider bg-black/5 dark:bg-white/5">Descripción</th>
+                <th className="px-4 py-3 text-[10px] font-black text-text-muted uppercase tracking-wider text-center w-24 bg-black/5 dark:bg-white/5">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filteredObjectTypes.length > 0 ? (
+                filteredObjectTypes.map(ot => (
+                  <tr key={ot.id} className="hover:bg-bg/50 transition-colors">
+                    <td className="px-4 py-3">
+                      <div>
+                          <span className="font-bold text-text-main text-xs block">{ot.name}</span>
+                          <span className="text-[9px] font-mono font-bold text-primary dark:text-white px-1.5 py-0.5 rounded bg-primary/10 border border-primary/20 mt-1 inline-block">
+                            Prefijo: {ot.code}
+                          </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-text-muted">
+                      <span className="line-clamp-2 max-w-xs">{ot.description || '-'}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleOpenEdit(ot)}
+                          className="p-1.5 text-text-muted hover:text-primary rounded-lg hover:bg-primary/10 transition-colors cursor-pointer"
+                          title="Editar Tipo de Objeto"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={4} className="px-4 py-8 text-center text-xs text-text-muted">
+                    No hay tipos de objetos configurados o no coinciden con la búsqueda.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Modal Formulario */}

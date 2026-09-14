@@ -59,16 +59,16 @@
 [data-theme="dark"] {
   color-scheme: dark;
   /* DARK MODE - Tiered Surface Hierarchy */
-  --bg-main: #0F172A;          /* Base background */
-  --bg-surface: #141B26;       /* Header and secondary surfaces */
-  --bg-elevated: #1D2635;      /* Primary cards and forms */
-  --bg-header: linear-gradient(180deg, #182333 0%, #121821 100%);
-  --bg-input: #0F1621;         /* Inputs (sunken effect) */
+  --bg-main: #0B1121;          /* Base background (darker for high contrast) */
+  --bg-surface: #1E293B;       /* Header and secondary surfaces (lighter to pop out) */
+  --bg-elevated: #2A384F;      /* Primary cards and forms */
+  --bg-header: linear-gradient(180deg, #1E293B 0%, #171E2D 100%);
+  --bg-input: #0F172A;         /* Inputs (sunken effect) */
   
   --text-primary: #F9FAFB;     /* High contrast titles */
   --caret-color: #F9FAFB;
   --text-secondary: #9CA3AF;   /* Readable body text */
-  --border-soft: rgba(255, 255, 255, 0.08);
+  --border-soft: rgba(255, 255, 255, 0.12); /* Slightly stronger border */
   --neutral: #8fa1b3;
 
   --chart-axis: #9CA3AF;

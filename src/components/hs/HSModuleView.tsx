@@ -81,7 +81,7 @@ export default function HSModuleView({ currentUser, isDark, addToast }: HSModule
   return (
     <div className="space-y-4 max-w-7xl mx-auto pb-8">
       {/* Header del Módulo H&S */}
-      <div className="p-5 rounded-3xl bg-surface/50 backdrop-blur-md border border-white/10 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="p-5 rounded-3xl bg-surface border border-border shadow-2xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
             <ShieldCheck size={28} />

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, MapPin, Edit2, User, CheckCircle2, Trash2, AlertTriangle } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Plus, MapPin, Edit2, User, CheckCircle2, Trash2, AlertTriangle, Search } from 'lucide-react';
 import { HSSector } from '../types';
 
 interface SectorsMasterProps {
@@ -11,6 +11,7 @@ interface SectorsMasterProps {
 export function SectorsMaster({ sectors, onSave, onDelete }: SectorsMasterProps) {
   const [isOpenModal, setIsOpenModal] = useState(false);
   const [editingItem, setEditingItem] = useState<Partial<HSSector> | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Estado para el modal de confirmación de eliminación
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -48,6 +49,16 @@ export function SectorsMaster({ sectors, onSave, onDelete }: SectorsMasterProps)
     }
   };
 
+  const filteredSectors = useMemo(() => {
+    if (!searchQuery.trim()) return sectors;
+    const query = searchQuery.toLowerCase();
+    return sectors.filter(s => 
+      s.name.toLowerCase().includes(query) || 
+      (s.responsiblePerson?.toLowerCase() || '').includes(query) ||
+      (s.locationDetails?.toLowerCase() || '').includes(query)
+    );
+  }, [sectors, searchQuery]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -68,46 +79,72 @@ export function SectorsMaster({ sectors, onSave, onDelete }: SectorsMasterProps)
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {sectors.map(sec => (
-          <div
-            key={sec.id}
-            className="p-4 rounded-xl border border-border bg-surface hover:border-primary/40 transition-all flex flex-col justify-between"
-          >
-            <div>
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500">
-                    <MapPin size={18} />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-text-main">{sec.name}</h4>
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleOpenEdit(sec)}
-                  className="p-1 text-text-muted hover:text-primary rounded hover:bg-bg transition-colors cursor-pointer"
-                  title="Editar Sector"
-                >
-                  <Edit2 size={14} />
-                </button>
-              </div>
+      <div className="relative mb-4">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={16} />
+        <input
+          type="text"
+          placeholder="Buscar sectores por nombre, responsable o ubicación..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-9 pr-4 py-2 bg-surface border border-border rounded-xl text-sm text-text-main focus:ring-2 focus:ring-primary/50 outline-hidden"
+        />
+      </div>
 
-              <p className="text-xs text-text-muted mb-3 line-clamp-2">
-                {sec.locationDetails || 'Sin detalle de ubicación.'}
-              </p>
-            </div>
-
-            <div className="pt-3 border-t border-border flex items-center justify-between text-[11px] text-text-muted">
-              <span className="flex items-center gap-1">
-                <User size={14} className="text-primary" /> Responsable:
-              </span>
-              <span className="font-bold text-text-main">
-                {sec.responsiblePerson || 'Sin asignar'}
-              </span>
-            </div>
-          </div>
-        ))}
+      <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-sm">
+        <div className="overflow-x-auto max-h-[500px]">
+          <table className="w-full text-left border-collapse relative">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-surface border-b border-border shadow-sm">
+                <th className="px-4 py-3 text-[10px] font-black text-text-muted uppercase tracking-wider bg-black/5 dark:bg-white/5">Sector / Área</th>
+                <th className="px-4 py-3 text-[10px] font-black text-text-muted uppercase tracking-wider bg-black/5 dark:bg-white/5">Responsable</th>
+                <th className="px-4 py-3 text-[10px] font-black text-text-muted uppercase tracking-wider bg-black/5 dark:bg-white/5">Detalle de Ubicación</th>
+                <th className="px-4 py-3 text-[10px] font-black text-text-muted uppercase tracking-wider text-center w-24 bg-black/5 dark:bg-white/5">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filteredSectors.length > 0 ? (
+                filteredSectors.map(sec => (
+                  <tr key={sec.id} className="hover:bg-bg/50 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 shrink-0">
+                          <MapPin size={14} />
+                        </div>
+                        <span className="font-bold text-text-main text-xs">{sec.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5 text-xs text-text-main">
+                        <User size={12} className="text-primary" />
+                        {sec.responsiblePerson || '-'}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-text-muted">
+                      <span className="line-clamp-1 max-w-xs">{sec.locationDetails || '-'}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleOpenEdit(sec)}
+                          className="p-1.5 text-text-muted hover:text-primary rounded-lg hover:bg-primary/10 transition-colors cursor-pointer"
+                          title="Editar Sector"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={4} className="px-4 py-8 text-center text-xs text-text-muted">
+                    No hay sectores configurados. Haga clic en "Nuevo Sector" para comenzar.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Modal Formulario */}
