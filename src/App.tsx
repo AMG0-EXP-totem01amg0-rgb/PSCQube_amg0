@@ -361,7 +361,7 @@ export default function App() {
   // Detector de parámetro de inspección en URL al cargar la aplicación
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const inspectionParam = params.get('inspection') || params.get('id');
+    const inspectionParam = params.get('inspection') || params.get('id') || params.get('qr');
     if (inspectionParam) {
       const savedDni = sessionStorage.getItem('pscqube_user_dni');
       if (savedDni) {

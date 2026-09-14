@@ -22,12 +22,12 @@ export default function HSModuleView({ currentUser, isDark, addToast }: HSModule
   });
   const [sharedInspectionParam, setSharedInspectionParam] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get('inspection') || params.get('id') || null;
+    return params.get('inspection') || params.get('id') || params.get('qr') || null;
   });
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const param = params.get('inspection') || params.get('id');
+    const param = params.get('inspection') || params.get('id') || params.get('qr');
     if (param) {
       setSharedInspectionParam(param);
     }
