@@ -1797,13 +1797,7 @@ export default function App() {
             >
               <PublicQRScannerWrapper
                 inspectionId={publicInspectionId}
-                onLoginRequest={() => {
-                  sessionStorage.setItem('pending_checklist_qr', publicInspectionId);
-                  setPublicInspectionId(null);
-                  if (sessionStorage.getItem('pscqube_user_dni')) {
-                    setActiveSection('SAFETY');
-                  }
-                }}
+                addToast={addToast}
               />
             </motion.div>
         ) : !hasEnteredApp ? (
