@@ -109,6 +109,7 @@ export function PublicQRScannerWrapper({ inspectionId, addToast }: PublicQRScann
         {step === 'CHECKLIST' && (
            <div className="w-full flex-1 bg-surface/30 backdrop-blur-md rounded-2xl border border-white/10 p-2 md:p-6 shadow-2xl relative overflow-hidden">
              <HSScannerView
+               currentUser={sessionStorage.getItem('pscqube_user') ? JSON.parse(sessionStorage.getItem('pscqube_user') as string) : undefined}
                objects={objects}
                selectedObject={selectedObject}
                inspections={inspections}

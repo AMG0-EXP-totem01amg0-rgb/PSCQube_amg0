@@ -214,7 +214,7 @@ export function ScheduledInspectionsFilter({
   return (
     <div className="space-y-4">
       {/* Panel de Filtros */}
-      <div className="p-4 rounded-2xl border border-border bg-surface shadow-xs space-y-4">
+      <div className="p-4 rounded-2xl border border-white/10 bg-surface/50 backdrop-blur-md shadow-lg space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-3">
           <div className="flex items-center gap-2">
             <Filter size={18} className="text-primary" />
@@ -316,7 +316,7 @@ export function ScheduledInspectionsFilter({
       </div>
 
       {/* Resultados de la Búsqueda */}
-      <div className="p-4 rounded-2xl border border-border bg-surface shadow-xs space-y-3">
+      <div className="p-4 rounded-2xl border border-white/10 bg-surface/50 backdrop-blur-md shadow-lg space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h4 className="text-xs font-black uppercase tracking-wider text-text-main">
             Resultados de la Búsqueda <span className="text-text-muted font-normal capitalize ml-1">(Mostrando {filteredObjects.length} registros)</span>
