@@ -125,6 +125,7 @@ export function PublicQRScannerWrapper({ inspectionId, addToast }: PublicQRScann
                onPendingChecklistHandled={() => {
                   sessionStorage.removeItem('pending_checklist_qr');
                }}
+               isStandaloneChecklist={true}
              />
            </div>
         )}

@@ -28,6 +28,7 @@ interface HSScannerViewProps {
   onViewCertificate?: (inspectionId: string) => void;
   pendingChecklistQr?: string | null;
   onPendingChecklistHandled?: () => void;
+  isStandaloneChecklist?: boolean;
 }
 
 export function HSScannerView({
@@ -45,7 +46,8 @@ export function HSScannerView({
   addToast,
   onViewCertificate,
   pendingChecklistQr,
-  onPendingChecklistHandled
+  onPendingChecklistHandled,
+  isStandaloneChecklist = false
 }: HSScannerViewProps) {
   const [activeSubTab, setActiveSubTab] = useState<'CHECKLIST' | 'HISTORY'>('CHECKLIST');
   const [isChecklistUnlocked, setIsChecklistUnlocked] = useState(false);
@@ -212,25 +214,29 @@ export function HSScannerView({
   return (
     <div className="space-y-6">
       {/* Filtros en Cascada para Inspecciones Programadas */}
-      <ScheduledInspectionsFilter
-        objects={objects}
-        inspections={allInspections}
-        checklistItems={allChecklistItems.length > 0 ? allChecklistItems : checklistItems}
-        selectedObject={selectedObject}
-        onSelectObject={onSelectQR}
-        onViewCertificate={onViewCertificate}
-      />
+      {!isStandaloneChecklist && (
+        <ScheduledInspectionsFilter
+          objects={objects}
+          inspections={allInspections}
+          checklistItems={allChecklistItems.length > 0 ? allChecklistItems : checklistItems}
+          selectedObject={selectedObject}
+          onSelectObject={onSelectQR}
+          onViewCertificate={onViewCertificate}
+        />
+      )}
 
       {/* Flujo de Inicio de Inspección */}
-      <div className="border-t border-border pt-6">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20">
-            <FileCheck2 size={20} />
+      <div className={isStandaloneChecklist ? "" : "border-t border-border pt-6"}>
+        {!isStandaloneChecklist && (
+          <div className="flex items-center gap-2 mb-4">
+            <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20">
+              <FileCheck2 size={20} />
+            </div>
+            <h2 className="text-sm font-black uppercase tracking-wider text-text-main">
+              Realizar Nueva Inspección
+            </h2>
           </div>
-          <h2 className="text-sm font-black uppercase tracking-wider text-text-main">
-            Realizar Nueva Inspección
-          </h2>
-        </div>
+        )}
 
         {selectedObject ? (
           <div className="space-y-4 animate-fade-in">

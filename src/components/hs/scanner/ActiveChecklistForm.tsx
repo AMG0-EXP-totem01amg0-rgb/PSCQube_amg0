@@ -159,13 +159,13 @@ export function ActiveChecklistForm({
 
         {/* Barra de Progreso */}
         <div className="space-y-2">
-          <div className="flex justify-between text-xs font-bold text-text-muted">
+          <div className="flex justify-between text-xs font-bold text-white">
             <span>Pregunta {currentIndex + 1} de {total}</span>
             <span>{Math.round(((checklistItems.filter(ci => answers[ci.id]?.status !== 'N_A').length) / total) * 100)}% Completado</span>
           </div>
           <div className="h-2 bg-bg rounded-full overflow-hidden">
             <div
-              className="h-full bg-primary transition-all duration-300 ease-out"
+              className="h-full bg-emerald-500 transition-all duration-300 ease-out"
               style={{ width: `${((checklistItems.filter(ci => answers[ci.id]?.status !== 'N_A').length) / total) * 100}%` }}
             />
           </div>
@@ -200,11 +200,11 @@ export function ActiveChecklistForm({
                 onClick={() => handleStatusChange(currentItem.id, 'OK')}
                 className={`py-4 px-4 rounded-xl text-sm font-black transition-all flex flex-col items-center justify-center gap-2 border-2 cursor-pointer ${
                   currentAnswer.status === 'OK'
-                    ? 'bg-emerald-500/10 border-emerald-500 text-emerald-600 shadow-xs scale-[1.02]'
+                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-md scale-[1.02]'
                     : 'bg-surface border-border text-text-muted hover:border-emerald-500/30 hover:bg-emerald-500/5'
                 }`}
               >
-                <CheckCircle2 size={24} className={currentAnswer.status === 'OK' ? 'text-emerald-500' : ''} /> 
+                <CheckCircle2 size={24} className={currentAnswer.status === 'OK' ? 'text-white' : ''} /> 
                 BIEN
               </button>
 
@@ -213,11 +213,11 @@ export function ActiveChecklistForm({
                 onClick={() => handleStatusChange(currentItem.id, 'NO_OK')}
                 className={`py-4 px-4 rounded-xl text-sm font-black transition-all flex flex-col items-center justify-center gap-2 border-2 cursor-pointer ${
                   currentAnswer.status === 'NO_OK'
-                    ? 'bg-rose-500/10 border-rose-500 text-rose-600 shadow-xs scale-[1.02]'
+                    ? 'bg-rose-600 border-rose-600 text-white shadow-md scale-[1.02]'
                     : 'bg-surface border-border text-text-muted hover:border-rose-500/30 hover:bg-rose-500/5'
                 }`}
               >
-                <XCircle size={24} className={currentAnswer.status === 'NO_OK' ? 'text-rose-500' : ''} /> 
+                <XCircle size={24} className={currentAnswer.status === 'NO_OK' ? 'text-white' : ''} /> 
                 MALO
               </button>
             </div>
@@ -262,7 +262,7 @@ export function ActiveChecklistForm({
                  <button
                    type="button"
                    onClick={() => setShowGeneralComments(true)}
-                   className="w-full py-3 rounded-xl border border-dashed border-primary/40 bg-primary/5 text-primary text-xs font-bold hover:bg-primary/10 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                   className="w-full py-3 px-2 rounded-xl border border-dashed border-primary/40 bg-primary/5 text-white text-xs font-bold hover:bg-primary/10 transition-colors flex flex-col sm:flex-row items-center justify-center gap-2 cursor-pointer text-center whitespace-normal"
                  >
                    <MessageSquare size={16} /> AGREGAR OBSERVACIONES GENERALES (OPCIONAL)
                  </button>
