@@ -19,7 +19,9 @@ export function PublicQRScannerWrapper({ inspectionId, addToast }: PublicQRScann
     objects,
     inspections,
     checklistItems,
-    addInspection
+    selectedObject,
+    selectObjectByQR,
+    submitInspection
   } = useHSModule();
 
   const handleNewInspectionClick = () => {
@@ -108,9 +110,14 @@ export function PublicQRScannerWrapper({ inspectionId, addToast }: PublicQRScann
            <div className="w-full flex-1 bg-surface/30 backdrop-blur-md rounded-2xl border border-white/10 p-2 md:p-6 shadow-2xl relative overflow-hidden">
              <HSScannerView
                objects={objects}
+               selectedObject={selectedObject}
                inspections={inspections}
                checklistItems={checklistItems}
-               onAddInspection={addInspection}
+               onSelectQR={selectObjectByQR}
+               onSubmitInspection={submitInspection}
+               onClearSelection={() => setStep('SUMMARY')}
+               pendingChecklistQr={sessionStorage.getItem('pending_checklist_qr')}
+               addToast={addToast}
                onPendingChecklistHandled={() => {
                   sessionStorage.removeItem('pending_checklist_qr');
                   addToast("Inspección registrada con éxito.", "success");
