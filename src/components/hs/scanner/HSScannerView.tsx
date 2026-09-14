@@ -178,6 +178,9 @@ export function HSScannerView({
           onSelectObject={onSelectQR}
           onViewCertificate={onViewCertificate}
           onNewInspectionClick={() => setModalStep('SELECT_OBJECT')}
+          onGenerateInspectionForObject={(qrCode) => {
+            handleObjectSelection(qrCode);
+          }}
         />
       )}
 

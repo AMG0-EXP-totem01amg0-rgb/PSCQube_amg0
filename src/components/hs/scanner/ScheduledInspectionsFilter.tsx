@@ -10,6 +10,7 @@ interface ScheduledInspectionsFilterProps {
   onSelectObject: (qrCode: string) => void;
   onViewCertificate?: (inspectionId: string) => void;
   onNewInspectionClick?: () => void;
+  onGenerateInspectionForObject?: (qrCode: string) => void;
 }
 
 export function ScheduledInspectionsFilter({
@@ -19,7 +20,8 @@ export function ScheduledInspectionsFilter({
   selectedObject,
   onSelectObject,
   onViewCertificate,
-  onNewInspectionClick
+  onNewInspectionClick,
+  onGenerateInspectionForObject
 }: ScheduledInspectionsFilterProps) {
   const [selectedSector, setSelectedSector] = useState<string>('');
   const [selectedInspector, setSelectedInspector] = useState<string>('');
@@ -494,8 +496,23 @@ export function ScheduledInspectionsFilter({
                       </div>
                     ))
                   ) : (
-                    <div className="p-4 text-center text-text-muted text-xs italic bg-bg rounded-xl border border-border/50">
-                      Este punto aún no ha sido inspeccionado.
+                    <div className="p-4 text-center space-y-3 bg-bg rounded-xl border border-border/50">
+                      <p className="text-text-muted text-xs italic">
+                        Este punto aún no ha sido inspeccionado.
+                      </p>
+                      {onGenerateInspectionForObject && (
+                        <button
+                          onClick={() => {
+                            setModalObject(null);
+                            setIsSharedView(false);
+                            onGenerateInspectionForObject(modalObject.qrCode);
+                          }}
+                          className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg shadow-md hover:bg-primary/90 transition-all flex items-center gap-2 justify-center w-full sm:w-auto mx-auto cursor-pointer"
+                        >
+                          <CheckCircle2 size={16} />
+                          Generar Inspección
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
