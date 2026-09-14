@@ -8,6 +8,7 @@ interface InspectionCertificateViewProps {
   inspections: HSInspection[];
   checklistItems: HSChecklistItem[];
   onClose: () => void;
+  onNewInspectionRequest?: () => void;
 }
 
 export function InspectionCertificateView({
@@ -15,7 +16,8 @@ export function InspectionCertificateView({
   objects,
   inspections,
   checklistItems,
-  onClose
+  onClose,
+  onNewInspectionRequest
 }: InspectionCertificateViewProps) {
   const [isCopied, setIsCopied] = useState(false);
 
@@ -188,7 +190,14 @@ export function InspectionCertificateView({
         </button>
 
         <div className="flex items-center gap-2">
-
+          {onNewInspectionRequest && (
+            <button
+              onClick={onNewInspectionRequest}
+              className="flex items-center gap-1.5 px-4 py-2 text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-md transition-all cursor-pointer"
+            >
+              <CheckCircle2 size={16} /> Nueva Inspección
+            </button>
+          )}
 
           <button
             onClick={() => window.print()}

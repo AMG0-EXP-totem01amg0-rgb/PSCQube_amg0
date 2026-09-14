@@ -17,6 +17,9 @@ type MainHSTab = 'SCANNER' | 'ADMIN' | 'ACTION_PLANS';
 
 export default function HSModuleView({ currentUser, isDark, addToast }: HSModuleViewProps) {
   const [activeMainTab, setActiveMainTab] = useState<MainHSTab>('SCANNER');
+  const [pendingChecklistQr, setPendingChecklistQr] = useState<string | null>(() => {
+    return sessionStorage.getItem('pending_checklist_qr');
+  });
   const [sharedInspectionParam, setSharedInspectionParam] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('inspection') || params.get('id') || null;
@@ -60,7 +63,7 @@ export default function HSModuleView({ currentUser, isDark, addToast }: HSModule
 
   const activeActionPlansCount = actionPlans.filter(p => p.status === 'OPEN' || p.status === 'IN_PROGRESS').length;
 
-  if (sharedInspectionParam) {
+  if (sharedInspectionParam && !pendingChecklistQr) {
     return (
       <InspectionCertificateView
         inspectionParam={sharedInspectionParam}
@@ -142,6 +145,12 @@ export default function HSModuleView({ currentUser, isDark, addToast }: HSModule
       {/* Renderizado de Vistas */}
       {activeMainTab === 'SCANNER' && (
         <HSScannerView
+          pendingChecklistQr={pendingChecklistQr}
+          onPendingChecklistHandled={() => {
+            sessionStorage.removeItem('pending_checklist_qr');
+            setPendingChecklistQr(null);
+            setSharedInspectionParam(null);
+          }}
           objects={objects}
           selectedObject={selectedObject}
           checklistModels={checklistModels}

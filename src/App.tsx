@@ -32,6 +32,7 @@ import AdminView from './components/admin/AdminView';
 import HSModuleView from './components/hs/HSModuleView';
 import PlaceholderView from './components/PlaceholderView';
 import WelcomeScreen from './components/auth/WelcomeScreen';
+import { PublicQRScannerWrapper } from './components/hs/PublicQRScannerWrapper';
 import { getSupabaseClient } from './lib/supabaseClient';
 
 // Lib & Types
@@ -355,14 +356,20 @@ export default function App() {
   const [isProdMenuOpen, setIsProdMenuOpen] = useState(false);
   const [adminTab, setAdminTab] = useState('SHIFTS');
   const [hasEnteredApp, setHasEnteredApp] = useState(false);
+  const [publicInspectionId, setPublicInspectionId] = useState<string | null>(null);
 
   // Detector de parámetro de inspección en URL al cargar la aplicación
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const inspectionParam = params.get('inspection') || params.get('id');
     if (inspectionParam) {
-      setHasEnteredApp(true);
-      setActiveSection('SAFETY');
+      const savedDni = sessionStorage.getItem('pscqube_user_dni');
+      if (savedDni) {
+        setHasEnteredApp(true);
+        setActiveSection('SAFETY');
+      } else {
+        setPublicInspectionId(inspectionParam);
+      }
     }
   }, []);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
@@ -892,6 +899,9 @@ export default function App() {
     } finally {
       setIsSyncing(false);
       setHasEnteredApp(true);
+      if (sessionStorage.getItem('pending_checklist_qr')) {
+        setActiveSection('SAFETY');
+      }
     }
   };
 
@@ -1784,6 +1794,23 @@ export default function App() {
 
       <AnimatePresence mode="wait">
         {!hasEnteredApp ? (
+          publicInspectionId ? (
+            <motion.div
+              key="public-inspection"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.5 }}
+            >
+              <PublicQRScannerWrapper
+                inspectionId={publicInspectionId}
+                onLoginRequest={() => {
+                  sessionStorage.setItem('pending_checklist_qr', publicInspectionId);
+                  setPublicInspectionId(null);
+                }}
+              />
+            </motion.div>
+          ) : (
           <motion.div
             key="welcome"
             initial={{ opacity: 0 }}
@@ -1802,6 +1829,7 @@ export default function App() {
               addToast={addToast}
             />
           </motion.div>
+          )
         ) : (
           <motion.div
             key="app-main"

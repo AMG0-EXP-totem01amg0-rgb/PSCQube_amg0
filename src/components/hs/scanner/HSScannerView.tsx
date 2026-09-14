@@ -26,6 +26,8 @@ interface HSScannerViewProps {
   onClearSelection: () => void;
   addToast?: (message: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
   onViewCertificate?: (inspectionId: string) => void;
+  pendingChecklistQr?: string | null;
+  onPendingChecklistHandled?: () => void;
 }
 
 export function HSScannerView({
@@ -41,7 +43,9 @@ export function HSScannerView({
   onSubmitInspection,
   onClearSelection,
   addToast,
-  onViewCertificate
+  onViewCertificate,
+  pendingChecklistQr,
+  onPendingChecklistHandled
 }: HSScannerViewProps) {
   const [activeSubTab, setActiveSubTab] = useState<'CHECKLIST' | 'HISTORY'>('CHECKLIST');
   const [isChecklistUnlocked, setIsChecklistUnlocked] = useState(false);
@@ -56,6 +60,22 @@ export function HSScannerView({
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+
+  // Auto-handle pending QR for checklists
+  useEffect(() => {
+    if (pendingChecklistQr) {
+      const success = onSelectQR(pendingChecklistQr);
+      if (success) {
+        setIsSummaryAccepted(true);
+        setIsChecklistUnlocked(true);
+      } else {
+        if (addToast) addToast('No se encontró el objeto correspondiente al código QR para inspeccionar.', 'error');
+      }
+      if (onPendingChecklistHandled) {
+        onPendingChecklistHandled();
+      }
+    }
+  }, [pendingChecklistQr, onSelectQR, onPendingChecklistHandled, addToast]);
 
   // Stop scanner if component unmounts or if we successfully found an object
   useEffect(() => {
