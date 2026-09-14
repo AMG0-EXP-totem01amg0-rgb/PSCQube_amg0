@@ -363,13 +363,7 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const inspectionParam = params.get('inspection') || params.get('id') || params.get('qr');
     if (inspectionParam) {
-      const savedDni = sessionStorage.getItem('pscqube_user_dni');
-      if (savedDni) {
-        setHasEnteredApp(true);
-        setActiveSection('SAFETY');
-      } else {
-        setPublicInspectionId(inspectionParam);
-      }
+      setPublicInspectionId(inspectionParam);
     }
   }, []);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
@@ -1793,8 +1787,7 @@ export default function App() {
       </AnimatePresence>
 
       <AnimatePresence mode="wait">
-        {!hasEnteredApp ? (
-          publicInspectionId ? (
+        {publicInspectionId ? (
             <motion.div
               key="public-inspection"
               initial={{ opacity: 0 }}
@@ -1807,10 +1800,13 @@ export default function App() {
                 onLoginRequest={() => {
                   sessionStorage.setItem('pending_checklist_qr', publicInspectionId);
                   setPublicInspectionId(null);
+                  if (sessionStorage.getItem('pscqube_user_dni')) {
+                    setActiveSection('SAFETY');
+                  }
                 }}
               />
             </motion.div>
-          ) : (
+        ) : !hasEnteredApp ? (
           <motion.div
             key="welcome"
             initial={{ opacity: 0 }}
