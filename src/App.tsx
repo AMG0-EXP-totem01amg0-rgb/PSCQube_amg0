@@ -1825,7 +1825,6 @@ export default function App() {
               addToast={addToast}
             />
           </motion.div>
-          )
         ) : (
           <motion.div
             key="app-main"
