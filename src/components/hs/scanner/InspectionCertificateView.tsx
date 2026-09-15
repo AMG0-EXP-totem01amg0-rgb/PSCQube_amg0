@@ -168,6 +168,50 @@ export function InspectionCertificateView({
     );
   }
 
+  const hasNoHistory = inspections.filter(i => i.objectId === targetObject.id).length === 0;
+
+  if (hasNoHistory) {
+    return (
+      <div className="w-full flex items-center justify-center p-8 animate-fade-in">
+        <div className="bg-white p-8 rounded-2xl max-w-md w-full text-center space-y-6 shadow-2xl border border-slate-200">
+          <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-2">
+            <CheckCircle2 size={32} />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-slate-800">Punto de Inspección</h2>
+            <p className="font-mono bg-slate-100 text-blue-800 px-2 py-1 rounded inline-block mt-2 text-sm font-bold">
+              {targetObject.qrCode}
+            </p>
+            <p className="text-sm font-semibold text-slate-600 mt-2">{targetObject.name}</p>
+          </div>
+          
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-left">
+            <p className="text-sm font-medium text-amber-800">
+              Este punto aún no tiene inspecciones registradas en el sistema.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3 pt-2">
+            {onNewInspectionRequest && (
+              <button
+                onClick={onNewInspectionRequest}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
+              >
+                <CheckCircle2 size={18} /> Registrar Primera Inspección
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all cursor-pointer"
+            >
+              Volver al Sistema
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full font-sans text-slate-800 animate-fade-in py-6">
       <style>{`

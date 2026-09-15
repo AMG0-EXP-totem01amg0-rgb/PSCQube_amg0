@@ -210,7 +210,7 @@ export default function WelcomeScreen({ onEnter, onLoginSuccess, addToast }: Wel
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: window.location.href,
           queryParams: {
             prompt: 'select_account'
           }
