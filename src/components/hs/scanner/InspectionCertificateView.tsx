@@ -90,7 +90,7 @@ export function InspectionCertificateView({
     const relevantItems = checklistItems.filter(c => c.objectTypeId === targetObject.typeId);
     if (relevantItems.length > 0) {
       return relevantItems.map(item => {
-        const isNoOk = targetObject.status !== 'OK' && item.isCritical;
+        const isNoOk = targetObject.status === 'NO_OK' && item.isCritical;
         return {
           checklistItemId: item.id,
           checklistItemLabel: item.label,
@@ -111,7 +111,7 @@ export function InspectionCertificateView({
     ];
 
     return defaultItems.map((item, idx) => {
-      const isNoOk = targetObject.status !== 'OK' && idx === 1;
+      const isNoOk = targetObject.status === 'NO_OK' && idx === 1;
       return {
         checklistItemId: item.id,
         checklistItemLabel: item.label,
@@ -298,6 +298,10 @@ export function InspectionCertificateView({
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
                       HABILITADO
                     </span>
+                  ) : targetObject.status === 'PENDING' ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800 border border-amber-300">
+                      PENDIENTE INSPECCIÓN
+                    </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-800 border border-rose-300">
                       NO HABILITADO
@@ -358,7 +362,7 @@ export function InspectionCertificateView({
           </div>
 
           {/* DETALLE DEL HALLAZGO Y PLAN DE ACCIÓN (Si hay items NO OK o NO HABILITADO) */}
-          {(hasFailedAnswers || (activeInspection && activeInspection.overallResult !== 'HABILITADO' && activeInspection.overallResult !== 'CONFORME') || (!activeInspection && !isHabilitado)) && (
+          {(hasFailedAnswers || (activeInspection && activeInspection.overallResult !== 'HABILITADO' && activeInspection.overallResult !== 'CONFORME') || (!activeInspection && !isHabilitado && targetObject.status !== 'PENDING')) && (
             <div className="space-y-3">
               <h3 className="text-xs font-black uppercase tracking-wider text-rose-800 border-b border-rose-200 pb-1">
                 3. Hallazgos y Plan de Acción Requerido
