@@ -3,9 +3,24 @@ import { readFromSupabase } from "../services/supabase.service.js";
 
 const router = Router();
 
+let maestrosMemoryCache: any = null;
+let maestrosMemoryCacheTimestamp: number = 0;
+const MAESTROS_CACHE_TTL = 12 * 60 * 60 * 1000; // 12 horas
+
 router.get("/api/sync/maestros", async (req, res) => {
-  res.setHeader("Cache-Control", "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400");
+  res.setHeader("Cache-Control", "public, s-maxage=21600, stale-while-revalidate=86400");
+  
   try {
+    const isForce = req.query.force === 'true';
+    const now = Date.now();
+    
+    if (!isForce && maestrosMemoryCache && (now - maestrosMemoryCacheTimestamp < MAESTROS_CACHE_TTL)) {
+      return res.json({
+        success: true,
+        data: maestrosMemoryCache
+      });
+    }
+
     const [
       turnos,
       paletizadoras,
@@ -36,23 +51,26 @@ router.get("/api/sync/maestros", async (req, res) => {
       readFromSupabase("PARAMETROS_BALANZAV2").then(r => r || []).catch(() => [])
     ]);
 
+    maestrosMemoryCache = {
+      turnos,
+      paletizadoras,
+      ensacadoras,
+      hacs,
+      causas,
+      materiales,
+      capacidades,
+      usuarios,
+      empresas,
+      puntoscarga,
+      proveedoresbolsa,
+      vehiculos,
+      parametrosbalanza
+    };
+    maestrosMemoryCacheTimestamp = Date.now();
+
     return res.json({
       success: true,
-      data: {
-        turnos,
-        paletizadoras,
-        ensacadoras,
-        hacs,
-        causas,
-        materiales,
-        capacidades,
-        usuarios,
-        empresas,
-        puntoscarga,
-        proveedoresbolsa,
-        vehiculos,
-        parametrosbalanza
-      }
+      data: maestrosMemoryCache
     });
   } catch (error: any) {
     console.error("Error in /api/sync/maestros:", error);

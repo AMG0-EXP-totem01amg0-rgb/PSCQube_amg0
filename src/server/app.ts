@@ -16,6 +16,8 @@ const ALLOWED_ORIGINS = [
   "https://psc-qube-amg0.vercel.app",
   "http://localhost:3000",
   "http://localhost:3001",
+  "http://localhost:3004",
+  "http://localhost:4005",
   "http://localhost:5173",
 ];
 

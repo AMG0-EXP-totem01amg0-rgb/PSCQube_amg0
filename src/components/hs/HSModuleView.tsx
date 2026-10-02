@@ -5,6 +5,7 @@ import { HSScannerView } from './scanner/HSScannerView';
 import { HSAdminView } from './admin/HSAdminView';
 import { HSActionPlansView } from './action-plans/HSActionPlansView';
 import { InspectionCertificateView } from './scanner/InspectionCertificateView';
+import { HSExpirationsView } from './scanner/HSExpirationsView';
 import { AppUser } from '../../types';
 
 interface HSModuleViewProps {
@@ -13,7 +14,7 @@ interface HSModuleViewProps {
   addToast?: (message: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
 }
 
-type MainHSTab = 'SCANNER' | 'ADMIN' | 'ACTION_PLANS';
+type MainHSTab = 'SCANNER' | 'EXPIRATIONS' | 'ACTION_PLANS' | 'ADMIN';
 
 export default function HSModuleView({ currentUser, isDark, addToast }: HSModuleViewProps) {
   const [activeMainTab, setActiveMainTab] = useState<MainHSTab>('SCANNER');
@@ -59,6 +60,11 @@ export default function HSModuleView({ currentUser, isDark, addToast }: HSModule
     deleteChecklistModel,
     migrateOrphanedItems,
     updateActionPlanStatus,
+    inspectors,
+    appUsers,
+    addOrUpdateInspectors,
+    revokeInspector,
+    fetchInspectorLogs,
     isLoading
   } = useHSModule();
 
@@ -83,7 +89,7 @@ export default function HSModuleView({ currentUser, isDark, addToast }: HSModule
   return (
     <div className="space-y-4 max-w-7xl mx-auto pb-8">
       {/* Header del Módulo H&S */}
-      <div className="p-5 rounded-3xl bg-surface border border-border shadow-2xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="p-5 rounded-3xl bg-surface border border-border shadow-sm relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
             <ShieldCheck size={28} />
@@ -113,6 +119,17 @@ export default function HSModuleView({ currentUser, isDark, addToast }: HSModule
           >
             <ClipboardList size={16} />
             <span>Resumen Inspecciones</span>
+          </button>
+
+          <button
+            onClick={() => setActiveMainTab('EXPIRATIONS')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${activeMainTab === 'EXPIRATIONS'
+              ? 'bg-primary text-white shadow-md'
+              : 'text-text-muted hover:text-text-main hover:bg-surface'
+              }`}
+          >
+            <ClipboardList size={16} />
+            <span>Control de Vencimientos</span>
           </button>
 
           <button
@@ -169,6 +186,10 @@ export default function HSModuleView({ currentUser, isDark, addToast }: HSModule
         />
       )}
 
+      {activeMainTab === 'EXPIRATIONS' && (
+        <HSExpirationsView objects={objects} />
+      )}
+
       {activeMainTab === 'ACTION_PLANS' && (
         <HSActionPlansView
           actionPlans={actionPlans}
@@ -186,6 +207,10 @@ export default function HSModuleView({ currentUser, isDark, addToast }: HSModule
           objects={objects}
           checklistModels={checklistModels}
           checklistItems={checklistItems}
+          inspectors={inspectors}
+          appUsers={appUsers}
+          onAddOrUpdateInspectors={addOrUpdateInspectors}
+          onRevokeInspector={revokeInspector}
           onSaveObjectType={addOrUpdateObjectType}
           onDeleteObjectType={deleteObjectType}
           onSaveSector={addOrUpdateSector}
@@ -196,6 +221,7 @@ export default function HSModuleView({ currentUser, isDark, addToast }: HSModule
           onToggleChecklistItem={toggleChecklistItem}
           onAddChecklistItem={addChecklistItem}
           onMigrateOrphanedItems={migrateOrphanedItems}
+          onFetchInspectorLogs={fetchInspectorLogs}
         />
       )}
     </div>

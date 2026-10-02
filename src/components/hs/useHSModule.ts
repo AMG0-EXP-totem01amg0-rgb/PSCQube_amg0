@@ -55,6 +55,8 @@ export function useHSModule() {
   const [checklistItems, setChecklistItems] = useState<HSChecklistItem[]>([]);
   const [inspections, setInspections] = useState<HSInspection[]>([]);
   const [actionPlans, setActionPlans] = useState<HSActionPlan[]>([]);
+  const [inspectors, setInspectors] = useState<any[]>([]);
+  const [appUsers, setAppUsers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
@@ -73,6 +75,30 @@ export function useHSModule() {
           name: ot.name || '',
           code: ot.code || '',
           description: ot.description || ''
+        })));
+      }
+
+      // Users and Inspectors
+      const { data: usersData, error: usersError } = await supabase.from('usuariosv2').select('dni, nombre, puesto, perfil');
+      if (usersError) console.error("Error loading users:", usersError);
+      if (usersData) {
+        setAppUsers(usersData.map((u: any) => ({
+          id: u.dni, // Use dni as id
+          name: u.nombre?.trim() || '',
+          dni: u.dni,
+          role: u.puesto || u.perfil,
+          isActive: true // Default to true if not available
+        })));
+      }
+
+      const { data: inspectorsData } = await supabase.from('hs_inspectors').select('*');
+      if (inspectorsData) {
+        setInspectors(inspectorsData.map((i: any) => ({
+          id: i.id,
+          userId: i.user_id,
+          isActive: i.is_active,
+          validUntil: i.valid_until,
+          createdAt: i.created_at
         })));
       }
 
@@ -544,6 +570,90 @@ export function useHSModule() {
     await fetchAllData();
   }, [fetchAllData]);
 
+  const addOrUpdateInspectors = useCallback(async (userIds: string[], validUntil: string | null) => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    try {
+      // First, get existing inspectors for these users to update them or insert new ones
+      const existing = inspectors.filter(i => userIds.includes(i.userId));
+      const existingUserIds = existing.map(i => i.userId);
+      const newUserIds = userIds.filter(id => !existingUserIds.includes(id));
+
+      if (newUserIds.length > 0) {
+        await supabase.from('hs_inspectors').insert(newUserIds.map(uid => ({
+          user_id: uid,
+          is_active: true,
+          valid_until: validUntil
+        })));
+      }
+
+      if (existingUserIds.length > 0) {
+        await supabase.from('hs_inspectors')
+          .update({ is_active: true, valid_until: validUntil, updated_at: new Date().toISOString() })
+          .in('user_id', existingUserIds);
+      }
+      
+      // We log all these changes in hs_inspector_logs if needed, or rely on created_at/updated_at
+      await fetchAllData();
+    } catch (e) {
+      console.error(e);
+    }
+  }, [inspectors, fetchAllData]);
+
+  const revokeInspector = useCallback(async (userId: string) => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    try {
+      await supabase.from('hs_inspectors').update({ is_active: false, updated_at: new Date().toISOString() }).eq('user_id', userId);
+      await fetchAllData();
+    } catch (e) {
+      console.error(e);
+    }
+  }, [fetchAllData]);
+
+  const fetchInspectorLogs = useCallback(async (inspectorId: string) => {
+    const supabase = getSupabase();
+    if (!supabase) return [];
+    try {
+      const { data } = await supabase.from('hs_inspector_logs')
+        .select('*')
+        .eq('inspector_id', inspectorId)
+        .order('created_at', { ascending: false });
+        
+      if (!data) return [];
+      
+      return data.map((log: any) => ({
+        id: log.id,
+        inspectorId: log.inspector_id,
+        action: log.action,
+        previousValidUntil: log.previous_valid_until,
+        newValidUntil: log.new_valid_until,
+        changedBy: log.changed_by,
+        createdAt: log.created_at
+      }));
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  }, []);
+
+  // Map appUsers + inspectors together for easy UI rendering
+  const enrichedInspectors = useMemo(() => {
+    return inspectors.map(insp => {
+      const u = appUsers.find(user => user.id === insp.userId);
+      return {
+        id: insp.id,
+        userId: insp.userId,
+        name: u?.name || 'Desconocido',
+        dni: u?.dni || '',
+        role: u?.role || '',
+        isActive: insp.isActive,
+        validUntil: insp.validUntil,
+        createdAt: insp.createdAt
+      };
+    });
+  }, [inspectors, appUsers]);
+
   return {
     objectTypes,
     sectors,
@@ -572,6 +682,11 @@ export function useHSModule() {
     deleteChecklistModel,
     migrateOrphanedItems,
     updateActionPlanStatus,
+    inspectors: enrichedInspectors,
+    appUsers,
+    addOrUpdateInspectors,
+    revokeInspector,
+    fetchInspectorLogs,
     fetchAllData,
     isLoading
   };

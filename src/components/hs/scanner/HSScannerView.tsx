@@ -13,6 +13,7 @@ interface HSScannerViewProps {
   allChecklistItems?: HSChecklistItem[];
   inspectionHistory?: HSInspection[];
   allInspections?: HSInspection[];
+  inspectors?: any[];
   currentUser?: AppUser;
   onSelectQR: (qrCode: string) => boolean;
   onSubmitInspection: (data: {
@@ -38,6 +39,7 @@ export function HSScannerView({
   allChecklistItems = [],
   inspectionHistory = [],
   allInspections = [],
+  inspectors = [],
   currentUser,
   onSelectQR,
   onSubmitInspection,
@@ -65,6 +67,20 @@ export function HSScannerView({
     if (pendingChecklistQr) {
       const success = onSelectQR(pendingChecklistQr);
       if (success) {
+        if (currentUser && inspectors.length > 0) {
+           const isAuthorized = inspectors.some(i => 
+             i.userId === currentUser.id && 
+             i.isActive && 
+             (!i.validUntil || new Date(i.validUntil) >= new Date())
+           );
+           if (!isAuthorized) {
+             if (addToast) addToast('No estás habilitado como inspector o tu habilitación venció.', 'error');
+             setIsSummaryAccepted(false);
+             setIsChecklistUnlocked(false);
+             onClearSelection();
+             return;
+           }
+        }
         setIsSummaryAccepted(true);
         setIsChecklistUnlocked(true);
       } else {
@@ -144,6 +160,21 @@ export function HSScannerView({
 
   const startInspectionProcess = () => {
     if (!selectedObject) return;
+
+    if (currentUser && inspectors.length > 0) {
+      const currentDni = (currentUser as any).dni || (currentUser as any).id;
+      const isAuthorized = inspectors.some(i => 
+        i.userId === currentDni && 
+        i.isActive && 
+        (!i.validUntil || new Date(i.validUntil) >= new Date())
+      );
+      if (!isAuthorized) {
+        if (addToast) {
+          addToast('Acceso denegado: No estás registrado como inspector habilitado o tu habilitación ha vencido.', 'error');
+        }
+        return;
+      }
+    }
     
     // Check how many models this object type has
     const availableModels = checklistModels?.filter(m => m.objectTypeId === selectedObject.typeId || m.objectTypeId === selectedObject.typeName) || [];

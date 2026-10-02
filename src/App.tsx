@@ -300,6 +300,12 @@ export default function App() {
         const serverVer = data.version;
         if (isStartup) {
           console.log(`[Version Control] App initialized server version: ${serverVer}`);
+          const previousVer = localStorage.getItem("pscqube_app_version");
+          if (previousVer && previousVer !== serverVer) {
+             console.log("[Version Control] Version changed since last start, purging master cache.");
+             safeCache.clearByPrefix("pscqube_maestros_cache");
+             safeCache.clearByPrefix("app_cache_v3_");
+          }
           setLoadedVersion(serverVer);
           localStorage.setItem("pscqube_app_version", serverVer);
         } else {
@@ -317,7 +323,9 @@ export default function App() {
 
   useEffect(() => {
     checkAppVersion(true);
+  }, []); // Run only once on startup
 
+  useEffect(() => {
     let lastCheckTime = Date.now();
     const fifteenMinutes = 15 * 60 * 1000;
 
@@ -349,7 +357,7 @@ export default function App() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [loadedVersion, pendingVersionUpdate, hasUnsavedChanges, isSaving]);
+  }, [pendingVersionUpdate, hasUnsavedChanges, isSaving]);
 
   const [activeSection, setActiveSection] = useState<AppSection>('PRODUCTIVITY');
   const [prodTab, setProdTab] = useState<ProductivityTab>('DASHBOARD');
@@ -789,7 +797,7 @@ export default function App() {
         const maestrosRes = await fetch('/api/sync/maestros');
         maestrosData = await maestrosRes.json();
         if (maestrosData && maestrosData.success && maestrosData.data) {
-          await safeCache.set('pscqube_maestros_cache', maestrosData, 30 * 60 * 1000);
+          await safeCache.set('pscqube_maestros_cache', maestrosData, 12 * 60 * 60 * 1000);
         }
       }
 
@@ -900,8 +908,29 @@ export default function App() {
   };
 
   const handleRefreshCurrentFilters = async () => {
-    addToast("Sincronizando datos operativos de la vista actual...", "info");
+    addToast("Sincronizando datos operativos y catálogos...", "info");
     try {
+      // Forzar recarga de maestros ignorando cachés
+      await safeCache.remove('pscqube_maestros_cache');
+      const maestrosRes = await fetch('/api/sync/maestros?force=true');
+      const maestrosData = await maestrosRes.json();
+      if (maestrosData && maestrosData.success && maestrosData.data) {
+        await safeCache.set('pscqube_maestros_cache', maestrosData, 12 * 60 * 60 * 1000);
+        const d = maestrosData.data;
+        if (d.turnos) setShifts(d.turnos);
+        if (d.paletizadoras) setPalletizers(d.paletizadoras);
+        if (d.ensacadoras) setBaggers(d.ensacadoras);
+        if (d.hacs) setHacs(d.hacs);
+        if (d.causas) setCauses(d.causas);
+        if (d.materiales) setMaterials(d.materiales);
+        if (d.capacidades) setCapacities(d.capacidades);
+        if (d.empresas) setCompanies(d.empresas);
+        if (d.puntoscarga) setLoadingPoints(d.puntoscarga);
+        if (d.proveedoresbolsa) setBagSuppliers(d.proveedoresbolsa);
+        if (d.vehiculos) setVehicles(d.vehiculos);
+        if (d.parametrosbalanza || d.parametros_balanza) setScaleParameters(d.parametrosbalanza || d.parametros_balanza);
+      }
+
       const tables = OPERATIONAL_TABLES_MAP[prodTab] || [];
       const date = userContext.selectedDate;
       const shiftId = userContext.selectedShiftId;

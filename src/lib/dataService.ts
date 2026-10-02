@@ -47,8 +47,8 @@ async function setBrowserCache(
   if (filters?.dateTo) key += `_to_${filters.dateTo}`;
   const isMaster = MASTER_TABLES.includes(tableName.toUpperCase());
   // Operational tables: 5 minutes (enough to avoid hammering the server on same-context renders)
-  // Master tables: 30 minutes (they change rarely)
-  const ttl = isMaster ? 30 * 60 * 1000 : 5 * 60 * 1000;
+  // Master tables: 12 hours (they change rarely)
+  const ttl = isMaster ? 12 * 60 * 60 * 1000 : 5 * 60 * 1000;
   await safeCache.set(key, data, ttl);
 }
 

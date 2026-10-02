@@ -102,3 +102,24 @@ export interface HSActionPlan {
   createdAt: string;
   resolvedAt?: string;
 }
+
+export interface HSInspector {
+  id: string;
+  userId: string;
+  name: string;
+  dni: string;
+  role: string;
+  isActive: boolean;
+  validUntil?: string;
+  createdAt: string;
+}
+
+export interface HSInspectorLog {
+  id: string;
+  inspectorId: string;
+  action: string;
+  previousValidUntil?: string;
+  newValidUntil?: string;
+  changedBy: string;
+  createdAt: string;
+}

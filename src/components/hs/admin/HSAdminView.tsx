@@ -4,7 +4,8 @@ import { ObjectTypesMaster } from './ObjectTypesMaster';
 import { ObjectsMaster } from './ObjectsMaster';
 import { SectorsMaster } from './SectorsMaster';
 import { ChecklistConfigurator } from './ChecklistConfigurator';
-import { HSObjectType, HSSector, HSObject, HSChecklistItem, HSChecklistModel } from '../types';
+import { InspectorsMaster } from './InspectorsMaster';
+import { HSObjectType, HSSector, HSObject, HSChecklistItem, HSChecklistModel, HSInspector } from '../types';
 
 interface HSAdminViewProps {
   objectTypes: HSObjectType[];
@@ -12,6 +13,10 @@ interface HSAdminViewProps {
   objects: HSObject[];
   checklistModels: HSChecklistModel[];
   checklistItems: HSChecklistItem[];
+  inspectors: HSInspector[];
+  appUsers: any[];
+  onAddOrUpdateInspectors: (userIds: string[], validUntil: string | null) => void;
+  onRevokeInspector: (userId: string) => void;
   onSaveObjectType: (item: Partial<HSObjectType>) => void;
   onSaveSector: (item: Partial<HSSector>) => void;
   onSaveObject: (item: Partial<HSObject>) => void;
@@ -22,9 +27,10 @@ interface HSAdminViewProps {
   onDeleteSector?: (id: string) => void;
   onDeleteObject?: (id: string) => void;
   onDeleteObjectType?: (id: string) => void;
+  onFetchInspectorLogs: (inspectorId: string) => Promise<any[]>;
 }
 
-type AdminSubTab = 'SECTORS' | 'TYPES' | 'OBJECTS' | 'CHECKLISTS';
+type AdminSubTab = 'SECTORS' | 'TYPES' | 'OBJECTS' | 'CHECKLISTS' | 'INSPECTORS';
 
 export function HSAdminView({
   objectTypes,
@@ -32,6 +38,10 @@ export function HSAdminView({
   objects,
   checklistModels,
   checklistItems,
+  inspectors,
+  appUsers,
+  onAddOrUpdateInspectors,
+  onRevokeInspector,
   onSaveObjectType,
   onSaveSector,
   onSaveObject,
@@ -41,7 +51,8 @@ export function HSAdminView({
   onMigrateOrphanedItems,
   onDeleteSector,
   onDeleteObject,
-  onDeleteObjectType
+  onDeleteObjectType,
+  onFetchInspectorLogs
 }: HSAdminViewProps) {
   // Orden jerárquico: Sectores primero
   const [activeTab, setActiveTab] = useState<AdminSubTab>('SECTORS');
@@ -50,7 +61,8 @@ export function HSAdminView({
     { id: 'SECTORS', label: 'Sectores / Áreas', icon: <MapPin size={14} />, count: sectors.length },
     { id: 'TYPES', label: 'Tipos de Objeto', icon: <ShieldAlert size={14} />, count: objectTypes.length },
     { id: 'OBJECTS', label: 'Puntos de Inspección', icon: <QrCode size={14} />, count: objects.length },
-    { id: 'CHECKLISTS', label: 'Checklists', icon: <ListChecks size={14} />, count: checklistItems.length }
+    { id: 'CHECKLISTS', label: 'Checklists', icon: <ListChecks size={14} />, count: checklistItems.length },
+    { id: 'INSPECTORS', label: 'Inspectores Autorizados', icon: <ShieldAlert size={14} />, count: inspectors.filter(i => i.isActive).length }
   ] as const;
 
   return (
@@ -116,6 +128,16 @@ export function HSAdminView({
             onAddItem={onAddChecklistItem}
             onAddModel={onAddChecklistModel}
             onMigrateOrphanedItems={onMigrateOrphanedItems}
+          />
+        )}
+
+        {activeTab === 'INSPECTORS' && (
+          <InspectorsMaster
+            inspectors={inspectors}
+            appUsers={appUsers}
+            onAddOrUpdate={onAddOrUpdateInspectors}
+            onRevoke={onRevokeInspector}
+            onFetchLogs={onFetchInspectorLogs}
           />
         )}
       </div>
