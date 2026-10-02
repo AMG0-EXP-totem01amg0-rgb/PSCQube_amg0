@@ -362,7 +362,7 @@ export function HSScannerView({
 
       {/* Modal Multi-paso de Nueva Inspección */}
       {modalStep !== 'CLOSED' && (
-        <div className="fixed inset-0 z-[60] flex items-start justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto pt-8 pb-8">
+        <div className="fixed inset-0 z-[9999] flex items-start justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto pt-8 pb-8">
           <div className="w-full max-w-2xl bg-surface border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100vh-4rem)]">
             <div className="p-4 border-b border-border bg-black/5 dark:bg-white/5 flex items-center justify-between">
               <h3 className="text-sm font-black uppercase tracking-wider text-text-main">

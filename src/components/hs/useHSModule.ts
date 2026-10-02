@@ -181,7 +181,8 @@ export function useHSModule() {
                 status: (a.status === 'NA' ? 'N_A' : a.status) as HSChecklistAnswerStatus,
                 observation: a.observation || '',
                 actionPlan: matchedPlan ? (matchedPlan.resolution_notes || '') : '',
-                isCriticalFinding: a.status === 'NO_OK'
+                isCriticalFinding: a.status === 'NO_OK',
+                photoBase64: a.photo_base64 || undefined
               };
             })
           };
@@ -352,7 +353,8 @@ export function useHSModule() {
           inspection_id: insertedInsp.id,
           checklist_item_id: ans.checklistItemId,
           status: ans.status === 'N_A' ? 'NA' : ans.status,
-          observation: ans.observation || null
+          observation: ans.observation || null,
+          photo_base64: ans.photoBase64 || null
         }));
         await supabase.from('hs_checklist_answers').insert(answersToInsert);
       }

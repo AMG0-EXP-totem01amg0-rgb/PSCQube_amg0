@@ -68,6 +68,7 @@ export interface HSInspectionAnswer {
   observation?: string;
   actionPlan?: string;
   isCriticalFinding: boolean;
+  photoBase64?: string;
 }
 
 export interface HSInspection {

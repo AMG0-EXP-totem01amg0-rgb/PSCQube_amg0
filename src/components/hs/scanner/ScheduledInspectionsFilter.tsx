@@ -493,6 +493,16 @@ export function ScheduledInspectionsFilter({
                             {ans.observation}
                           </div>
                         )}
+                        {ans.photoBase64 && (
+                          <div className="mt-2 flex justify-start">
+                            <div className="relative group rounded-lg overflow-hidden border border-border inline-block">
+                              <img src={ans.photoBase64} alt="Evidencia de inspección" className="max-w-[200px] max-h-[150px] object-cover" />
+                              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <a href={ans.photoBase64} target="_blank" rel="noreferrer" className="text-white text-[10px] font-bold underline bg-black/40 px-2 py-1 rounded">Ampliar</a>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))
                   ) : (

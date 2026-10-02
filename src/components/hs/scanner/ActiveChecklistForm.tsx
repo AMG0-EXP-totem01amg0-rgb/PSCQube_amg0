@@ -24,11 +24,13 @@ export function ActiveChecklistForm({
   onSubmit,
   onClearSelection
 }: ActiveChecklistFormProps) {
-  const [answers, setAnswers] = useState<Record<string, { status: HSChecklistAnswerStatus; observation: string; actionPlan: string; hasPhoto?: boolean }>>(
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const [answers, setAnswers] = useState<Record<string, { status: HSChecklistAnswerStatus; observation: string; actionPlan: string; hasPhoto?: boolean; photoBase64?: string }>>(
     () => {
-      const initial: Record<string, { status: HSChecklistAnswerStatus; observation: string; actionPlan: string; hasPhoto?: boolean }> = {};
+      const initial: Record<string, { status: HSChecklistAnswerStatus; observation: string; actionPlan: string; hasPhoto?: boolean; photoBase64?: string }> = {};
       checklistItems.forEach(ci => {
-        initial[ci.id] = { status: 'N_A', observation: '', actionPlan: '', hasPhoto: false };
+        initial[ci.id] = { status: 'N_A', observation: '', actionPlan: '', hasPhoto: false, photoBase64: '' };
       });
       return initial;
     }
@@ -41,13 +43,30 @@ export function ActiveChecklistForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasPhotoEvidence, setHasPhotoEvidence] = useState(false);
 
+  if (checklistItems.length === 0) {
+    return (
+      <div className="p-8 text-center bg-surface border border-border rounded-2xl shadow-xs">
+        <h3 className="text-lg font-black uppercase tracking-wider text-text-main mb-2">Sin Checklist Configurado</h3>
+        <p className="text-text-muted text-sm mb-6">
+          El punto de inspección seleccionado (<strong className="text-primary">{selectedObject.name}</strong>) no tiene un modelo de checklist asignado o el modelo no contiene ítems.
+        </p>
+        <button
+          onClick={onClearSelection}
+          className="px-6 py-2.5 bg-primary text-white font-bold rounded-xl shadow-md hover:bg-primary-hover transition-colors"
+        >
+          Seleccionar otro activo
+        </button>
+      </div>
+    );
+  }
+
   // Estado del Modal de Incidencia (MALO)
   const [showModal, setShowModal] = useState(false);
   const [modalData, setModalData] = useState({ observation: '', actionPlan: '', hasPhoto: false });
 
   const total = checklistItems.length;
-  const currentItem = checklistItems[currentIndex];
-  const isLastQuestion = currentIndex === total - 1;
+  const isFinalStep = currentIndex === total;
+  const currentItem = isFinalStep ? null : checklistItems[currentIndex];
 
   const handleStatusChange = (itemId: string, status: HSChecklistAnswerStatus) => {
     if (status === 'OK' || status === 'N_A') {
@@ -56,8 +75,8 @@ export function ActiveChecklistForm({
         ...prev,
         [itemId]: { ...prev[itemId], status, observation: '', actionPlan: '' }
       }));
-      // Avanzar automáticamente si es BIEN y no es la última
-      if (status === 'OK' && !isLastQuestion) {
+      // Avanzar automáticamente si es BIEN
+      if (status === 'OK') {
         setTimeout(() => setCurrentIndex(prev => prev + 1), 300);
       }
     } else if (status === 'NO_OK') {
@@ -74,6 +93,7 @@ export function ActiveChecklistForm({
 
   const confirmMalo = () => {
     // Guardar los datos del modal en la pregunta actual
+    if (!currentItem) return;
     setAnswers(prev => ({
       ...prev,
       [currentItem.id]: {
@@ -85,13 +105,12 @@ export function ActiveChecklistForm({
       }
     }));
     setShowModal(false);
-    // Avanzar a la siguiente pregunta si no es la última
-    if (!isLastQuestion) {
-      setTimeout(() => setCurrentIndex(prev => prev + 1), 300);
-    }
+    // Avanzar a la siguiente pregunta o al paso final
+    setTimeout(() => setCurrentIndex(prev => prev + 1), 300);
   };
 
   const cancelMalo = () => {
+    if (!currentItem) return;
     setShowModal(false);
     // Opcional: Revertir a N_A si no se confirma
     setAnswers(prev => ({
@@ -104,12 +123,13 @@ export function ActiveChecklistForm({
     e.preventDefault();
     setIsSubmitting(true);
 
-    const formattedAnswers = (Object.entries(answers) as [string, { status: HSChecklistAnswerStatus; observation: string; actionPlan: string; hasPhoto?: boolean }][]).map(([checklistItemId, val]) => ({
+    const formattedAnswers = (Object.entries(answers) as [string, { status: HSChecklistAnswerStatus; observation: string; actionPlan: string; hasPhoto?: boolean; photoBase64?: string }][]).map(([checklistItemId, val]) => ({
       checklistItemId,
       status: val.status,
       observation: val.observation,
       actionPlan: val.actionPlan,
-      hasPhoto: val.hasPhoto
+      hasPhoto: val.hasPhoto,
+      photoBase64: val.photoBase64
     }));
 
     await onSubmit({
@@ -132,7 +152,7 @@ export function ActiveChecklistForm({
   const hasUnansweredItems = checklistItems.some(ci => answers[ci.id]?.status === 'N_A');
   const isSubmitDisabled = isSubmitting || hasUnansweredItems;
 
-  const currentAnswer = answers[currentItem.id] || { status: 'N_A', observation: '', actionPlan: '', hasPhoto: false };
+  const currentAnswer = currentItem ? (answers[currentItem.id] || { status: 'N_A', observation: '', actionPlan: '', hasPhoto: false }) : null;
 
   return (
     <div className="relative">
@@ -160,7 +180,7 @@ export function ActiveChecklistForm({
         {/* Barra de Progreso */}
         <div className="space-y-2">
           <div className="flex justify-between text-xs font-bold text-text-main dark:text-white">
-            <span>Pregunta {currentIndex + 1} de {total}</span>
+            <span>{isFinalStep ? 'Paso Final' : `Pregunta ${currentIndex + 1} de ${total}`}</span>
             <span>{Math.round(((checklistItems.filter(ci => answers[ci.id]?.status !== 'N_A').length) / total) * 100)}% Completado</span>
           </div>
           <div className="h-2 bg-bg rounded-full overflow-hidden">
@@ -172,26 +192,27 @@ export function ActiveChecklistForm({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Tarjeta de Pregunta Actual */}
-          <div className="p-6 rounded-2xl border border-border bg-black/5 dark:bg-white/5 shadow-inner space-y-5 animate-fade-in">
-            <div className="flex items-start gap-4">
-              <span className="shrink-0 w-8 h-8 rounded-full bg-primary text-white font-black flex items-center justify-center text-sm shadow-md">
-                {currentIndex + 1}
-              </span>
-              <div>
-                <h4 className="text-sm font-black text-text-main leading-snug">
-                  {currentItem.label}
-                  {currentItem.isCritical && (
-                    <span className="inline-block ml-2 align-middle text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20">
-                      Crítico
-                    </span>
+          {!isFinalStep && currentItem && currentAnswer ? (
+            /* Tarjeta de Pregunta Actual */
+            <div className="p-6 rounded-2xl border border-border bg-black/5 dark:bg-white/5 shadow-inner space-y-5 animate-fade-in">
+              <div className="flex items-start gap-4">
+                <span className="shrink-0 w-8 h-8 rounded-full bg-primary text-white font-black flex items-center justify-center text-sm shadow-md">
+                  {currentIndex + 1}
+                </span>
+                <div>
+                  <h4 className="text-sm font-black text-text-main leading-snug">
+                    {currentItem.label}
+                    {currentItem.isCritical && (
+                      <span className="inline-block ml-2 align-middle text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                        Crítico
+                      </span>
+                    )}
+                  </h4>
+                  {currentItem.description && (
+                    <p className="text-xs text-text-muted mt-1.5 leading-relaxed">{currentItem.description}</p>
                   )}
-                </h4>
-                {currentItem.description && (
-                  <p className="text-xs text-text-muted mt-1.5 leading-relaxed">{currentItem.description}</p>
-                )}
+                </div>
               </div>
-            </div>
 
             {/* Opciones de Respuesta */}
             <div className="grid grid-cols-2 gap-3 pt-2">
@@ -224,22 +245,58 @@ export function ActiveChecklistForm({
             
             {/* Botón de Foto para Críticos o Malos */}
             {(currentItem.isCritical || currentAnswer.status === 'NO_OK') && (
-              <div className="pt-2 flex justify-start">
+              <div className="pt-2 flex justify-start flex-col gap-2">
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  capture="environment" 
+                  className="hidden" 
+                  ref={fileInputRef}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                      const img = new Image();
+                      img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 800;
+                        const scaleSize = MAX_WIDTH / img.width;
+                        canvas.width = MAX_WIDTH;
+                        canvas.height = img.height * scaleSize;
+
+                        const ctx = canvas.getContext('2d');
+                        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        
+                        const base64 = canvas.toDataURL('image/webp', 0.7);
+                        setAnswers(prev => ({
+                          ...prev,
+                          [currentItem.id]: { ...prev[currentItem.id], hasPhoto: true, photoBase64: base64 }
+                        }));
+                      };
+                      img.src = ev.target?.result as string;
+                    };
+                    reader.readAsDataURL(file);
+                  }}
+                />
                 <button
                   type="button"
-                  onClick={() => setAnswers(prev => ({
-                    ...prev,
-                    [currentItem.id]: { ...prev[currentItem.id], hasPhoto: !prev[currentItem.id].hasPhoto }
-                  }))}
-                  className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`text-[10px] w-fit font-bold px-3 py-1.5 rounded-lg border transition-colors cursor-pointer flex items-center gap-1.5 ${
                     currentAnswer.hasPhoto
                       ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
                       : 'border-border bg-bg text-text-main hover:bg-surface'
                   }`}
                 >
                   <Camera size={14} className={currentAnswer.hasPhoto ? '' : 'text-primary'} />
-                  {currentAnswer.hasPhoto ? 'EVIDENCIA ADJUNTADA' : 'ADJUNTAR FOTO (EVIDENCIA)'}
+                  {currentAnswer.hasPhoto ? 'REEMPLAZAR FOTO ADJUNTADA' : 'ADJUNTAR FOTO (EVIDENCIA)'}
                 </button>
+                {currentAnswer.photoBase64 && (
+                  <div className="mt-2 w-32 h-32 rounded-lg overflow-hidden border border-border shadow-sm">
+                    <img src={currentAnswer.photoBase64} alt="Evidencia" className="w-full h-full object-cover" />
+                  </div>
+                )}
               </div>
             )}
             
@@ -254,9 +311,10 @@ export function ActiveChecklistForm({
               </div>
             )}
           </div>
+          ) : null}
 
-          {/* Comentarios Generales y Finalizar (Solo en la última pregunta) */}
-          {isLastQuestion && (
+          {/* Comentarios Generales y Finalizar (Solo en el paso final) */}
+          {isFinalStep && (
             <div className="p-4 rounded-2xl border border-border bg-surface space-y-4 animate-fade-in">
               {!showGeneralComments ? (
                  <button
@@ -305,7 +363,7 @@ export function ActiveChecklistForm({
               <ChevronLeft size={16} /> Atrás
             </button>
 
-            {isLastQuestion ? (
+            {isFinalStep ? (
               <button
                 type="submit"
                 disabled={isSubmitDisabled}
@@ -320,8 +378,8 @@ export function ActiveChecklistForm({
             ) : (
               <button
                 type="button"
-                onClick={() => setCurrentIndex(prev => Math.min(total - 1, prev + 1))}
-                disabled={currentAnswer.status === 'N_A'}
+                onClick={() => setCurrentIndex(prev => Math.min(total, prev + 1))}
+                disabled={currentAnswer?.status === 'N_A'}
                 className="px-6 py-2 bg-surface border border-border text-text-main hover:bg-bg text-xs font-bold rounded-xl transition-colors flex items-center gap-1 disabled:opacity-40 cursor-pointer"
               >
                 Siguiente <ChevronRight size={16} />
@@ -332,8 +390,8 @@ export function ActiveChecklistForm({
       </div>
 
       {/* MODAL PARA RESPUESTA "MALO" */}
-      {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4">
+      {showModal && currentItem && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4">
           <div className="bg-surface border border-border w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             {/* Header del Modal */}
             <div className="bg-rose-500/10 px-5 py-4 border-b border-rose-500/20 flex items-center gap-3 shrink-0">
