@@ -27,6 +27,7 @@ import { InventoryView } from './components/productivity/inventory';
 import { PalletClassificationView } from './components/productivity/pallet-classification';
 import { DespachosView } from './components/productivity/despachos';
 import { FuelView } from './components/productivity/fuel';
+import { NotificacionesView } from './components/productivity/notificaciones';
 import ReportsView from './components/productivity/reports/ReportsView';
 import AdminView from './components/admin/AdminView';
 import HSModuleView from './components/hs/HSModuleView';
@@ -199,7 +200,7 @@ const isStopForShift = (stop: any, shiftId: string | null | undefined, mastersAv
 };
 
 type AppSection = 'PRODUCTIVITY' | 'SAFETY' | 'ENVIRONMENT' | 'HR' | 'ADMIN';
-type ProductivityTab = 'DASHBOARD' | 'PAROS' | 'PRODUCCION' | 'DATER' | 'SCALE' | 'STOCK' | 'PALLET_CLASS' | 'GASOIL' | 'MANTENIMIENTO' | 'CHANGE' | 'LOADING_LANES' | 'DESPACHOS' | 'REPORTS';
+type ProductivityTab = 'DASHBOARD' | 'PAROS' | 'PRODUCCION' | 'DATER' | 'SCALE' | 'STOCK' | 'PALLET_CLASS' | 'GASOIL' | 'MANTENIMIENTO' | 'CHANGE' | 'LOADING_LANES' | 'DESPACHOS' | 'REPORTS' | 'NOTIFICACIONES';
 
 const productivityTabs = [
   { id: 'LOADING_LANES', label: 'Calles Carga', icon: <MapPin size={14} /> },
@@ -213,6 +214,7 @@ const productivityTabs = [
   { id: 'REPORTS', label: 'Informes', icon: <FileSpreadsheet size={14} /> },
   { id: 'STOCK', label: 'Insumos', icon: <PlusCircle size={14} /> },
   { id: 'MANTENIMIENTO', label: 'Mantenimiento', icon: <Settings size={14} /> },
+  { id: 'NOTIFICACIONES', label: 'Notificaciones', icon: <AlertTriangle size={14} /> },
   { id: 'PAROS', label: 'Paros', icon: <AlertTriangle size={14} /> },
   { id: 'PRODUCCION', label: 'Producción', icon: <Package size={14} /> },
 ] as const;
@@ -1185,6 +1187,50 @@ export default function App() {
     });
   };
 
+  const handleSaveMultipleDispatch = async (entriesToSave: any[]) => {
+    if (!entriesToSave || entriesToSave.length === 0) return;
+
+    // Optimistically update the client state for immediate visual feedback
+    const entryIds = entriesToSave.map(e => e.id);
+    const filtered = dispatchEntries.filter(e => !entryIds.includes(e.id));
+    const newEntries = [...entriesToSave, ...filtered];
+    
+    setDispatchEntries(newEntries);
+    const key = getCooldownKey("DESPACHOSV2", userContext.selectedDate, userContext.selectedShiftId);
+    operationalDataByKeyRef.current[key] = newEntries;
+    safeCache.set('pscqube_op_cache_' + key, newEntries, 5 * 60 * 1000);
+
+    setIsSaving(true);
+    try {
+      const promises = entriesToSave.map(entry => {
+        const exists = dispatchEntries.some(x => x.id === entry.id);
+        return exists
+          ? updateRecordInSheets("DESPACHOSV2", entry.id, entry)
+          : createRecordInSheets("DESPACHOSV2", entry);
+      });
+
+      const results = await Promise.all(promises);
+      const allSuccess = results.every(res => res.success);
+
+      if (allSuccess) {
+        addToast(
+          entriesToSave.length > 1
+            ? `${entriesToSave.length} despachos registrados con éxito`
+            : "Despacho registrado con éxito",
+          "success"
+        );
+      } else {
+        addToast("Algunos registros se guardaron localmente por un error de sincronización.", "warning");
+      }
+    } catch (err) {
+      console.error(err);
+      addToast("Error al sincronizar los despachos con la base de datos.", "error");
+    } finally {
+      setIsSaving(false);
+      forceRefreshTable("DESPACHOSV2");
+    }
+  };
+
   const handleDeleteDispatch = (id: string) => {
     const updated = dispatchEntries.filter(e => e.id !== id);
     setDispatchEntries(updated);
@@ -2107,18 +2153,22 @@ export default function App() {
                       currentUser={currentUser}
                       history={(dispatchEntries || []).filter(d => d && isSameDate(d.date, userContext.selectedDate))}
                       onSave={handleSaveDispatch}
+                      onSaveMultiple={handleSaveMultipleDispatch}
                       onDelete={handleDeleteDispatch}
                       selectedShiftId={userContext.selectedShiftId}
                       selectedDate={userContext.selectedDate}
                     />
                   )}
-                  {prodTab === 'REPORTS' && (
-                    <ReportsView 
-                        masters={masters} 
-                        currentUser={currentUser}
-                        userContext={userContext}
-                      />
-                    )}
+                      {prodTab === 'REPORTS' && (
+                        <ReportsView 
+                          masters={masters} 
+                          currentUser={currentUser}
+                          userContext={userContext}
+                        />
+                      )}
+                      {prodTab === 'NOTIFICACIONES' && (
+                        <NotificacionesView currentUser={currentUser} />
+                      )}
                     {prodTab === 'PAROS' && (
                       <StopsView
                         masters={masters}

@@ -11,12 +11,13 @@ interface Props {
   currentUser: AppUser;
   history: DispatchEntry[];
   onSave: (entry: DispatchEntry) => void;
+  onSaveMultiple?: (entries: DispatchEntry[]) => void;
   onDelete: (id: string) => void;
   selectedShiftId: string;
   selectedDate: string;
 }
 
-export default function DespachosView({ masters, currentUser, history, onSave, onDelete, selectedShiftId, selectedDate }: Props) {
+export default function DespachosView({ masters, currentUser, history, onSave, onSaveMultiple, onDelete, selectedShiftId, selectedDate }: Props) {
   const [activeTab, setActiveTab] = useState<'FORM' | 'HISTORY'>('FORM');
   const [searchTerm, setSearchTerm] = useState('');
   const [showToast, setShowToast] = useState(false);
@@ -36,26 +37,27 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
   const shifts = useMemo(() => masters?.shifts || [], [masters?.shifts]);
   const safeHistory = useMemo(() => Array.isArray(history) ? history.filter(Boolean) : [], [history]);
 
-  // Helper for boolean detection from master properties (es_granel? / es_despacho?)
-  const isTrueVal = (val: any) =>
-    val === true ||
-    String(val).toUpperCase() === 'SI' ||
-    String(val).toUpperCase() === 'TRUE' ||
-    val === 1;
-
-  const isMaterialBulk = (m?: Material | null) => {
-    if (!m) return false;
-    return isTrueVal(m.isBulk) || isTrueVal((m as any)['es_granel?']);
+  const isTrueVal = (val: any) => {
+    if (val === true || val === 1) return true;
+    if (!val) return false;
+    const str = String(val).toUpperCase().trim();
+    // Catch common truthy strings, or any non-empty string that isn't 'NO' or 'FALSE' or '0'
+    return str === 'SI' || str === 'TRUE' || str === 'VERDADERO' || str === 'V' || str === 'X' || str === '1' || 
+           (str !== 'NO' && str !== 'FALSE' && str !== 'FALSO' && str !== 'F' && str !== '0' && str !== '');
   };
+
+  const isMaterialBulk = (m?: Material | null) => !!m?.isBulk;
 
   const isMaterialBolsa = (m?: Material | null) => {
     if (!m) return false;
     if (isMaterialBulk(m)) return false;
-    return isTrueVal(m.isDispatch) || isTrueVal((m as any)['es_despacho?']);
+    return !!m.isDispatch;
   };
 
+  const isMaterialBigBag = (m?: Material | null) => !!m?.isBigBag;
+
   const productiveMaterials = useMemo(() => 
-    materials.filter(m => m && (isMaterialBolsa(m) || isMaterialBulk(m) || m.isDispatch === true)),
+    materials.filter(m => m && (isMaterialBolsa(m) || isMaterialBulk(m) || isMaterialBigBag(m) || m.isDispatch)),
     [materials]
   );
 
@@ -169,6 +171,8 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
   const handleSaveAll = () => {
     const now = new Date().toISOString();
     
+    const entriesToSave: DispatchEntry[] = [];
+
     (Object.entries(weights) as [string, string][]).forEach(([materialId, weightStr]) => {
       const tons = parseFloat(weightStr);
       if (isNaN(tons) || tons <= 0) return;
@@ -184,8 +188,16 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
         timestamp: now
       };
       
-      onSave(entry);
+      entriesToSave.push(entry);
     });
+
+    if (entriesToSave.length > 0) {
+      if (onSaveMultiple) {
+        onSaveMultiple(entriesToSave);
+      } else {
+        entriesToSave.forEach(e => onSave(e));
+      }
+    }
 
     setWeights({});
     setShowToast(true);
@@ -306,9 +318,10 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
                           <p className="text-[10px] font-black text-text-muted uppercase tracking-widest">{m.code || 'S/C'}</p>
                           <span className={cn(
                             "px-2 py-0.5 rounded text-[9px] font-bold uppercase",
+                            isMaterialBigBag(m) ? "bg-orange-500/10 text-orange-500 border border-orange-500/20" :
                             isMaterialBulk(m) ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" : "bg-blue-500/10 text-blue-500 border border-blue-500/20"
                           )}>
-                            {isMaterialBulk(m) ? 'Granel' : 'Bolsa'}
+                            {isMaterialBigBag(m) ? 'BigBag' : isMaterialBulk(m) ? 'Granel' : 'Bolsa'}
                           </span>
                         </div>
                         <h4 className="text-sm font-bold text-text-main group-hover:text-primary transition-colors">{m.name}</h4>
@@ -430,9 +443,10 @@ export default function DespachosView({ masters, currentUser, history, onSave, o
                                     <td className="px-6 py-3.5 whitespace-nowrap">
                                       <span className={cn(
                                         "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                                        isMaterialBigBag(material) ? "bg-orange-500/10 text-orange-500 border border-orange-500/20" :
                                         isMaterialBulk(material) ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" : "bg-blue-500/10 text-blue-500 border border-blue-500/20"
                                       )}>
-                                        {isMaterialBulk(material) ? 'Granel' : 'Bolsa'}
+                                        {isMaterialBigBag(material) ? 'BigBag' : isMaterialBulk(material) ? 'Granel' : 'Bolsa'}
                                       </span>
                                     </td>
                                     <td className="px-6 py-3.5 text-right whitespace-nowrap">
